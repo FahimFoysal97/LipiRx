@@ -139,7 +139,9 @@ fun ScanResultScreen(
                     is ScanScreenMode.Loading -> {
                         LoadingView(
                             selectedModel = uiState.selectedModel,
-                            imageByteArray = uiState.capturedImageByteArray
+                            imageByteArray = uiState.capturedImageByteArray,
+                            activeStep = uiState.loadingStep,
+                            statusText = uiState.loadingStatusText
                         )
                     }
 

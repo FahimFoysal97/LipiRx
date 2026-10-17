@@ -52,9 +52,11 @@ class GeminiService(
         imageByteArray: ByteArray,
         selectedModel: String = "gemini-1.5-pro",
         mimeType: String = "image/jpeg",
-        flow: String = "App -> GeminiService.processPrescriptionImage"
+        flow: String = "App -> GeminiService.processPrescriptionImage",
+        onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>> = runCatching {
         val cleanModel = selectedModel.removePrefix("models/").ifBlank { "gemini-1.5-pro" }
+        onProgress(0, "Encoding image & payload")
         Napier.d("[$flow] Starting prescription image processing with model '$cleanModel'. Input size: ${imageByteArray.size} bytes", tag = TAG)
 
         val base64Image = Base64.encode(imageByteArray)
@@ -82,6 +84,7 @@ class GeminiService(
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
 
         val requestJson = json.encodeToString(requestPayload)
+        onProgress(1, "Reading handwritten script")
         Napier.d("[$flow] Serialized request JSON (${requestJson.length} bytes). Sending POST to $endpoint", tag = TAG)
 
         val responseText: String = httpClient.post(endpoint) {
@@ -89,6 +92,7 @@ class GeminiService(
             setBody(requestJson)
         }.body()
 
+        onProgress(2, "Matching brand names & composition")
         Napier.d("[$flow] Received raw response from Gemini REST API (${responseText.length} chars)", tag = TAG)
 
         val response = json.decodeFromString<GeminiResponse>(responseText)
@@ -107,6 +111,7 @@ class GeminiService(
             ?.text
             ?: throw IllegalStateException("No text response received from Gemini API.")
 
+        onProgress(3, "Finding top 5 substitute brands")
         Napier.d("[$flow] Gemini model extracted raw JSON content: $rawContent", tag = TAG)
 
         val cleanedJson = cleanJsonResponse(rawContent)

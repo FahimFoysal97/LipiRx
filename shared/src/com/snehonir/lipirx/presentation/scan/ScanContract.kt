@@ -6,6 +6,8 @@ import kotlinx.collections.immutable.persistentListOf
 
 data class ScanUiState(
     val isLoading: Boolean = false,
+    val loadingStep: Int = 0,
+    val loadingStatusText: String = "",
     val capturedImageByteArray: ByteArray? = null,
     val medicines: ImmutableList<MedicineItem> = persistentListOf(),
     val errorMessage: String? = null,
@@ -20,6 +22,8 @@ data class ScanUiState(
         other as ScanUiState
 
         if (isLoading != other.isLoading) return false
+        if (loadingStep != other.loadingStep) return false
+        if (loadingStatusText != other.loadingStatusText) return false
         if (capturedImageByteArray != null) {
             if (other.capturedImageByteArray == null) return false
             if (!capturedImageByteArray.contentEquals(other.capturedImageByteArray)) return false
@@ -35,6 +39,8 @@ data class ScanUiState(
 
     override fun hashCode(): Int {
         var result = isLoading.hashCode()
+        result = 31 * result + loadingStep.hashCode()
+        result = 31 * result + loadingStatusText.hashCode()
         result = 31 * result + (capturedImageByteArray?.contentHashCode() ?: 0)
         result = 31 * result + medicines.hashCode()
         result = 31 * result + (errorMessage?.hashCode() ?: 0)

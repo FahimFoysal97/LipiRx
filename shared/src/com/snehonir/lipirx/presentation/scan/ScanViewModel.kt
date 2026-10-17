@@ -8,6 +8,7 @@ import io.github.aakira.napier.Napier
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class ScanViewModel(
     private val geminiService: GeminiService,
@@ -121,6 +123,8 @@ class ScanViewModel(
         _uiState.update {
             it.copy(
                 isLoading = true,
+                loadingStep = 0,
+                loadingStatusText = "Encoding image & payload...",
                 errorMessage = null,
                 capturedImageByteArray = imageByteArray
             )
@@ -133,11 +137,31 @@ class ScanViewModel(
             val result = geminiService.processPrescriptionImage(
                 imageByteArray = imageByteArray,
                 selectedModel = currentModel,
-                flow = serviceFlow
+                flow = serviceFlow,
+                onProgress = { step, statusText ->
+                    Napier.d("[$flow -> Progress] Step $step: $statusText", tag = TAG)
+                    _uiState.update {
+                        it.copy(
+                            loadingStep = step,
+                            loadingStatusText = statusText
+                        )
+                    }
+                }
             )
 
             result.fold(
                 onSuccess = { items ->
+                    // Show all 4 steps checked off on LoadingView
+                    _uiState.update {
+                        it.copy(
+                            loadingStep = 4,
+                            loadingStatusText = "✓ Analysis Complete! Extracting medicines..."
+                        )
+                    }
+
+                    // Brief 600ms delay so user sees full completion on screen
+                    delay(600L.milliseconds)
+
                     val immutableList = items.toImmutableList()
                     Napier.d("[$flow -> Success] Received ${items.size} medicine items from GeminiService", tag = TAG)
 

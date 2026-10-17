@@ -40,12 +40,13 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.snehonir.lipirx.ui.theme.Lipi
 
-/** @param activeStep 0 = reading handwriting, 1 = matching brands, 2 = finding similar brands */
+/** @param activeStep 0 = encoding payload, 1 = reading handwriting, 2 = matching brands, 3 = finding substitutes */
 @Composable
 fun LoadingView(
     selectedModel: String,
     imageByteArray: ByteArray? = null,
-    activeStep: Int = 1
+    activeStep: Int = 1,
+    statusText: String = ""
 ) {
     val transition = rememberInfiniteTransition(label = "scan")
     val progress by transition.animateFloat(
@@ -112,7 +113,7 @@ fun LoadingView(
             Text("Analyzing Prescription", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "using ${selectedModel.ifBlank { "Gemini AI" }}...",
+                text = if (statusText.isNotBlank()) statusText else "using ${selectedModel.ifBlank { "Gemini AI" }}...",
                 fontSize = 14.sp,
                 color = Lipi.Muted,
                 textAlign = TextAlign.Center,
@@ -120,7 +121,12 @@ fun LoadingView(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf("Reading handwriting", "Matching brand names", "Finding similar brands").forEachIndexed { i, label ->
+            listOf(
+                "Encoding image & payload",
+                "Reading handwriting",
+                "Matching brand names",
+                "Finding similar brands"
+            ).forEachIndexed { i, label ->
                 val (mark, color) = when {
                     i < activeStep -> "✓" to Lipi.Primary
                     i == activeStep -> "●" to Lipi.Ink
