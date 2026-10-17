@@ -30,13 +30,28 @@ class ScanViewModel(
     val uiEvent: Flow<ScanUiEvent> = _uiEvent.receiveAsFlow()
 
     init {
+        val initialSavedModel = runCatching {
+            database.getLastSelectedModel(flow = "App -> ScanViewModel.init.loadSavedModel")
+        }.getOrDefault("").removePrefix("models/").trim()
+
+        if (initialSavedModel.isNotBlank()) {
+            Napier.d("[ScanViewModel.init] Pre-setting selectedModel to saved model '$initialSavedModel'", tag = TAG)
+            _uiState.update { it.copy(selectedModel = initialSavedModel) }
+        }
+
         fetchModels(flow = "App -> ScanViewModel.init")
     }
 
     fun selectModel(modelName: String, flow: String = "App -> ScanViewModel.selectModel") {
-        val cleanModel = modelName.removePrefix("models/")
-        Napier.d("[$flow] User selected model: $cleanModel", tag = TAG)
+        val cleanModel = modelName.removePrefix("models/").trim()
+        Napier.d("[$flow] User selected model: '$cleanModel'. Saving to SQLite...", tag = TAG)
         _uiState.update { it.copy(selectedModel = cleanModel) }
+
+        runCatching {
+            database.saveSelectedModel(cleanModel, flow = "$flow -> LipiRxLocalDatabase.saveSelectedModel")
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to save selected model: ${ex.message}", throwable = ex, tag = TAG)
+        }
     }
 
     fun fetchModels(flow: String = "App -> ScanViewModel.fetchModels") {
@@ -48,17 +63,32 @@ class ScanViewModel(
 
             result.fold(
                 onSuccess = { modelList ->
-                    val names = modelList.map { it.name.removePrefix("models/") }.toImmutableList()
+                    val names = modelList.map { it.name.removePrefix("models/").trim() }.toImmutableList()
                     Napier.d("[$flow -> Success] Retrieved ${names.size} models directly from API: $names", tag = TAG)
 
                     if (names.isNotEmpty()) {
+                        val savedModel = runCatching {
+                            database.getLastSelectedModel(flow = "$flow -> LipiRxLocalDatabase.getLastSelectedModel")
+                        }.getOrDefault("").removePrefix("models/").trim()
+
                         _uiState.update { state ->
-                            val currentSelected = state.selectedModel
-                            val newSelected = if (currentSelected.isNotBlank() && names.contains(currentSelected)) currentSelected else names.first()
+                            val currentSelected = state.selectedModel.removePrefix("models/").trim()
+
+                            val matchedSaved = names.firstOrNull { it.equals(savedModel, ignoreCase = true) }
+                            val matchedCurrent = names.firstOrNull { it.equals(currentSelected, ignoreCase = true) }
+
+                            val chosenModel = when {
+                                matchedSaved != null -> matchedSaved
+                                matchedCurrent != null -> matchedCurrent
+                                else -> names.first()
+                            }
+
+                            Napier.d("[$flow] Selected model '$chosenModel' after checking available list (savedWas: '$savedModel')", tag = TAG)
+
                             state.copy(
                                 isFetchingModels = false,
                                 availableModels = names,
-                                selectedModel = newSelected
+                                selectedModel = chosenModel
                             )
                         }
                     } else {

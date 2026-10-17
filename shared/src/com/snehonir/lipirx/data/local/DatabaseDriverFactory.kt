@@ -9,7 +9,7 @@ val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
     override val version: Long = 1
 
     override fun create(driver: SqlDriver): QueryResult.Value<Unit> {
-        Napier.d("Creating PrescriptionHistory table in SQLite database", tag = "LipiRxSchema")
+        Napier.d("Creating PrescriptionHistory and AppConfig tables in SQLite database", tag = "LipiRxSchema")
         driver.execute(
             identifier = null,
             sql = """
@@ -17,6 +17,16 @@ val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     scannedAt INTEGER NOT NULL,
                     medicineSummary TEXT NOT NULL
+                );
+            """.trimIndent(),
+            parameters = 0
+        )
+        driver.execute(
+            identifier = null,
+            sql = """
+                CREATE TABLE IF NOT EXISTS AppConfig (
+                    configKey TEXT PRIMARY KEY,
+                    configValue TEXT NOT NULL
                 );
             """.trimIndent(),
             parameters = 0
@@ -45,6 +55,25 @@ data class PrescriptionHistoryEntity(
 )
 
 class LipiRxLocalDatabase(private val driver: SqlDriver) {
+
+    init {
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = """
+                    CREATE TABLE IF NOT EXISTS AppConfig (
+                        configKey TEXT PRIMARY KEY,
+                        configValue TEXT NOT NULL
+                    );
+                """.trimIndent(),
+                parameters = 0
+            )
+            Napier.d("Guaranteed AppConfig table exists in SQLite database", tag = TAG)
+        }.onFailure { ex ->
+            Napier.w("Failed to ensure AppConfig table exists: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
     fun saveSummary(summaryText: String, flow: String = "App -> LipiRxLocalDatabase.saveSummary") {
         val currentTime = 1700000000000L
         Napier.d("[$flow] Executing SQL INSERT into PrescriptionHistory: summaryLength=${summaryText.length}", tag = TAG)
@@ -82,6 +111,33 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         val records = queryResult.value
         Napier.d("[$flow -> Result] Retrieved ${records.size} history records from SQLite database", tag = TAG)
         return records
+    }
+
+    fun saveSelectedModel(modelName: String, flow: String = "App -> LipiRxLocalDatabase.saveSelectedModel") {
+        Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: last_selected_model='$modelName'", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('last_selected_model', ?)",
+            parameters = 1
+        ) {
+            bindString(0, modelName)
+        }
+    }
+
+    fun getLastSelectedModel(flow: String = "App -> LipiRxLocalDatabase.getLastSelectedModel"): String {
+        Napier.d("[$flow] Querying SELECT configValue FROM AppConfig WHERE configKey = 'last_selected_model'...", tag = TAG)
+        val queryResult = driver.executeQuery(
+            identifier = null,
+            sql = "SELECT configValue FROM AppConfig WHERE configKey = 'last_selected_model'",
+            mapper = { cursor ->
+                val value = if (cursor.next().value) cursor.getString(0) ?: "" else ""
+                QueryResult.Value(value)
+            },
+            parameters = 0
+        )
+        val model = queryResult.value
+        Napier.d("[$flow -> Result] Retrieved last selected model from SQLite: '$model'", tag = TAG)
+        return model
     }
 
     companion object {
