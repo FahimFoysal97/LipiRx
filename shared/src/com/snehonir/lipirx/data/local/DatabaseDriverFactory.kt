@@ -140,6 +140,34 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         return model
     }
 
+    fun saveApiKey(apiKey: String, flow: String = "App -> LipiRxLocalDatabase.saveApiKey") {
+        val cleanKey = apiKey.trim()
+        Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: gemini_api_key (length=${cleanKey.length})", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('gemini_api_key', ?)",
+            parameters = 1
+        ) {
+            bindString(0, cleanKey)
+        }
+    }
+
+    fun getApiKey(flow: String = "App -> LipiRxLocalDatabase.getApiKey"): String {
+        Napier.d("[$flow] Querying SELECT configValue FROM AppConfig WHERE configKey = 'gemini_api_key'...", tag = TAG)
+        val queryResult = driver.executeQuery(
+            identifier = null,
+            sql = "SELECT configValue FROM AppConfig WHERE configKey = 'gemini_api_key'",
+            mapper = { cursor ->
+                val value = if (cursor.next().value) cursor.getString(0) ?: "" else ""
+                QueryResult.Value(value)
+            },
+            parameters = 0
+        )
+        val key = queryResult.value
+        Napier.d("[$flow -> Result] Retrieved API key from SQLite (length=${key.length})", tag = TAG)
+        return key
+    }
+
     companion object {
         private const val TAG = "LipiRxLocalDatabase"
     }

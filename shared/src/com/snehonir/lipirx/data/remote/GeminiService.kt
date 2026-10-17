@@ -26,9 +26,13 @@ class GeminiService(
     }
 
     suspend fun fetchAvailableModels(
+        providedApiKey: String = "",
         flow: String = "App -> GeminiService.fetchAvailableModels"
     ): Result<List<ModelInfoDto>> = runCatching {
-        val targetApiKey = apiKey.ifBlank { DEFAULT_API_KEY }
+        val targetApiKey = providedApiKey.ifBlank { apiKey }.trim()
+        if (targetApiKey.isBlank()) {
+            throw IllegalStateException("Gemini API key is required. Please enter your API key in Model Settings.")
+        }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models?key=$targetApiKey"
 
         Napier.d("[$flow] Fetching all available models from API: $endpoint", tag = TAG)
@@ -44,17 +48,24 @@ class GeminiService(
         Napier.d("[$flow -> Result] Found ${allContentModels.size} total models from API: ${allContentModels.map { it.name }}", tag = TAG)
         allContentModels
     }.onFailure { ex ->
-        Napier.e("[$flow -> Exception] Failed to fetch available models: ${ex.message}", throwable = ex, tag = TAG)
+        val userFriendlyMessage = formatGeminiErrorMessage(ex)
+        Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
+        throw IllegalStateException(userFriendlyMessage, ex)
     }
 
     @OptIn(ExperimentalEncodingApi::class)
     suspend fun processPrescriptionImage(
         imageByteArray: ByteArray,
         selectedModel: String = "gemini-1.5-pro",
+        providedApiKey: String = "",
         mimeType: String = "image/jpeg",
         flow: String = "App -> GeminiService.processPrescriptionImage",
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>> = runCatching {
+        val targetApiKey = providedApiKey.ifBlank { apiKey }.trim()
+        if (targetApiKey.isBlank()) {
+            throw IllegalStateException("Gemini API key is missing. Please set your API key in Model Settings.")
+        }
         val cleanModel = selectedModel.removePrefix("models/").ifBlank { "gemini-1.5-pro" }
         onProgress(0, "Encoding image & payload")
         Napier.d("[$flow] Starting prescription image processing with model '$cleanModel'. Input size: ${imageByteArray.size} bytes", tag = TAG)
@@ -82,7 +93,6 @@ class GeminiService(
             )
         )
 
-        val targetApiKey = apiKey.ifBlank { DEFAULT_API_KEY }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
 
         onProgress(1, "Reading handwriting")
@@ -108,12 +118,9 @@ class GeminiService(
         Napier.d("[$flow -> Result] Merged ${items.size} MedicineItem objects from two-pass call: $items", tag = TAG)
         items
     }.onFailure { ex ->
-        val userFriendlyMessage = when {
-            ex.message?.contains("timeout", ignoreCase = true) == true -> "Network request timed out. Please check your internet connection or select a faster model."
-            ex.message?.contains("400") == true || ex.message?.contains("404") == true -> "Selected model '$selectedModel' returned HTTP error: ${ex.message}"
-            else -> ex.message ?: "Failed to process prescription image."
-        }
+        val userFriendlyMessage = formatGeminiErrorMessage(ex)
         Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
+        throw IllegalStateException(userFriendlyMessage, ex)
     }
 
     private suspend fun executeGeminiPostCall(
@@ -231,9 +238,30 @@ class GeminiService(
         return trimmed
     }
 
+    private fun formatGeminiErrorMessage(ex: Throwable): String {
+        val msg = ex.message ?: ""
+        return when {
+            msg.contains("401") || msg.contains("UNAUTHENTICATED", ignoreCase = true) || msg.contains("API key not valid", ignoreCase = true) -> {
+                "API key not valid. Please enter a valid Gemini API Key from Google AI Studio."
+            }
+            msg.contains("403") || msg.contains("PERMISSION_DENIED", ignoreCase = true) -> {
+                "Access forbidden. Please check your Gemini API key permissions."
+            }
+            msg.contains("400") || msg.contains("INVALID_ARGUMENT", ignoreCase = true) -> {
+                "Bad request. Please check your API key or model parameters."
+            }
+            msg.contains("404") || msg.contains("NOT_FOUND", ignoreCase = true) -> {
+                "Model not found. Please select an available model."
+            }
+            msg.contains("timeout", ignoreCase = true) -> {
+                "Network request timed out. Please check your internet connection."
+            }
+            else -> msg.ifBlank { "An unexpected error occurred while communicating with Gemini API." }
+        }
+    }
+
     companion object {
         private const val TAG = "GeminiService"
-        private const val DEFAULT_API_KEY = "AQ.Ab8RN6LYU1DTPVLgNK5-nEgpGNVhQscxmYmQyBnzR1e54-NsVw"
     }
 }
 

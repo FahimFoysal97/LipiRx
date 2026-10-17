@@ -108,6 +108,12 @@ fun ScanResultScreen(
                         EmptyStateView(
                             selectedModel = uiState.selectedModel,
                             availableModels = uiState.availableModels,
+                            apiKey = uiState.apiKey,
+                            apiKeyError = uiState.apiKeyError,
+                            isTestingApiKey = uiState.isTestingApiKey,
+                            onSaveApiKey = { key ->
+                                viewModel.saveAndTestApiKey(key, flow = "$flow -> ScanResultScreen.saveAndTestApiKey")
+                            },
                             onModelSelected = { model ->
                                 viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")
                             },
@@ -121,6 +127,12 @@ fun ScanResultScreen(
                             imageByteArray = mode.byteArray,
                             selectedModel = uiState.selectedModel,
                             availableModels = uiState.availableModels,
+                            apiKey = uiState.apiKey,
+                            apiKeyError = uiState.apiKeyError,
+                            isTestingApiKey = uiState.isTestingApiKey,
+                            onSaveApiKey = { key ->
+                                viewModel.saveAndTestApiKey(key, flow = "$flow -> ScanResultScreen.saveAndTestApiKey")
+                            },
                             onModelSelected = { model ->
                                 viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")
                             },

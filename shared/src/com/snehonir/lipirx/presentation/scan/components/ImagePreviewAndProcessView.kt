@@ -46,6 +46,10 @@ fun ImagePreviewAndProcessView(
     imageByteArray: ByteArray,
     selectedModel: String,
     availableModels: List<String>,
+    apiKey: String = "",
+    apiKeyError: String? = null,
+    isTestingApiKey: Boolean = false,
+    onSaveApiKey: (String) -> Unit = {},
     onModelSelected: (String) -> Unit,
     onZoom: () -> Unit,
     onAnalyze: () -> Unit,
@@ -133,6 +137,10 @@ fun ImagePreviewAndProcessView(
         ModelSelectionBottomSheet(
             selectedModel = selectedModel,
             availableModels = availableModels,
+            apiKey = apiKey,
+            apiKeyError = apiKeyError,
+            isTestingApiKey = isTestingApiKey,
+            onSaveApiKey = onSaveApiKey,
             onModelSelected = onModelSelected,
             onDismiss = { showModelBottomSheet = false }
         )
@@ -168,7 +176,7 @@ private fun ModelSelectorCard(
         Column(modifier = Modifier.weight(1f)) {
             Text("AI model", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Lipi.Muted)
             Text(
-                text = model.ifBlank { "Gemini AI" },
+                text = model.ifBlank { "Set API Key" },
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = Lipi.Ink,

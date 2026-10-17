@@ -13,7 +13,10 @@ data class ScanUiState(
     val errorMessage: String? = null,
     val availableModels: ImmutableList<String> = persistentListOf(),
     val selectedModel: String = "",
-    val isFetchingModels: Boolean = false
+    val isFetchingModels: Boolean = false,
+    val apiKey: String = "",
+    val apiKeyError: String? = null,
+    val isTestingApiKey: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -33,6 +36,9 @@ data class ScanUiState(
         if (availableModels != other.availableModels) return false
         if (selectedModel != other.selectedModel) return false
         if (isFetchingModels != other.isFetchingModels) return false
+        if (apiKey != other.apiKey) return false
+        if (apiKeyError != other.apiKeyError) return false
+        if (isTestingApiKey != other.isTestingApiKey) return false
 
         return true
     }
@@ -43,10 +49,13 @@ data class ScanUiState(
         result = 31 * result + loadingStatusText.hashCode()
         result = 31 * result + (capturedImageByteArray?.contentHashCode() ?: 0)
         result = 31 * result + medicines.hashCode()
-        result = 31 * result + (errorMessage?.hashCode() ?: 0)
+        result = 31 * result + errorMessage.hashCode()
         result = 31 * result + availableModels.hashCode()
         result = 31 * result + selectedModel.hashCode()
         result = 31 * result + isFetchingModels.hashCode()
+        result = 31 * result + apiKey.hashCode()
+        result = 31 * result + apiKeyError.hashCode()
+        result = 31 * result + isTestingApiKey.hashCode()
         return result
     }
 }

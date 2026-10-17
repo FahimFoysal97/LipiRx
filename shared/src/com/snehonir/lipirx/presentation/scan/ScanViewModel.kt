@@ -30,16 +30,88 @@ class ScanViewModel(
     val uiEvent: Flow<ScanUiEvent> = _uiEvent.receiveAsFlow()
 
     init {
+        val initialApiKey = runCatching {
+            database.getApiKey(flow = "App -> ScanViewModel.init.getApiKey")
+        }.getOrDefault("")
+
         val initialSavedModel = runCatching {
             database.getLastSelectedModel(flow = "App -> ScanViewModel.init.loadSavedModel")
         }.getOrDefault("").removePrefix("models/").trim()
 
-        if (initialSavedModel.isNotBlank()) {
-            Napier.d("[ScanViewModel.init] Pre-setting selectedModel to saved model '$initialSavedModel'", tag = TAG)
-            _uiState.update { it.copy(selectedModel = initialSavedModel) }
+        _uiState.update {
+            it.copy(
+                apiKey = initialApiKey,
+                selectedModel = initialSavedModel
+            )
         }
 
-        fetchModels(flow = "App -> ScanViewModel.init")
+        if (initialApiKey.isNotBlank()) {
+            fetchModels(flow = "App -> ScanViewModel.init")
+        }
+    }
+
+    fun saveAndTestApiKey(newKey: String, flow: String = "App -> ScanViewModel.saveAndTestApiKey") {
+        val cleanKey = newKey.trim()
+        if (cleanKey.isBlank()) {
+            _uiState.update { it.copy(apiKeyError = "Please enter a valid Gemini API Key.") }
+            return
+        }
+
+        Napier.d("[$flow] Testing API Key via Gemini REST API...", tag = TAG)
+        viewModelScope.launch {
+            _uiState.update { it.copy(isTestingApiKey = true, apiKeyError = null) }
+            val result = geminiService.fetchAvailableModels(providedApiKey = cleanKey, flow = "$flow -> GeminiService.fetchAvailableModels")
+
+            result.fold(
+                onSuccess = { modelList ->
+                    val names = modelList.map { it.name.removePrefix("models/").trim() }.toImmutableList()
+                    Napier.d("[$flow -> Success] API Key valid! Retrieved ${names.size} models.", tag = TAG)
+
+                    if (names.isNotEmpty()) {
+                        runCatching {
+                            database.saveApiKey(cleanKey, flow = "$flow -> LipiRxLocalDatabase.saveApiKey")
+                        }
+
+                        val savedModel = runCatching {
+                            database.getLastSelectedModel(flow = "$flow -> LipiRxLocalDatabase.getLastSelectedModel")
+                        }.getOrDefault("").removePrefix("models/").trim()
+
+                        val matchedSaved = names.firstOrNull { it.equals(savedModel, ignoreCase = true) }
+                        val chosenModel = matchedSaved ?: names.first()
+
+                        _uiState.update {
+                            it.copy(
+                                apiKey = cleanKey,
+                                isTestingApiKey = false,
+                                apiKeyError = null,
+                                availableModels = names,
+                                selectedModel = chosenModel
+                            )
+                        }
+
+                        _uiEvent.send(ScanUiEvent.ShowToast("API Key verified and saved! Loaded ${names.size} models."))
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isTestingApiKey = false,
+                                apiKeyError = "No supported vision models found for this API Key."
+                            )
+                        }
+                    }
+                },
+                onFailure = { ex ->
+                    val errorMsg = ex.message ?: "Invalid API Key. Please check and try again."
+                    Napier.w("[$flow -> Failure] API Key test failed: $errorMsg", throwable = ex, tag = TAG)
+                    _uiState.update {
+                        it.copy(
+                            isTestingApiKey = false,
+                            apiKeyError = "Invalid API Key: $errorMsg"
+                        )
+                    }
+                    _uiEvent.send(ScanUiEvent.ShowToast("Invalid API key. Please check and try again."))
+                }
+            )
+        }
     }
 
     fun selectModel(modelName: String, flow: String = "App -> ScanViewModel.selectModel") {
@@ -56,10 +128,16 @@ class ScanViewModel(
 
     fun fetchModels(flow: String = "App -> ScanViewModel.fetchModels") {
         Napier.d("[$flow] Triggering dynamic fetch of available Gemini models from REST API", tag = TAG)
+        val currentApiKey = _uiState.value.apiKey
+        if (currentApiKey.isBlank()) {
+            Napier.w("[$flow -> Warning] Cannot fetch models because API key is empty", tag = TAG)
+            return
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isFetchingModels = true) }
             val serviceFlow = "$flow -> GeminiService.fetchAvailableModels"
-            val result = geminiService.fetchAvailableModels(flow = serviceFlow)
+            val result = geminiService.fetchAvailableModels(providedApiKey = currentApiKey, flow = serviceFlow)
 
             result.fold(
                 onSuccess = { modelList ->
@@ -148,6 +226,13 @@ class ScanViewModel(
             return
         }
 
+        val currentApiKey = _uiState.value.apiKey
+        if (currentApiKey.isBlank()) {
+            Napier.w("[$flow -> Warning] API key is missing", tag = TAG)
+            _uiState.update { it.copy(errorMessage = "Gemini API key is required. Please tap the model button to set your API key.") }
+            return
+        }
+
         val currentModel = _uiState.value.selectedModel
 
         _uiState.update {
@@ -167,6 +252,7 @@ class ScanViewModel(
             val result = geminiService.processPrescriptionImage(
                 imageByteArray = imageByteArray,
                 selectedModel = currentModel,
+                providedApiKey = currentApiKey,
                 flow = serviceFlow,
                 onProgress = { step, statusText ->
                     Napier.d("[$flow -> Progress] Step $step: $statusText", tag = TAG)

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,10 +33,16 @@ import com.snehonir.lipirx.ui.theme.Lipi
 fun EmptyStateView(
     selectedModel: String,
     availableModels: List<String>,
+    apiKey: String = "",
+    apiKeyError: String? = null,
+    isTestingApiKey: Boolean = false,
+    onSaveApiKey: (String) -> Unit = {},
     onModelSelected: (String) -> Unit,
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
 ) {
+    val isModelAvailable = availableModels.isNotEmpty()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -46,6 +53,10 @@ fun EmptyStateView(
             ModelChip(
                 selectedModel = selectedModel,
                 availableModels = availableModels,
+                apiKey = apiKey,
+                apiKeyError = apiKeyError,
+                isTestingApiKey = isTestingApiKey,
+                onSaveApiKey = onSaveApiKey,
                 onModelSelected = onModelSelected
             )
         }
@@ -101,12 +112,34 @@ fun EmptyStateView(
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PrimaryButton("Take Prescription Photo", Icons.Default.Add, onTakePhoto)
+            if (!isModelAvailable) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Lipi.AmberContainer
+                ) {
+                    Text(
+                        text = "🔑 Please tap the model button on top right to enter your Gemini API Key and load models.",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.OnAmber
+                    )
+                }
+            }
+
+            PrimaryButton(
+                text = "Take Prescription Photo",
+                icon = Icons.Default.Add,
+                onClick = onTakePhoto,
+                enabled = isModelAvailable
+            )
             SecondaryButton(
                 text = "Choose from Gallery",
                 icon = Icons.Default.Search,
                 onClick = onChooseGallery,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = isModelAvailable,
                 height = 56.dp,
                 fontSize = 16,
             )

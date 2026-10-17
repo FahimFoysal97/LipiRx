@@ -22,10 +22,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -42,6 +44,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,6 +88,10 @@ fun AppHeader(
 fun ModelChip(
     selectedModel: String,
     availableModels: List<String>,
+    apiKey: String = "",
+    apiKeyError: String? = null,
+    isTestingApiKey: Boolean = false,
+    onSaveApiKey: (String) -> Unit = {},
     onModelSelected: (String) -> Unit
 ) {
     var showSheet by remember { mutableStateOf(false) }
@@ -102,9 +109,13 @@ fun ModelChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box(modifier = Modifier.size(7.dp).background(Lipi.Success, CircleShape))
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(if (availableModels.isNotEmpty()) Lipi.Success else Lipi.Error, CircleShape)
+            )
             Text(
-                text = selectedModel.ifBlank { "Gemini AI" },
+                text = if (selectedModel.isNotBlank()) selectedModel else "Set API Key",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Lipi.Ink,
@@ -117,6 +128,10 @@ fun ModelChip(
         ModelSelectionBottomSheet(
             selectedModel = selectedModel,
             availableModels = availableModels,
+            apiKey = apiKey,
+            apiKeyError = apiKeyError,
+            isTestingApiKey = isTestingApiKey,
+            onSaveApiKey = onSaveApiKey,
             onModelSelected = onModelSelected,
             onDismiss = { showSheet = false }
         )
@@ -128,11 +143,20 @@ fun ModelChip(
 fun ModelSelectionBottomSheet(
     selectedModel: String,
     availableModels: List<String>,
+    apiKey: String = "",
+    apiKeyError: String? = null,
+    isTestingApiKey: Boolean = false,
+    onSaveApiKey: (String) -> Unit = {},
     onModelSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
+
+    @Suppress("DEPRECATION")
+    val clipboardManager = LocalClipboardManager.current
+    var inputKey by remember(apiKey) { mutableStateOf(apiKey) }
+    val isNewKeyPasted = inputKey.isNotBlank() && inputKey != apiKey
 
     fun dismissWithAnimation(onComplete: () -> Unit = {}) {
         scope.launch {
@@ -175,75 +199,163 @@ fun ModelSelectionBottomSheet(
                             .background(Lipi.PrimaryContainer, RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🤖", fontSize = 18.sp)
+                        Text("🔑", fontSize = 18.sp)
                     }
                     Column {
-                        Text("Select Vision AI Model", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
-                        Text("Models fetched directly from Gemini REST API", fontSize = 12.sp, color = Lipi.Muted)
+                        Text("Gemini API Key & Models", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+                        Text("Set key to fetch models & enable scanning", fontSize = 12.sp, color = Lipi.Muted)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 340.dp)
+            // API Key Input Card
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                color = Lipi.Background,
+                border = BorderStroke(1.dp, Lipi.Outline)
             ) {
-                items(availableModels) { model ->
-                    val isSelected = model == selectedModel
-                    Surface(
-                        onClick = {
-                            dismissWithAnimation {
-                                onModelSelected(model)
-                            }
-                        },
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Gemini API Key",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.Ink
+                    )
+
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isSelected) Lipi.PrimaryContainer else Lipi.Background,
-                        border = BorderStroke(
-                            width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) Lipi.Primary else Lipi.Outline
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = inputKey,
+                            onValueChange = {}, // Uneditable by soft keyboard
+                            readOnly = true,
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Tap 'Paste' to insert API key...", fontSize = 13.sp) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        SecondaryButton(
+                            text = "Paste",
+                            icon = null,
+                            onClick = {
+                                val text = clipboardManager.getText()?.text?.trim() ?: ""
+                                if (text.isNotBlank()) inputKey = text
+                            },
+                            height = 50.dp,
+                            fontSize = 13
+                        )
+                    }
+
+                    if (!apiKeyError.isNullOrBlank()) {
+                        Text(
+                            text = apiKeyError,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Lipi.Error
+                        )
+                    }
+
+                    Button(
+                        onClick = { onSaveApiKey(inputKey) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        enabled = !isTestingApiKey && isNewKeyPasted,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Lipi.Primary,
+                            contentColor = Color.White
                         )
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        if (isTestingApiKey) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Verifying Key & Loading Models...", fontSize = 13.sp)
+                        } else {
+                            Text("🔑 Save Key & Load Models", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            if (availableModels.isNotEmpty()) {
+                Text(
+                    text = "Available Models (${availableModels.size})",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Lipi.Ink
+                )
+
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                ) {
+                    items(availableModels) { model ->
+                        val isSelected = model == selectedModel
+                        Surface(
+                            onClick = {
+                                dismissWithAnimation {
+                                    onModelSelected(model)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isSelected) Lipi.PrimaryContainer else Lipi.Background,
+                            border = BorderStroke(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) Lipi.Primary else Lipi.Outline
+                            )
                         ) {
                             Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(if (isSelected) Lipi.Success else Lipi.Muted, CircleShape)
-                                )
-                                Text(
-                                    text = model,
-                                    fontSize = 15.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                    color = if (isSelected) Lipi.Primary else Lipi.Ink
-                                )
-                            }
-
-                            if (isSelected) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Lipi.Primary
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        text = " ✓ ",
-                                        color = Color.White,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(if (isSelected) Lipi.Success else Lipi.Muted, CircleShape)
                                     )
+                                    Text(
+                                        text = model,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                        color = if (isSelected) Lipi.Primary else Lipi.Ink
+                                    )
+                                }
+
+                                if (isSelected) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Lipi.Primary
+                                    ) {
+                                        Text(
+                                            text = " ✓ ",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -277,13 +389,15 @@ fun PrimaryButton(
     text: String,
     icon: ImageVector?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Button(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp),
+        enabled = enabled,
         shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Lipi.Primary, contentColor = Color.White),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp, pressedElevation = 2.dp),
@@ -308,6 +422,7 @@ fun SecondaryButton(
     icon: ImageVector?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     height: Dp = 50.dp,
     contentColor: Color = Lipi.Ink,
     fontSize: Int = 14,
@@ -315,6 +430,7 @@ fun SecondaryButton(
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.height(height),
+        enabled = enabled,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, Lipi.Outline),
         colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = contentColor),
