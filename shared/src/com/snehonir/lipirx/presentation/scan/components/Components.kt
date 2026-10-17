@@ -157,6 +157,7 @@ fun ModelSelectionBottomSheet(
     val clipboardManager = LocalClipboardManager.current
     var inputKey by remember(apiKey) { mutableStateOf(apiKey) }
     val isNewKeyPasted = inputKey.isNotBlank() && inputKey != apiKey
+    val displayKeyText = remember(inputKey) { formatMaskedApiKey(inputKey) }
 
     fun dismissWithAnimation(onComplete: () -> Unit = {}) {
         scope.launch {
@@ -232,7 +233,7 @@ fun ModelSelectionBottomSheet(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
-                            value = inputKey,
+                            value = displayKeyText,
                             onValueChange = {}, // Uneditable by soft keyboard
                             readOnly = true,
                             modifier = Modifier.weight(1f),
@@ -366,6 +367,16 @@ fun ModelSelectionBottomSheet(
             Spacer(modifier = Modifier.height(12.dp))
         }
     }
+}
+
+private fun formatMaskedApiKey(key: String): String {
+    val trimmed = key.trim()
+    if (trimmed.isBlank()) return ""
+    if (trimmed.length <= 8) return "*".repeat(trimmed.length)
+    val firstFour = trimmed.take(4)
+    val lastFour = trimmed.takeLast(4)
+    val middleMask = "*".repeat((trimmed.length - 8).coerceAtLeast(4))
+    return "$firstFour$middleMask$lastFour"
 }
 
 @Composable
