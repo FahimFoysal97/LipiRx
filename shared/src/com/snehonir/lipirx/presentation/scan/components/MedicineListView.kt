@@ -9,14 +9,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -38,11 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -213,177 +213,172 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
     val reviewNote = remember(item) { buildReviewNote(item) }
     val alternatives = remember(item.similarBrands) { item.similarBrands.map { parseAlternative(it) } }
     val cleanInstructions = remember(item.instructions) { fixInstructionsText(item.instructions) }
+    val cardTitle = remember(item.medicineName, item.formattedStrength) {
+        formatCleanTitle(item.medicineName, item.formattedStrength)
+    }
 
-    val errorAccentColor = Lipi.Error
+    val cardShape = RoundedCornerShape(22.dp)
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .drawWithContent {
-                drawContent()
-                if (item.needsReview) {
-                    drawRoundRect(
-                        color = errorAccentColor,
-                        topLeft = Offset.Zero,
-                        size = Size(width = 4.dp.toPx(), height = size.height),
-                        cornerRadius = CornerRadius(x = 22.dp.toPx(), y = 22.dp.toPx())
-                    )
-                }
-            },
-        shape = RoundedCornerShape(22.dp),
+            .clip(cardShape),
+        shape = cardShape,
         color = Color.White,
         border = BorderStroke(
             width = 1.dp,
             color = if (item.needsReview) Lipi.Error.copy(alpha = 0.4f) else Lipi.CardBorder
         ),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .animateContentSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // 1. Title block: brand + strength / company / generic
-            Row(
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .animateContentSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .background(Lipi.Primary, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("$index", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "${item.medicineName} ${item.formattedStrength}".trim(),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Lipi.Ink
-                    )
-                    if (company.isNotBlank()) {
-                        Text(company, fontSize = 12.sp, color = Lipi.Muted)
-                    }
-                    if (item.genericName.isNotBlank()) {
-                        Text("Generic: ${item.genericName}", fontSize = 13.sp, color = Lipi.Muted)
-                    }
-                }
-            }
-
-            // 2. One merged review banner
-            if (item.needsReview) {
+                // 1. Title block: brand + strength / company / generic
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFFBE9E7), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp), tint = Lipi.Error)
-                    Text(
-                        text = buildString {
-                            append("Needs review")
-                            if (!reviewNote.isNullOrBlank()) append(": $reviewNote")
-                        },
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8C1D18),
-                    )
-                }
-            }
-
-            // 3. Dose as the hero
-            if (doseSlots != null && doseSlots.size == 3) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Morning", "Noon", "Night").zip(doseSlots).forEach { (label, value) ->
-                        DoseSlot(label, value, Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .background(Lipi.Primary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("$index", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = cardTitle,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Lipi.Ink
+                        )
+                        if (company.isNotBlank()) {
+                            Text(company, fontSize = 12.sp, color = Lipi.Muted)
+                        }
+                        if (item.genericName.isNotBlank()) {
+                            Text("Generic: ${item.genericName}", fontSize = 13.sp, color = Lipi.Muted)
+                        }
                     }
                 }
-            } else if (item.schedule.isNotBlank()) {
-                Badge("Schedule: ${item.schedule}", Lipi.AmberContainer, Lipi.OnAmber)
-            }
 
-            // 4. Secondary info badges
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Badge("Qty: ${quantityText(item.units, item.unitType)}", Lipi.PrimaryContainer, Lipi.OnPrimaryContainer)
-
-                mealLabel?.let { Badge(it, Lipi.AmberContainer, Lipi.OnAmber) }
-
-                if (item.dosageForm.isNotBlank() && !item.dosageForm.equals(item.unitType, ignoreCase = true)) {
-                    Badge("Form: ${item.dosageForm}", Color(0xFFF1F4F3), Lipi.Ink)
-                }
-
-                if (cleanInstructions.isNotBlank() && cleanInstructions.length <= 20) {
-                    Badge(cleanInstructions, Color(0xFFF1F4F3), Lipi.Ink)
-                }
-            }
-
-            // Detailed long instruction card if instruction is long
-            if (cleanInstructions.length > 20) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFF1F4F3)
-                ) {
-                    Text(
-                        text = cleanInstructions,
-                        modifier = Modifier.padding(10.dp),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Lipi.Ink
-                    )
-                }
-            }
-
-            // 5. Collapsible alternatives
-            if (alternatives.isNotEmpty()) {
-                val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Lipi.Background, RoundedCornerShape(14.dp)),
-                ) {
+                // 2. One merged review banner
+                if (item.needsReview) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable { expanded = !expanded }
-                            .padding(12.dp),
+                            .background(Color(0xFFFBE9E7), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Lipi.Muted)
+                        Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp), tint = Lipi.Error)
                         Text(
-                            text = "${alternatives.size} similar brands",
-                            modifier = Modifier.weight(1f),
-                            fontSize = 13.sp,
+                            text = buildString {
+                                append("Needs review")
+                                if (!reviewNote.isNullOrBlank()) append(": $reviewNote")
+                            },
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Lipi.Muted,
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = if (expanded) "Collapse" else "Expand",
-                            modifier = Modifier
-                                .size(20.dp)
-                                .rotate(rotation),
-                            tint = Lipi.Muted
+                            color = Color(0xFF8C1D18),
                         )
                     }
-                    if (expanded) {
-                        Column(
+                }
+
+                // 3. Dose as the hero
+                if (doseSlots != null && doseSlots.size == 3) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Morning", "Noon", "Night").zip(doseSlots).forEach { (label, value) ->
+                            DoseSlot(label, value, Modifier.weight(1f))
+                        }
+                    }
+                } else if (item.schedule.isNotBlank()) {
+                    Badge("Schedule: ${item.schedule}", Lipi.AmberContainer, Lipi.OnAmber)
+                }
+
+                // 4. Secondary info badges
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Badge("Qty: ${quantityText(item.units, item.unitType)}", Lipi.PrimaryContainer, Lipi.OnPrimaryContainer)
+
+                    mealLabel?.let { Badge(it, Lipi.AmberContainer, Lipi.OnAmber) }
+
+                    if (item.dosageForm.isNotBlank() && !item.dosageForm.equals(item.unitType, ignoreCase = true)) {
+                        Badge("Form: ${item.dosageForm}", Color(0xFFF1F4F3), Lipi.Ink)
+                    }
+
+                    if (cleanInstructions.isNotBlank() && cleanInstructions.length <= 20) {
+                        Badge(cleanInstructions, Color(0xFFF1F4F3), Lipi.Ink)
+                    }
+                }
+
+                // Detailed long instruction card if instruction is long
+                if (cleanInstructions.length > 20) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF1F4F3)
+                    ) {
+                        Text(
+                            text = cleanInstructions,
+                            modifier = Modifier.padding(10.dp),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Lipi.Ink
+                        )
+                    }
+                }
+
+                // 5. Collapsible alternatives
+                if (alternatives.isNotEmpty()) {
+                    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Lipi.Background, RoundedCornerShape(14.dp)),
+                    ) {
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable { expanded = !expanded }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            alternatives.forEach { AlternativeChip(it) }
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Lipi.Muted)
+                            Text(
+                                text = "${alternatives.size} similar brands",
+                                modifier = Modifier.weight(1f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.Muted,
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = if (expanded) "Collapse" else "Expand",
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .rotate(rotation),
+                                tint = Lipi.Muted
+                            )
+                        }
+                        if (expanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                alternatives.forEach { AlternativeChip(it) }
+                            }
                         }
                     }
                 }
@@ -521,8 +516,21 @@ private fun buildReviewNote(item: MedicineItem): String? {
     }
 }
 
+private fun formatCleanTitle(brandName: String, strength: String): String {
+    val cleanBrand = brandName.trim()
+    val cleanStrength = strength.trim()
+    if (cleanStrength.isBlank()) return cleanBrand
+    val strengthNumber = cleanStrength.substringBefore(" ").trim()
+    return if (strengthNumber.isNotBlank() && cleanBrand.endsWith(strengthNumber)) {
+        val unit = cleanStrength.substringAfter(" ", "").trim()
+        "$cleanBrand $unit".trim()
+    } else {
+        "$cleanBrand $cleanStrength".trim()
+    }
+}
+
 private fun fixInstructionsText(text: String): String {
-    var clean = text.trim()
+    var clean = text.trim().removeSuffix("?").trim()
     if (clean == "সাথ") clean = "খাবারের সাথে"
     return clean
 }
