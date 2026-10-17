@@ -1,0 +1,15 @@
+product: android/app
+
+dependencies:
+  - //shared
+  - $libs.androidx.activity.compose
+  - $libs.koin.core
+  - $libs.koin.android
+  - $compose.preview
+  - $compose.uiTooling
+
+settings:
+  compose: enabled
+  android:
+    namespace: com.snehonir.lipirx
+    applicationId: com.snehonir.lipirx
