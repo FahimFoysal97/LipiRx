@@ -6,27 +6,35 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Immutable
 data class MedicineItem(
-    val medicineName: String,                    // Brand name as written, e.g. "Sergel", "Fimoxyl"
-    val prescribedBrandFull: String = "",        // e.g. "Sergel (Healthcare) - 20 mg"
-    val genericName: String = "",                // Generic composition e.g. "Amoxicillin"
-    val dosageForm: String = "",                 // e.g. "drops", "tablet", "capsule", "soap", "syrup"
-    val strengthValue: String = "",              // e.g. "20", "500/125"
-    val strengthUnit: String = "",               // e.g. "mg", "mg/5ml", "%"
-    val strengthNote: String = "",               // "not stated" or ""
-    val doseAmount: String = "",                 // e.g. "1", "2.5"
-    val doseUnit: String = "",                   // e.g. "ml", "tablet", "drop"
-    val frequencyPerDay: Int? = null,            // e.g. 3, 2, 1
-    val schedule: String = "",                   // e.g. "1 + 0 + 1 (ac)", "1 ml × 3 times daily"
-    val instructions: String = "",               // e.g. "if needed", "use during bath"
-    val duration: String = "",                   // e.g. "5 days", "1 month"
-    val units: Int = 1,                          // Total pieces/bottles count e.g. 30, 1
-    val unitType: String = "pcs",                // e.g. "pcs", "tablets", "capsules", "bottle", "tube"
-    val totalVolumeNeededMl: Double? = null,     // e.g. 15.0
-    val patientAgeGroup: String = "",            // e.g. "infant", "child", "adult"
-    val confidence: String = "high",             // "high", "medium", "low"
-    val similarBrands: List<String> = emptyList()// Top 5 substitute brands e.g. ["Seclo (Square)", ...]
+    val medicineName: String,                    // Mapped from transcription medicine_name_written
+    val prescribedBrandFull: String = "",        // Mapped from enrichment prescribed_brand_full
+    val genericName: String = "",                // Mapped from enrichment generic_name or transcription generic_name_written
+    val dosageForm: String = "",                 // From transcription dosage_form
+    val strengthValue: String = "",              // From transcription strength_value
+    val strengthUnit: String = "",               // From transcription strength_unit
+    val strengthNote: String = "",               // "not stated" if strength_value is empty, else ""
+    val doseAmount: String = "",                 // From transcription dose_amount
+    val doseUnit: String = "",                   // From transcription dose_unit
+    val frequencyPerDay: Int? = null,            // From transcription frequency_per_day
+    val schedule: String = "",                   // From transcription schedule
+    val instructions: String = "",               // From transcription instructions
+    val duration: String = "",                   // From transcription duration
+    val units: Int = 1,                          // From transcription units
+    val unitType: String = "pcs",                // From transcription unit_type
+    val totalVolumeNeededMl: Double? = null,     // From transcription total_volume_needed_ml
+    val patientAgeGroup: String = "",            // From transcription patient_age_group
+    val confidence: String = "high",             // From transcription confidence ("high", "medium", "low")
+    val similarBrands: List<String> = emptyList(),// From enrichment similar_brands
+    val brandRecognized: Boolean = false,        // From enrichment brand_recognized
+    val possibleStrengths: List<String> = emptyList(), // From enrichment possible_strengths
+    val assumedStrength: String = "",            // From enrichment assumed_strength
+    val strengthSource: String = "",             // From enrichment strength_source ("written", "assumed", "")
+    val possibleMisreading: String = "",         // From enrichment possible_misreading
+    val enrichmentConfidence: String = "low",     // From enrichment enrichment_confidence ("high", "medium", "low")
+    val needsReview: Boolean = false             // Computed review flag
 ) {
     // Backwards compatibility getters
+    val totalTablets: Int get() = units
     val similarBrand: String get() = formattedSimilarBrands
 
     val formattedStrength: String

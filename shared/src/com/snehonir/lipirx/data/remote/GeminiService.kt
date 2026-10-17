@@ -64,7 +64,7 @@ class GeminiService(
 
         val requestPayload = GeminiRequest(
             systemInstruction = SystemInstruction(
-                parts = listOf(Part(text = SYSTEM_PROMPT))
+                parts = listOf(Part(text = SINGLE_CALL_PROMPT))
             ),
             contents = listOf(
                 Content(
@@ -76,15 +76,52 @@ class GeminiService(
                 )
             ),
             generationConfig = GenerationConfig(
-                responseMimeType = "application/json"
+                responseMimeType = "application/json",
+                temperature = 0.0,
+                maxOutputTokens = 8192
             )
         )
 
         val targetApiKey = apiKey.ifBlank { DEFAULT_API_KEY }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
 
-        val requestJson = json.encodeToString(requestPayload)
         onProgress(1, "Reading handwriting")
+        var rawResponseText = executeGeminiPostCall(endpoint, requestPayload, flow)
+        var parseResult = runCatching { parseTwoPassResponse(rawResponseText) }
+
+        if (parseResult.isFailure) {
+            Napier.w("[$flow -> Retry] Parsing failed on first attempt: ${parseResult.exceptionOrNull()?.message}. Retrying request once...", tag = TAG)
+            onProgress(1, "Retrying Vision AI request...")
+            rawResponseText = executeGeminiPostCall(endpoint, requestPayload, flow)
+            parseResult = runCatching { parseTwoPassResponse(rawResponseText) }
+        }
+
+        val twoPassResponse = parseResult.getOrThrow()
+        onProgress(2, "Matching brand names")
+
+        val items = merge(
+            transcription = twoPassResponse.transcription ?: emptyList(),
+            enrichment = twoPassResponse.enrichment ?: emptyList()
+        )
+
+        onProgress(3, "Finding similar brands")
+        Napier.d("[$flow -> Result] Merged ${items.size} MedicineItem objects from two-pass call: $items", tag = TAG)
+        items
+    }.onFailure { ex ->
+        val userFriendlyMessage = when {
+            ex.message?.contains("timeout", ignoreCase = true) == true -> "Network request timed out. Please check your internet connection or select a faster model."
+            ex.message?.contains("400") == true || ex.message?.contains("404") == true -> "Selected model '$selectedModel' returned HTTP error: ${ex.message}"
+            else -> ex.message ?: "Failed to process prescription image."
+        }
+        Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
+    }
+
+    private suspend fun executeGeminiPostCall(
+        endpoint: String,
+        requestPayload: GeminiRequest,
+        flow: String
+    ): String {
+        val requestJson = json.encodeToString(requestPayload)
         Napier.d("[$flow] Serialized request JSON (${requestJson.length} bytes). Sending POST to $endpoint", tag = TAG)
 
         val responseText: String = httpClient.post(endpoint) {
@@ -92,14 +129,16 @@ class GeminiService(
             setBody(requestJson)
         }.body()
 
-        onProgress(2, "Matching brand names")
-        Napier.d("[$flow] Received raw response from Gemini REST API (${responseText.length} chars)", tag = TAG)
+        Napier.d("[$flow -> RawResponse] Gemini REST API Raw Response:\n$responseText", tag = TAG)
+        return responseText
+    }
 
+    private fun parseTwoPassResponse(responseText: String): GeminiTwoPassResponse {
         val response = json.decodeFromString<GeminiResponse>(responseText)
 
         if (response.error != null) {
             val errorMsg = response.error.message ?: "Unknown error"
-            Napier.e("[$flow -> Error] Gemini API returned error: $errorMsg", tag = TAG)
+            Napier.e("[parseTwoPassResponse -> Error] Gemini API returned error: $errorMsg", tag = TAG)
             throw IllegalStateException("Gemini API Error: $errorMsg")
         }
 
@@ -111,55 +150,80 @@ class GeminiService(
             ?.text
             ?: throw IllegalStateException("No text response received from Gemini API.")
 
-        onProgress(3, "Finding similar brands")
-        Napier.d("[$flow] Gemini model extracted raw JSON content: $rawContent", tag = TAG)
-
         val cleanedJson = cleanJsonResponse(rawContent)
-        val dtos = json.decodeFromString<List<GeminiMedicineDto>>(cleanedJson)
-        Napier.d("[$flow] Successfully parsed ${dtos.size} DTO items from Gemini output", tag = TAG)
-
-        val items = dtos.map { dto ->
-            val qty = dto.units ?: dto.totalQuantity ?: dto.totalTablets ?: 1
-            val brandsList = when {
-                dto.similarBrands.isNotEmpty() -> dto.similarBrands
-                dto.similarBrand.isNotBlank() -> dto.similarBrand.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                else -> emptyList()
-            }
-
-            MedicineItem(
-                medicineName = dto.medicineName,
-                prescribedBrandFull = dto.prescribedBrandFull,
-                genericName = dto.genericName,
-                dosageForm = dto.dosageForm,
-                strengthValue = dto.strengthValue,
-                strengthUnit = dto.strengthUnit,
-                strengthNote = dto.strengthNote,
-                doseAmount = dto.doseAmount,
-                doseUnit = dto.doseUnit,
-                frequencyPerDay = dto.frequencyPerDay,
-                schedule = dto.schedule,
-                instructions = dto.instructions,
-                duration = dto.duration,
-                units = qty,
-                unitType = dto.unitType?.ifBlank { "pcs" } ?: "pcs",
-                totalVolumeNeededMl = dto.totalVolumeNeededMl,
-                patientAgeGroup = dto.patientAgeGroup,
-                confidence = dto.confidence.ifBlank { "high" },
-                similarBrands = brandsList
-            )
-        }
-        Napier.d("[$flow -> Result] Converted ${items.size} MedicineItem objects: $items", tag = TAG)
-        items
-    }.onFailure { ex ->
-        val userFriendlyMessage = when {
-            ex.message?.contains("timeout", ignoreCase = true) == true -> "Network request timed out. Please check your internet connection or select a faster model."
-            ex.message?.contains("400") == true || ex.message?.contains("404") == true -> "Selected model '$selectedModel' returned HTTP error: ${ex.message}"
-            else -> ex.message ?: "Failed to process prescription image."
-        }
-        Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
+        return json.decodeFromString<GeminiTwoPassResponse>(cleanedJson)
     }
 
-    private fun cleanJsonResponse(rawText: String): String {
+    internal fun merge(
+        transcription: List<GeminiTranscriptionDto>,
+        enrichment: List<GeminiEnrichmentDto>
+    ): List<MedicineItem> {
+        if (transcription.isEmpty()) return emptyList()
+
+        val enrichmentMap = enrichment.associateBy { it.id }
+
+        return transcription.map { t ->
+            val e = enrichmentMap[t.id]
+
+            val medicineName = t.medicineNameWritten
+            val genericName = e?.genericName?.ifBlank { t.genericNameWritten } ?: t.genericNameWritten
+            val strengthValue = t.strengthValue
+            val strengthUnit = t.strengthUnit
+            val strengthNote = if (strengthValue.isBlank()) "not stated" else ""
+
+            val brandRecognized = e?.brandRecognized ?: false
+            val possibleStrengths = e?.possibleStrengths ?: emptyList()
+            val assumedStrength = e?.assumedStrength ?: ""
+            val strengthSource = e?.strengthSource ?: ""
+            val prescribedBrandFull = e?.prescribedBrandFull ?: ""
+            val similarBrands = e?.similarBrands ?: emptyList()
+            val possibleMisreading = e?.possibleMisreading ?: ""
+            val enrichmentConfidence = e?.enrichmentConfidence ?: "low"
+
+            val unitsToDispense = t.units ?: 1
+            val unitTypeString = t.unitType?.ifBlank { "pcs" } ?: "pcs"
+
+            val needsReview = (
+                t.confidence.equals("low", ignoreCase = true) ||
+                medicineName == "UNREADABLE" ||
+                !brandRecognized ||
+                possibleMisreading.isNotBlank() ||
+                strengthSource.equals("assumed", ignoreCase = true) ||
+                (prescribedBrandFull.isBlank() && medicineName.isNotBlank() && medicineName != "UNREADABLE")
+            )
+
+            MedicineItem(
+                medicineName = medicineName,
+                prescribedBrandFull = prescribedBrandFull,
+                genericName = genericName,
+                dosageForm = t.dosageForm,
+                strengthValue = strengthValue,
+                strengthUnit = strengthUnit,
+                strengthNote = strengthNote,
+                doseAmount = t.doseAmount,
+                doseUnit = t.doseUnit,
+                frequencyPerDay = t.frequencyPerDay,
+                schedule = t.schedule,
+                instructions = t.instructions,
+                duration = t.duration,
+                units = unitsToDispense,
+                unitType = unitTypeString,
+                totalVolumeNeededMl = t.totalVolumeNeededMl,
+                patientAgeGroup = t.patientAgeGroup,
+                confidence = t.confidence.ifBlank { "high" },
+                similarBrands = similarBrands,
+                brandRecognized = brandRecognized,
+                possibleStrengths = possibleStrengths,
+                assumedStrength = assumedStrength,
+                strengthSource = strengthSource,
+                possibleMisreading = possibleMisreading,
+                enrichmentConfidence = enrichmentConfidence,
+                needsReview = needsReview
+            )
+        }
+    }
+
+    fun cleanJsonResponse(rawText: String): String {
         var trimmed = rawText.trim()
         if (trimmed.startsWith("```")) {
             trimmed = trimmed.substringAfter("\n").substringBeforeLast("```").trim()
@@ -170,48 +234,6 @@ class GeminiService(
     companion object {
         private const val TAG = "GeminiService"
         private const val DEFAULT_API_KEY = "AQ.Ab8RN6LYU1DTPVLgNK5-nEgpGNVhQscxmYmQyBnzR1e54-NsVw"
-
-        private const val SYSTEM_PROMPT = """
-You are an expert Bangladeshi retail pharmacist skilled at reading handwritten doctor prescriptions and familiar with pharmaceutical products sold in Bangladesh.
-
-TASK
-Extract every prescribed medicine from the prescription image. Transcribe only what is written. Never invent, add, or substitute medicines. Ignore patient name, doctor details, and diagnosis. Do not give medical advice.
-
-If a name is hard to read, give your best reading and set "confidence" to "low". If it cannot be read at all, set "medicine_name" to "UNREADABLE". Do not guess strengths, doses, or durations that are not written.
-
-FIELDS (return all keys for every medicine)
-- "medicine_name": string. Brand name exactly as written (e.g., "Sergel", "Fimoxyl"). Use "" if only a generic name is written.
-- "prescribed_brand_full": string. The prescribed product in the same format as similar_brands: "Brand (Manufacturer) - strength". Use the brand name exactly as written on the prescription, the manufacturer of that brand in Bangladesh, and strength = the written strength, or assumed_strength if none is written. If you are not sure of the manufacturer, write the brand name and strength only. If only a generic name is written, use "" here.
-- "generic_name": string. Generic name(s). For combinations, join with " + " (e.g., "Amoxicillin + Clavulanic Acid").
-- "dosage_form": string. One of: "tablet", "capsule", "syrup", "suspension", "drops", "cream", "ointment", "gel", "lotion", "soap", "injection", "sachet", "inhaler", "other".
-- "strength_value": string. Strength ONLY if explicitly written on the prescription (e.g., "20", "500/125", "125/5"). Use "" if not written.
-- "strength_unit": string. Unit of the strength (e.g., "mg", "mg/5ml", "mg/ml", "%"). Use "" if not written.
-- "strength_note": string. Write "not stated" when strength is not written. Otherwise "".
-- "dose_amount": string. Amount per single intake as written (e.g., "1", "2.5", "0.5"). Use "" if not stated.
-- "dose_unit": string. One of: "tablet", "capsule", "ml", "drop", "tsp", "puff", "sachet", "application", "". 
-- "frequency_per_day": integer or null. Times per day (e.g., 3). null if "as needed" or not stated.
-- "schedule": string. Human-readable schedule. For tablets/capsules use Bangladeshi shorthand like "1 + 0 + 1 (ac)" or "0 + 0 + 1 (pc)" (ac = before meal, pc = after meal). For liquids/drops use the written style, e.g., "1 ml × 3 times daily".
-- "instructions": string. Any extra written directions (e.g., "if needed", "use during bath", "apply on affected area", "shake well"). Use "" if none.
-- "duration": string. As written (e.g., "5 days", "1 month", "continue"). Use "" if not stated.
-- "units": integer or null. Total pieces to dispense.
-  - Tablets/capsules/sachets: doses per day × number of days (e.g., 1 + 0 + 1 for 15 days = 30). 
-  - Syrup, suspension, drops, cream, ointment, soap, tube, bottle, vial: the count written, otherwise 1.
-  - null if a tablet/capsule count cannot be calculated because duration or frequency is missing.
-- "unit_type": string. One of: "pcs", "tablets", "capsules", "tube", "bottle", "sachet", "vial", "soap".
-- "total_volume_needed_ml": number or null. Only for liquids dosed in ml: dose_amount × frequency_per_day × days. null if not a liquid, or if duration is not stated. Do not use for drops dosed in "drop" units.
-- "patient_age_group": string. "infant", "child", "adult", or "" based only on what is written on the prescription (age, weight, or "baby/pediatric" notes).
-- "confidence": "high", "medium", or "low".
-- "similar_brands": array of 3 to 5 strings formatted "Brand (Manufacturer) - strength". Brands sold in Bangladesh with the same generic name and dosage form as the item, matching assumed_strength where possible. Always give your best suggestions when the generic is recognized; do not return an empty array just because the strength was not written or because the product is pediatric. If you can only recall 2 or 3, return those. Return [] only if the generic name is not recognized. Never invent a manufacturer; if unsure of the manufacturer, write the brand name alone.
-
-DOSING RULES
-- 1 ml, 5 ml, 2.5 ml, etc. written next to a syrup, drops, or suspension is the DOSE per intake, not the strength. Put it in "dose_amount" and "dose_unit", never in the strength fields.
-- Example: "Fimoxyl - 1ml 3 times a day" means dose_amount "1", dose_unit "ml", frequency_per_day 3, schedule "1 ml × 3 times daily". Strength is not written, so strength_value "" and strength_note "not stated".
-- If dose is written in "drops", keep dose_unit as "drop"; do not convert to ml.
-- Do not guess the strength of pediatric products. Brand strengths vary and a wrong guess can cause dosing errors.
-
-OUTPUT
-Return a raw JSON array of objects only. No markdown fences, no comments, no extra text. If the image is not a prescription or contains no medicines, return [].
-"""
     }
 }
 
@@ -260,7 +282,9 @@ internal data class InlineData(
 
 @Serializable
 internal data class GenerationConfig(
-    val responseMimeType: String? = null
+    val responseMimeType: String? = null,
+    val temperature: Double? = null,
+    val maxOutputTokens: Int? = null
 )
 
 @Serializable
@@ -292,27 +316,42 @@ internal data class ResponsePart(
 )
 
 @Serializable
-internal data class GeminiMedicineDto(
-    @SerialName("medicine_name") val medicineName: String = "",
-    @SerialName("prescribed_brand_full") val prescribedBrandFull: String = "",
-    @SerialName("generic_name") val genericName: String = "",
+internal data class GeminiTwoPassResponse(
+    val transcription: List<GeminiTranscriptionDto>? = emptyList(),
+    val enrichment: List<GeminiEnrichmentDto>? = emptyList()
+)
+
+@Serializable
+internal data class GeminiTranscriptionDto(
+    val id: Int = 1,
+    @SerialName("medicine_name_written") val medicineNameWritten: String = "",
+    @SerialName("generic_name_written") val genericNameWritten: String = "",
     @SerialName("dosage_form") val dosageForm: String = "",
     @SerialName("strength_value") val strengthValue: String = "",
     @SerialName("strength_unit") val strengthUnit: String = "",
-    @SerialName("strength_note") val strengthNote: String = "",
     @SerialName("dose_amount") val doseAmount: String = "",
     @SerialName("dose_unit") val doseUnit: String = "",
     @SerialName("frequency_per_day") val frequencyPerDay: Int? = null,
-    @SerialName("schedule") val schedule: String = "",
-    @SerialName("instructions") val instructions: String = "",
-    @SerialName("duration") val duration: String = "",
-    @SerialName("units") val units: Int? = null,
-    @SerialName("total_quantity") val totalQuantity: Int? = null,
-    @SerialName("total_tablets") val totalTablets: Int? = null,
+    val schedule: String = "",
+    val instructions: String = "",
+    val duration: String = "",
+    val units: Int? = null,
     @SerialName("unit_type") val unitType: String? = null,
     @SerialName("total_volume_needed_ml") val totalVolumeNeededMl: Double? = null,
     @SerialName("patient_age_group") val patientAgeGroup: String = "",
-    @SerialName("confidence") val confidence: String = "high",
-    @SerialName("similar_brands") val similarBrands: List<String> = emptyList(),
-    @SerialName("similar_brand") val similarBrand: String = ""
+    val confidence: String = "high"
+)
+
+@Serializable
+internal data class GeminiEnrichmentDto(
+    val id: Int = 1,
+    @SerialName("brand_recognized") val brandRecognized: Boolean = false,
+    @SerialName("generic_name") val genericName: String = "",
+    @SerialName("possible_strengths") val possibleStrengths: List<String> = emptyList(),
+    @SerialName("assumed_strength") val assumedStrength: String = "",
+    @SerialName("strength_source") val strengthSource: String = "",
+    @SerialName("prescribed_brand_full") val prescribedBrandFull: String = "",
+    @SerialName("similar_brands") val similarBrands: List<String>? = emptyList(),
+    @SerialName("possible_misreading") val possibleMisreading: String = "",
+    @SerialName("enrichment_confidence") val enrichmentConfidence: String = "low"
 )

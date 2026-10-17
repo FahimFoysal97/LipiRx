@@ -150,11 +150,16 @@ private fun PrescriptionThumbnail(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MedicineItemCard(index: Int, item: MedicineItem) {
+    val isPediatric = item.patientAgeGroup.equals("infant", ignoreCase = true) || item.patientAgeGroup.equals("child", ignoreCase = true)
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         color = Color.White,
-        border = BorderStroke(1.dp, Lipi.CardBorder),
+        border = BorderStroke(
+            width = if (item.needsReview) 1.5.dp else 1.dp,
+            color = if (item.needsReview) Lipi.Error.copy(alpha = 0.7f) else Lipi.CardBorder
+        ),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -174,25 +179,62 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                     Text("$index", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(item.formattedFullName, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+                    Text(
+                        text = item.prescribedBrandFull.ifBlank { item.formattedFullName },
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Lipi.Ink
+                    )
                     if (item.genericName.isNotBlank()) {
                         Text("Generic: ${item.genericName}", fontSize = 13.sp, color = Lipi.Muted)
                     }
                 }
             }
 
-            // Low Confidence Warning Badge
-            if (item.confidence.equals("low", ignoreCase = true)) {
+            // Needs Review & Misreading Warnings
+            if (item.needsReview) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Lipi.Error.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = "⚠️ Needs Pharmacist Review",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.Error
+                    )
+                }
+            }
+
+            if (item.possibleMisreading.isNotBlank()) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = Lipi.AmberContainer
                 ) {
                     Text(
-                        text = "⚠️ Low Confidence: Verify handwritten spelling",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        fontSize = 11.sp,
+                        text = "💡 Possible Misreading: ${item.possibleMisreading}",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Lipi.OnAmber
+                    )
+                }
+            }
+
+            if (item.strengthSource.equals("assumed", ignoreCase = true)) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isPediatric) Lipi.Error.copy(alpha = 0.15f) else Lipi.AmberContainer,
+                    border = if (isPediatric) BorderStroke(1.dp, Lipi.Error) else null
+                ) {
+                    Text(
+                        text = "⚠️ Strength assumed: ${item.assumedStrength.ifBlank { "Uncertain" }}, confirm before dispensing",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isPediatric) Lipi.Error else Lipi.OnAmber
                     )
                 }
             }
@@ -228,7 +270,7 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                 }
             }
 
-            // Substitute brands
+            // Alternatives (similar brands)
             if (item.similarBrands.isNotEmpty()) {
                 Column(
                     modifier = Modifier
@@ -242,7 +284,7 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Lipi.Muted)
-                        Text("Similar Brands", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Muted)
+                        Text("Alternatives", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Muted)
                     }
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
