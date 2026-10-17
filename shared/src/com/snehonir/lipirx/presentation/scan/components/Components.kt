@@ -145,6 +145,36 @@ val GalleryVectorIcon = ImageVector.Builder(
     }
 }.build()
 
+val CopyVectorIcon = ImageVector.Builder(
+    name = "CopyOutline",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Lipi.Ink),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(16f, 1f)
+        lineTo(4f, 1f)
+        arcTo(2f, 2f, 0f, false, false, 2f, 3f)
+        lineTo(2f, 15f)
+        moveTo(8f, 5f)
+        lineTo(20f, 5f)
+        arcTo(2f, 2f, 0f, false, true, 22f, 7f)
+        lineTo(22f, 21f)
+        arcTo(2f, 2f, 0f, false, true, 20f, 23f)
+        lineTo(8f, 23f)
+        arcTo(2f, 2f, 0f, false, true, 6f, 21f)
+        lineTo(6f, 7f)
+        arcTo(2f, 2f, 0f, false, true, 8f, 5f)
+        close()
+    }
+}.build()
+
 @Composable
 fun AppHeader(
     modifier: Modifier = Modifier,
