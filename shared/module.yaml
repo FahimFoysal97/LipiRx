@@ -6,6 +6,7 @@ dependencies:
   - $compose.runtime
   - $compose.foundation
   - $compose.material3
+  - org.jetbrains.compose.material:material-icons-core:1.7.3
   - $compose.ui
   - $compose.components.resources
   - $compose.preview
