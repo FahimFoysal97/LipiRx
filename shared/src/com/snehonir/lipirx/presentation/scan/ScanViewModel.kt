@@ -159,8 +159,8 @@ class ScanViewModel(
                         )
                     }
 
-                    // Brief 600ms delay so user sees full completion on screen
-                    delay(600L.milliseconds)
+                    // Brief delay so user sees full completion on screen
+                    delay(1000L.milliseconds)
 
                     val immutableList = items.toImmutableList()
                     Napier.d("[$flow -> Success] Received ${items.size} medicine items from GeminiService", tag = TAG)

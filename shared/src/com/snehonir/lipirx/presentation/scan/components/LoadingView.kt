@@ -113,7 +113,7 @@ fun LoadingView(
             Text("Analyzing Prescription", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = if (statusText.isNotBlank()) statusText else "using ${selectedModel.ifBlank { "Gemini AI" }}...",
+                text = statusText.ifBlank { "using ${selectedModel.ifBlank { "Gemini AI" }}..." },
                 fontSize = 14.sp,
                 color = Lipi.Muted,
                 textAlign = TextAlign.Center,
