@@ -73,7 +73,7 @@ fun LoadingView(
                 .background(Color.White),
             contentAlignment = Alignment.Center,
         ) {
-            if (imageByteArray != null && imageByteArray.isNotEmpty()) {
+            /*if (imageByteArray != null && imageByteArray.isNotEmpty()) {
                 AsyncImage(
                     model = imageByteArray,
                     contentDescription = null,
@@ -82,7 +82,8 @@ fun LoadingView(
                 )
             } else {
                 PaperIllustration(120.dp, 160.dp)
-            }
+            }*/
+            PaperIllustration(120.dp, 160.dp)
             Canvas(modifier = Modifier.matchParentSize()) {
                 val y = size.height * progress
                 val glow = 36.dp.toPx()

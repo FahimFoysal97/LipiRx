@@ -73,27 +73,30 @@ fun ImagePreviewAndProcessView(
             Text("Check the photo is sharp, then analyze.", fontSize = 14.sp, color = Lipi.Muted)
         }
 
-        // Image card
+        // Image card with rounded outer container and rounded inner image
         Box(
             modifier = Modifier
                 .padding(horizontal = 24.dp, vertical = 10.dp)
                 .weight(1f)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(26.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(Lipi.ImageWell)
                 .clickable(onClick = onZoom),
         ) {
             AsyncImage(
                 model = imageByteArray,
                 contentDescription = "Selected prescription",
-                modifier = Modifier.fillMaxSize().padding(14.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp)
+                    .clip(RoundedCornerShape(20.dp)),
                 contentScale = ContentScale.Fit,
             )
 
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 14.dp),
+                    .padding(bottom = 20.dp),
                 shape = CircleShape,
                 color = Lipi.Ink.copy(alpha = 0.88f),
             ) {

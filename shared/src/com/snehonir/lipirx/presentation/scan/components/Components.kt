@@ -43,7 +43,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,6 +57,93 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.ui.theme.Lipi
 import kotlinx.coroutines.launch
+
+val CameraVectorIcon = ImageVector.Builder(
+    name = "CameraOutline",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(23f, 19f)
+        arcTo(2f, 2f, 0f, false, true, 21f, 21f)
+        lineTo(3f, 21f)
+        arcTo(2f, 2f, 0f, false, true, 1f, 19f)
+        lineTo(1f, 8f)
+        arcTo(2f, 2f, 0f, false, true, 3f, 6f)
+        lineTo(7f, 6f)
+        lineTo(9f, 3f)
+        lineTo(15f, 3f)
+        lineTo(17f, 6f)
+        lineTo(21f, 6f)
+        arcTo(2f, 2f, 0f, false, true, 23f, 8f)
+        close()
+    }
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(12f, 17f)
+        arcTo(3.5f, 3.5f, 0f, true, false, 12f, 10f)
+        arcTo(3.5f, 3.5f, 0f, false, false, 12f, 17f)
+        close()
+    }
+}.build()
+
+val GalleryVectorIcon = ImageVector.Builder(
+    name = "GalleryOutline",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Lipi.Ink),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(19f, 3f)
+        lineTo(5f, 3f)
+        arcTo(2f, 2f, 0f, false, false, 3f, 5f)
+        lineTo(3f, 19f)
+        arcTo(2f, 2f, 0f, false, false, 5f, 21f)
+        lineTo(19f, 21f)
+        arcTo(2f, 2f, 0f, false, false, 21f, 19f)
+        lineTo(21f, 5f)
+        arcTo(2f, 2f, 0f, false, false, 19f, 3f)
+        close()
+    }
+    path(
+        stroke = SolidColor(Lipi.Ink),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(8.5f, 10f)
+        arcTo(1.5f, 1.5f, 0f, true, false, 8.5f, 7f)
+        arcTo(1.5f, 1.5f, 0f, false, false, 8.5f, 10f)
+        close()
+    }
+    path(
+        stroke = SolidColor(Lipi.Ink),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(21f, 15f)
+        lineTo(16f, 10f)
+        lineTo(5f, 21f)
+    }
+}.build()
 
 @Composable
 fun AppHeader(
@@ -407,11 +498,11 @@ fun PrimaryButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .height(58.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Lipi.Primary, contentColor = Color.White),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp, pressedElevation = 2.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 1.dp),
     ) {
         if (icon != null) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
@@ -419,7 +510,7 @@ fun PrimaryButton(
         }
         Text(
             text = text,
-            fontSize = 15.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -434,27 +525,27 @@ fun SecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    height: Dp = 50.dp,
+    height: Dp = 58.dp,
     contentColor: Color = Lipi.Ink,
-    fontSize: Int = 14,
+    fontSize: Int = 16,
 ) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.height(height),
         enabled = enabled,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         border = BorderStroke(1.dp, Lipi.Outline),
         colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = contentColor),
         contentPadding = PaddingValues(horizontal = 10.dp),
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(7.dp))
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
         }
         Text(
             text = text,
             fontSize = fontSize.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
             textAlign = TextAlign.Center
         )
@@ -466,26 +557,27 @@ fun SecondaryButton(
 fun PaperIllustration(
     width: Dp,
     height: Dp,
-    rotation: Float = 0f,
+    rotation: Float = -5f,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = modifier
             .size(width, height)
             .rotate(rotation)
-            .shadow(18.dp, shape, ambientColor = Lipi.Ink.copy(0.2f), spotColor = Lipi.Ink.copy(0.2f))
-            .background(Color(0xFFFFFEFA), shape)
-            .padding(width * 0.1f),
+            .shadow(20.dp, shape, ambientColor = Lipi.Ink.copy(0.15f), spotColor = Lipi.Ink.copy(0.2f))
+            .background(Color.White, shape)
+            .padding(horizontal = 22.dp, vertical = 20.dp),
     ) {
-        Text("Rx", color = Lipi.Primary, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
-        listOf(0.82f, 0.64f, 0.74f, 0.5f, 0.78f, 0.58f).forEach { w ->
-            Spacer(modifier = Modifier.height(14.dp))
+        Text("Rx", color = Lipi.Primary, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp)
+        Spacer(modifier = Modifier.height(6.dp))
+        listOf(0.85f, 0.65f, 0.76f, 0.52f, 0.8f, 0.58f).forEach { w ->
+            Spacer(modifier = Modifier.height(12.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth(w)
                     .height(6.dp)
-                    .background(Lipi.InkLine, RoundedCornerShape(3.dp))
+                    .background(Lipi.InkLine, CircleShape)
             )
         }
     }

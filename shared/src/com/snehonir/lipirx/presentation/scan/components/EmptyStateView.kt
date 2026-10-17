@@ -13,17 +13,16 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,32 +65,73 @@ fun EmptyStateView(
             modifier = Modifier
                 .padding(start = 24.dp, end = 24.dp, top = 16.dp)
                 .fillMaxWidth()
-                .height(320.dp)
-                .clip(RoundedCornerShape(30.dp))
+                .height(330.dp)
+                .clip(RoundedCornerShape(32.dp))
                 .background(Lipi.PrimaryContainer),
             contentAlignment = Alignment.Center,
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
-                val s = 34.dp.toPx()
-                val m = 22.dp.toPx()
-                val sw = 3.dp.toPx()
-                fun corner(x: Float, y: Float, dx: Float, dy: Float) {
-                    drawLine(Lipi.Primary, Offset(x, y), Offset(x + dx * s, y), sw, StrokeCap.Round)
-                    drawLine(Lipi.Primary, Offset(x, y), Offset(x, y + dy * s), sw, StrokeCap.Round)
-                }
-                corner(m, m, 1f, 1f)
-                corner(size.width - m, m, -1f, 1f)
-                corner(m, size.height - m, 1f, -1f)
-                corner(size.width - m, size.height - m, -1f, -1f)
+                val armLength = 36.dp.toPx()
+                val radius = 18.dp.toPx()
+                val margin = 24.dp.toPx()
+                val strokeWidth = 3.5.dp.toPx()
+
+                // Top-Left L-bracket
+                drawPath(
+                    path = Path().apply {
+                        moveTo(margin + armLength, margin)
+                        lineTo(margin + radius, margin)
+                        quadraticTo(margin, margin, margin, margin + radius)
+                        lineTo(margin, margin + armLength)
+                    },
+                    color = Lipi.Primary,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
+
+                // Top-Right L-bracket
+                drawPath(
+                    path = Path().apply {
+                        moveTo(size.width - margin - armLength, margin)
+                        lineTo(size.width - margin - radius, margin)
+                        quadraticTo(size.width - margin, margin, size.width - margin, margin + radius)
+                        lineTo(size.width - margin, margin + armLength)
+                    },
+                    color = Lipi.Primary,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
+
+                // Bottom-Left L-bracket
+                drawPath(
+                    path = Path().apply {
+                        moveTo(margin + armLength, size.height - margin)
+                        lineTo(margin + radius, size.height - margin)
+                        quadraticTo(margin, size.height - margin, margin, size.height - margin - radius)
+                        lineTo(margin, size.height - margin - armLength)
+                    },
+                    color = Lipi.Primary,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
+
+                // Bottom-Right L-bracket
+                drawPath(
+                    path = Path().apply {
+                        moveTo(size.width - margin - armLength, size.height - margin)
+                        lineTo(size.width - margin - radius, size.height - margin)
+                        quadraticTo(size.width - margin, size.height - margin, size.width - margin, size.height - margin - radius)
+                        lineTo(size.width - margin, size.height - margin - armLength)
+                    },
+                    color = Lipi.Primary,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
             }
-            PaperIllustration(186.dp, 240.dp, rotation = -4f)
+            PaperIllustration(190.dp, 250.dp, rotation = -5f)
         }
 
-        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 28.dp)) {
+        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 26.dp)) {
             Text(
-                text = "Read any prescription, instantly.",
+                text = "Read any prescription,\ninstantly.",
                 fontSize = 30.sp,
-                lineHeight = 34.sp,
+                lineHeight = 36.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Lipi.Ink,
             )
@@ -109,18 +149,18 @@ fun EmptyStateView(
         Column(
             modifier = Modifier
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 24.dp),
+                .padding(horizontal = 24.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (!isModelAvailable) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = Lipi.AmberContainer
                 ) {
                     Text(
                         text = "🔑 Please tap the model button on top right to enter your Gemini API Key and load models.",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Lipi.OnAmber
@@ -130,17 +170,17 @@ fun EmptyStateView(
 
             PrimaryButton(
                 text = "Take Prescription Photo",
-                icon = Icons.Default.Add,
+                icon = CameraVectorIcon,
                 onClick = onTakePhoto,
                 enabled = isModelAvailable
             )
             SecondaryButton(
                 text = "Choose from Gallery",
-                icon = Icons.Default.Search,
+                icon = GalleryVectorIcon,
                 onClick = onChooseGallery,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = isModelAvailable,
-                height = 56.dp,
+                height = 58.dp,
                 fontSize = 16,
             )
         }
