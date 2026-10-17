@@ -17,7 +17,6 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.KoinAppDeclaration
 import org.koin.dsl.module
 
@@ -56,7 +55,7 @@ val sharedModule = module {
         LipiRxLocalDatabase(driverFactory.createDriver())
     }
 
-    viewModelOf(::ScanViewModel)
+    single { ScanViewModel(get(), get()) }
 }
 
 fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {

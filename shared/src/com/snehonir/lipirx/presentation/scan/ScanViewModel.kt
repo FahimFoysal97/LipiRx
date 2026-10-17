@@ -184,10 +184,6 @@ class ScanViewModel(
                     }.onFailure { dbEx ->
                         Napier.w("[$flow -> Warning] Database save failed: ${dbEx.message}", throwable = dbEx, tag = TAG)
                     }
-
-                    _uiEvent.send(
-                        ScanUiEvent.ShowToast("Successfully extracted ${items.size} medicine items using $currentModel.")
-                    )
                 },
                 onFailure = { error ->
                     val errorMsg = error.message ?: "Failed to extract prescription data."

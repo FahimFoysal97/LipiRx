@@ -8,7 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.snehonir.lipirx.presentation.scan.ScanResultScreen
 import com.snehonir.lipirx.presentation.scan.ScanViewModel
-import org.koin.compose.viewmodel.koinViewModel
+import org.koin.compose.koinInject
 
 object NavigationRoutes {
     const val SCAN = "scan_screen"
@@ -24,7 +24,7 @@ fun App() {
             startDestination = NavigationRoutes.SCAN
         ) {
             composable(NavigationRoutes.SCAN) {
-                val viewModel: ScanViewModel = koinViewModel()
+                val viewModel: ScanViewModel = koinInject()
                 ScanResultScreen(viewModel = viewModel)
             }
         }
