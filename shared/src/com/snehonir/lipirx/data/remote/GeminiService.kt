@@ -84,7 +84,7 @@ class GeminiService(
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
 
         val requestJson = json.encodeToString(requestPayload)
-        onProgress(1, "Reading handwritten script")
+        onProgress(1, "Reading handwriting")
         Napier.d("[$flow] Serialized request JSON (${requestJson.length} bytes). Sending POST to $endpoint", tag = TAG)
 
         val responseText: String = httpClient.post(endpoint) {
@@ -92,7 +92,7 @@ class GeminiService(
             setBody(requestJson)
         }.body()
 
-        onProgress(2, "Matching brand names & composition")
+        onProgress(2, "Matching brand names")
         Napier.d("[$flow] Received raw response from Gemini REST API (${responseText.length} chars)", tag = TAG)
 
         val response = json.decodeFromString<GeminiResponse>(responseText)
@@ -111,7 +111,7 @@ class GeminiService(
             ?.text
             ?: throw IllegalStateException("No text response received from Gemini API.")
 
-        onProgress(3, "Finding top 5 substitute brands")
+        onProgress(3, "Finding similar brands")
         Napier.d("[$flow] Gemini model extracted raw JSON content: $rawContent", tag = TAG)
 
         val cleanedJson = cleanJsonResponse(rawContent)
@@ -128,12 +128,23 @@ class GeminiService(
 
             MedicineItem(
                 medicineName = dto.medicineName,
+                prescribedBrandFull = dto.prescribedBrandFull,
                 genericName = dto.genericName,
+                dosageForm = dto.dosageForm,
                 strengthValue = dto.strengthValue,
                 strengthUnit = dto.strengthUnit,
+                strengthNote = dto.strengthNote,
+                doseAmount = dto.doseAmount,
+                doseUnit = dto.doseUnit,
+                frequencyPerDay = dto.frequencyPerDay,
                 schedule = dto.schedule,
-                unitType = dto.unitType?.ifBlank { "pcs" } ?: "pcs",
+                instructions = dto.instructions,
+                duration = dto.duration,
                 units = qty,
+                unitType = dto.unitType?.ifBlank { "pcs" } ?: "pcs",
+                totalVolumeNeededMl = dto.totalVolumeNeededMl,
+                patientAgeGroup = dto.patientAgeGroup,
+                confidence = dto.confidence.ifBlank { "high" },
                 similarBrands = brandsList
             )
         }
@@ -161,21 +172,45 @@ class GeminiService(
         private const val DEFAULT_API_KEY = "AQ.Ab8RN6LYU1DTPVLgNK5-nEgpGNVhQscxmYmQyBnzR1e54-NsVw"
 
         private const val SYSTEM_PROMPT = """
-You are an expert Bangladeshi retail pharmacist specializing in reading handwritten doctor prescriptions and knowledge of pharmaceutical products in Bangladesh.
-Analyze the provided prescription image carefully and extract all prescribed medicines with maximum accuracy.
+You are an expert Bangladeshi retail pharmacist skilled at reading handwritten doctor prescriptions and familiar with pharmaceutical products sold in Bangladesh.
 
-For each medicine, extract:
-1. "medicine_name": Brand name only (e.g., "Sergel", "Napa", "Kiton", "Seclo", "Ace").
-2. "generic_name": Generic name and chemical composition (e.g., "Omeprazole", "Paracetamol", "Ketoconazole (2%)").
-3. "strength_value": Numeric strength, weight, or volume (e.g., "20", "500", "50", "100"). Leave "" if none.
-4. "strength_unit": Unit for strength/volume/weight (e.g., "mg", "ml", "g", "%"). Leave "" if none.
-5. "schedule": Dosage schedule in local Bangladeshi shorthand (e.g., "1 + 0 + 1 (ac)", "1 + 1 + 1 (pc)", "0 + 0 + 1", "2 times daily", "Use during bath"). Use 'ac' for before meals and 'pc' for after meals.
-6. "unit_type": Prescribed unit classification (e.g., "pcs", "tablets", "capsules", "tube", "bottle", "soap", "sachet", "vial"). Default to "pcs".
-7. "units": Total calculated integer count of prescribed units (e.g., 30, 1, 20, 60). Default to 1 if count is 1 or unstated.
-8. "similar_brands": A JSON array of EXACTLY 5 top-selling, widely available alternative Bangladeshi pharmaceuticals for that exact generic composition & strength, including brand name and manufacturer in parentheses (e.g., ["Seclo (Square)", "Finix (Opsonin)", "Xeldrin (Incepta)", "Ometid (Renata)", "Proceptin (Beximco)"]).
+TASK
+Extract every prescribed medicine from the prescription image. Transcribe only what is written. Never invent, add, or substitute medicines. Ignore patient name, doctor details, and diagnosis. Do not give medical advice.
 
-Output MUST be a raw JSON array of objects with keys: "medicine_name", "generic_name", "strength_value", "strength_unit", "schedule", "unit_type", "units", "similar_brands".
-Do NOT wrap in markdown or add extra text.
+If a name is hard to read, give your best reading and set "confidence" to "low". If it cannot be read at all, set "medicine_name" to "UNREADABLE". Do not guess strengths, doses, or durations that are not written.
+
+FIELDS (return all keys for every medicine)
+- "medicine_name": string. Brand name exactly as written (e.g., "Sergel", "Fimoxyl"). Use "" if only a generic name is written.
+- "prescribed_brand_full": string. The prescribed product in the same format as similar_brands: "Brand (Manufacturer) - strength". Use the brand name exactly as written on the prescription, the manufacturer of that brand in Bangladesh, and strength = the written strength, or assumed_strength if none is written. If you are not sure of the manufacturer, write the brand name and strength only. If only a generic name is written, use "" here.
+- "generic_name": string. Generic name(s). For combinations, join with " + " (e.g., "Amoxicillin + Clavulanic Acid").
+- "dosage_form": string. One of: "tablet", "capsule", "syrup", "suspension", "drops", "cream", "ointment", "gel", "lotion", "soap", "injection", "sachet", "inhaler", "other".
+- "strength_value": string. Strength ONLY if explicitly written on the prescription (e.g., "20", "500/125", "125/5"). Use "" if not written.
+- "strength_unit": string. Unit of the strength (e.g., "mg", "mg/5ml", "mg/ml", "%"). Use "" if not written.
+- "strength_note": string. Write "not stated" when strength is not written. Otherwise "".
+- "dose_amount": string. Amount per single intake as written (e.g., "1", "2.5", "0.5"). Use "" if not stated.
+- "dose_unit": string. One of: "tablet", "capsule", "ml", "drop", "tsp", "puff", "sachet", "application", "". 
+- "frequency_per_day": integer or null. Times per day (e.g., 3). null if "as needed" or not stated.
+- "schedule": string. Human-readable schedule. For tablets/capsules use Bangladeshi shorthand like "1 + 0 + 1 (ac)" or "0 + 0 + 1 (pc)" (ac = before meal, pc = after meal). For liquids/drops use the written style, e.g., "1 ml × 3 times daily".
+- "instructions": string. Any extra written directions (e.g., "if needed", "use during bath", "apply on affected area", "shake well"). Use "" if none.
+- "duration": string. As written (e.g., "5 days", "1 month", "continue"). Use "" if not stated.
+- "units": integer or null. Total pieces to dispense.
+  - Tablets/capsules/sachets: doses per day × number of days (e.g., 1 + 0 + 1 for 15 days = 30). 
+  - Syrup, suspension, drops, cream, ointment, soap, tube, bottle, vial: the count written, otherwise 1.
+  - null if a tablet/capsule count cannot be calculated because duration or frequency is missing.
+- "unit_type": string. One of: "pcs", "tablets", "capsules", "tube", "bottle", "sachet", "vial", "soap".
+- "total_volume_needed_ml": number or null. Only for liquids dosed in ml: dose_amount × frequency_per_day × days. null if not a liquid, or if duration is not stated. Do not use for drops dosed in "drop" units.
+- "patient_age_group": string. "infant", "child", "adult", or "" based only on what is written on the prescription (age, weight, or "baby/pediatric" notes).
+- "confidence": "high", "medium", or "low".
+- "similar_brands": array of 3 to 5 strings formatted "Brand (Manufacturer) - strength". Brands sold in Bangladesh with the same generic name and dosage form as the item, matching assumed_strength where possible. Always give your best suggestions when the generic is recognized; do not return an empty array just because the strength was not written or because the product is pediatric. If you can only recall 2 or 3, return those. Return [] only if the generic name is not recognized. Never invent a manufacturer; if unsure of the manufacturer, write the brand name alone.
+
+DOSING RULES
+- 1 ml, 5 ml, 2.5 ml, etc. written next to a syrup, drops, or suspension is the DOSE per intake, not the strength. Put it in "dose_amount" and "dose_unit", never in the strength fields.
+- Example: "Fimoxyl - 1ml 3 times a day" means dose_amount "1", dose_unit "ml", frequency_per_day 3, schedule "1 ml × 3 times daily". Strength is not written, so strength_value "" and strength_note "not stated".
+- If dose is written in "drops", keep dose_unit as "drop"; do not convert to ml.
+- Do not guess the strength of pediatric products. Brand strengths vary and a wrong guess can cause dosing errors.
+
+OUTPUT
+Return a raw JSON array of objects only. No markdown fences, no comments, no extra text. If the image is not a prescription or contains no medicines, return [].
 """
     }
 }
@@ -259,14 +294,25 @@ internal data class ResponsePart(
 @Serializable
 internal data class GeminiMedicineDto(
     @SerialName("medicine_name") val medicineName: String = "",
+    @SerialName("prescribed_brand_full") val prescribedBrandFull: String = "",
     @SerialName("generic_name") val genericName: String = "",
+    @SerialName("dosage_form") val dosageForm: String = "",
     @SerialName("strength_value") val strengthValue: String = "",
     @SerialName("strength_unit") val strengthUnit: String = "",
+    @SerialName("strength_note") val strengthNote: String = "",
+    @SerialName("dose_amount") val doseAmount: String = "",
+    @SerialName("dose_unit") val doseUnit: String = "",
+    @SerialName("frequency_per_day") val frequencyPerDay: Int? = null,
     @SerialName("schedule") val schedule: String = "",
-    @SerialName("unit_type") val unitType: String? = null,
+    @SerialName("instructions") val instructions: String = "",
+    @SerialName("duration") val duration: String = "",
     @SerialName("units") val units: Int? = null,
     @SerialName("total_quantity") val totalQuantity: Int? = null,
     @SerialName("total_tablets") val totalTablets: Int? = null,
+    @SerialName("unit_type") val unitType: String? = null,
+    @SerialName("total_volume_needed_ml") val totalVolumeNeededMl: Double? = null,
+    @SerialName("patient_age_group") val patientAgeGroup: String = "",
+    @SerialName("confidence") val confidence: String = "high",
     @SerialName("similar_brands") val similarBrands: List<String> = emptyList(),
     @SerialName("similar_brand") val similarBrand: String = ""
 )

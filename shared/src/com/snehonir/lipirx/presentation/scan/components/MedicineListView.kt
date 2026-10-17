@@ -173,7 +173,7 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                 ) {
                     Text("$index", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
                 }
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(item.formattedFullName, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
                     if (item.genericName.isNotBlank()) {
                         Text("Generic: ${item.genericName}", fontSize = 13.sp, color = Lipi.Muted)
@@ -181,7 +181,23 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                 }
             }
 
-            // Schedule + quantity badges
+            // Low Confidence Warning Badge
+            if (item.confidence.equals("low", ignoreCase = true)) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Lipi.AmberContainer
+                ) {
+                    Text(
+                        text = "⚠️ Low Confidence: Verify handwritten spelling",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.OnAmber
+                    )
+                }
+            }
+
+            // Schedule + quantity + form + duration badges
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -190,6 +206,26 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                     Badge("Schedule: ${item.schedule}", Lipi.AmberContainer, Lipi.OnAmber)
                 }
                 Badge("Qty: ${item.formattedQuantity}", Lipi.PrimaryContainer, Lipi.OnPrimaryContainer)
+
+                if (item.dosageForm.isNotBlank()) {
+                    Badge("Form: ${item.dosageForm}", Lipi.Background, Lipi.Ink)
+                }
+
+                if (item.duration.isNotBlank()) {
+                    Badge("Duration: ${item.duration}", Lipi.Background, Lipi.Ink)
+                }
+
+                if (item.instructions.isNotBlank()) {
+                    Badge("Instructions: ${item.instructions}", Lipi.PrimaryContainer, Lipi.Primary)
+                }
+
+                if (item.totalVolumeNeededMl != null && item.totalVolumeNeededMl > 0) {
+                    Badge("Total Vol: ${item.totalVolumeNeededMl.toInt()} ml", Lipi.AmberContainer, Lipi.OnAmber)
+                }
+
+                if (item.patientAgeGroup.isNotBlank()) {
+                    Badge("Age: ${item.patientAgeGroup}", Lipi.Background, Lipi.Muted)
+                }
             }
 
             // Substitute brands
