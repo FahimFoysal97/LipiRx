@@ -88,8 +88,6 @@ class ScanViewModel(
                                 selectedModel = chosenModel
                             )
                         }
-
-                        _uiEvent.send(ScanUiEvent.ShowToast("API Key verified and saved! Loaded ${names.size} models."))
                     } else {
                         _uiState.update {
                             it.copy(
@@ -105,10 +103,9 @@ class ScanViewModel(
                     _uiState.update {
                         it.copy(
                             isTestingApiKey = false,
-                            apiKeyError = "Invalid API Key: $errorMsg"
+                            apiKeyError = errorMsg
                         )
                     }
-                    _uiEvent.send(ScanUiEvent.ShowToast("Invalid API key. Please check and try again."))
                 }
             )
         }
@@ -311,7 +308,6 @@ class ScanViewModel(
                             errorMessage = errorMsg
                         )
                     }
-                    _uiEvent.send(ScanUiEvent.ShowToast("Error: $errorMsg"))
                 }
             )
         }

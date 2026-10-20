@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,6 +49,7 @@ fun ImagePreviewAndProcessView(
     availableModels: List<String>,
     apiKey: String = "",
     apiKeyError: String? = null,
+    errorMessage: String? = null,
     isTestingApiKey: Boolean = false,
     onSaveApiKey: (String) -> Unit = {},
     onModelSelected: (String) -> Unit,
@@ -71,6 +73,35 @@ fun ImagePreviewAndProcessView(
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
             Text("Prescription ready", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
             Text("Check the photo is sharp, then analyze.", fontSize = 14.sp, color = Lipi.Muted)
+        }
+
+        if (!errorMessage.isNullOrBlank()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = Lipi.AmberContainer
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Lipi.OnAmber
+                    )
+                    Text(
+                        text = errorMessage,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.OnAmber
+                    )
+                }
+            }
         }
 
         // Image card with rounded outer container and rounded inner image

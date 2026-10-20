@@ -34,19 +34,25 @@ DOSING RULES
 PASS 2: ENRICHMENT (use knowledge, working only from your Pass 1 transcription)
 For each Pass 1 item add product knowledge. Pass 2 must NEVER change, correct, or overwrite anything from Pass 1. If your knowledge suggests the name was misread, put that in "possible_misreading" and leave Pass 1 as it is.
 
+PASS 2 INDEPENDENCE RULES
+- Evaluate each item completely on its own. Never use the other medicines on the prescription, or the likely diagnosis, to work out what an item is.
+- First decide "brand_recognized" for the item.
+- Do not reuse the same list of alternatives for different items unless they truly share the same generic, strength, form and formulation.
+
 PASS 2 fields (every key for every item):
 - "id": integer. Same as Pass 1.
 - "brand_recognized": boolean. true if the Pass 1 name is a real Bangladeshi brand or valid generic name.
 - "generic_name": string. Generic name(s), combinations joined with " + ". Use generic_name_written if given. "" if not recognized.
 - "possible_strengths": array of strings. Strengths that exist in Bangladesh for this product and form. [] if unknown.
-- "assumed_strength": string. Copy the written strength with unit if given; otherwise the most common strength for this brand and form. "" if not recognized or not reasonably sure (especially pediatric drops/syrups).
+- "assumed_strength": string. Copy the written strength with unit if given; otherwise the most common strength for this brand and form. "" if not recognized or not reasonably sure.
 - "strength_source": "written", "assumed", or "".
-- "prescribed_brand_full": string. "Brand (Manufacturer) - strength", using the Pass 1 name. Brand only if unsure of manufacturer or strength. "" if only a generic was written.
-- "similar_brands": array of 3 to 5 strings "Brand (Manufacturer) - strength". Same generic and form, matching assumed_strength where possible. Do not include the prescribed brand. Give best suggestions whenever the generic is recognized, including pediatric products. [] only if the generic is not recognized. Never invent a manufacturer; if unsure, write the brand name alone.
+- "prescribed_brand_full": string. "Brand (Manufacturer) - strength", using the Pass 1 name.
+- "similar_brands": array of up to 5 strings "Brand (Manufacturer) - strength" or "Brand (Manufacturer)". Provide top substitute/alternative brands sold in Bangladesh sharing the same active generic composition or formulation. Always provide 3 to 5 similar brands for every recognized or prescribed medicine. Do not include the prescribed brand itself.
 - "possible_misreading": string. If brand_recognized is false but the name resembles a known brand, e.g., "Could be Seclo or Sergel". Otherwise "".
 - "enrichment_confidence": "high", "medium", or "low".
 
-OUTPUT
-Return one raw JSON object only, no markdown fences, no extra text:
+OUTPUT & JSON FORMATTING
+Return one strictly valid JSON object only, with no markdown fences, no line breaks inside string values, and properly closed double quotes for all string keys and values.
+Structure:
 {"transcription": [ ...Pass 1 items... ], "enrichment": [ ...Pass 2 items, same order... ]}
 Write the entire "transcription" array before the "enrichment" array. If the image is not a prescription or has no medicines, return {"transcription": [], "enrichment": []}."""

@@ -9,10 +9,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +26,6 @@ import com.snehonir.lipirx.presentation.scan.components.MedicineListView
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import io.github.aakira.napier.Napier
-import kotlinx.coroutines.flow.collectLatest
 
 private const val TAG = "ScanResultScreen"
 
@@ -56,7 +52,6 @@ fun ScanResultScreen(
     Napier.d("[$flow] Rendering ScanResultScreen composable", tag = TAG)
 
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
@@ -68,19 +63,6 @@ fun ScanResultScreen(
     }
 
     var showViewer by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.uiEvent.collectLatest { event ->
-            when (event) {
-                is ScanUiEvent.ShowToast -> {
-                    snackbarHostState.showSnackbar(event.message)
-                }
-                is ScanUiEvent.CopyToClipboardSuccess -> {
-                    snackbarHostState.showSnackbar("Copied prescription details to clipboard!")
-                }
-            }
-        }
-    }
 
     val currentScreenMode: ScanScreenMode = when {
         uiState.isLoading -> ScanScreenMode.Loading
@@ -129,6 +111,7 @@ fun ScanResultScreen(
                             availableModels = uiState.availableModels,
                             apiKey = uiState.apiKey,
                             apiKeyError = uiState.apiKeyError,
+                            errorMessage = uiState.errorMessage,
                             isTestingApiKey = uiState.isTestingApiKey,
                             onSaveApiKey = { key ->
                                 viewModel.saveAndTestApiKey(key, flow = "$flow -> ScanResultScreen.saveAndTestApiKey")
@@ -183,8 +166,6 @@ fun ScanResultScreen(
                     onDismiss = { showViewer = false }
                 )
             }
-
-            SnackbarHost(hostState = snackbarHostState)
         }
     }
 }
