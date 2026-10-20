@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.data.local.ProviderConfigEntity
-import com.snehonir.lipirx.data.remote.GeminiService
+import com.snehonir.lipirx.data.remote.CompositeAiService
 import com.snehonir.lipirx.domain.model.AiProvider
 import io.github.aakira.napier.Napier
 import kotlinx.collections.immutable.persistentListOf
@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 class ScanViewModel(
-    private val geminiService: GeminiService,
+    private val aiService: CompositeAiService,
     private val database: LipiRxLocalDatabase
 ) : ViewModel() {
 
@@ -106,11 +106,11 @@ class ScanViewModel(
         Napier.d("[$flow] Testing Provider Config: provider=${providerObj.id}, url=$cleanUrl, model=$cleanModelInput", tag = TAG)
         viewModelScope.launch {
             _uiState.update { it.copy(isTestingApiKey = true, apiKeyError = null) }
-            val result = geminiService.fetchAvailableModels(
+            val result = aiService.fetchAvailableModels(
                 providedApiKey = cleanKey,
                 provider = providerObj,
                 customUrl = cleanUrl,
-                flow = "$flow -> GeminiService.fetchAvailableModels"
+                flow = "$flow -> CompositeAiService.fetchAvailableModels"
             )
 
             result.fold(
@@ -204,8 +204,8 @@ class ScanViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isFetchingModels = true) }
-            val serviceFlow = "$flow -> GeminiService.fetchAvailableModels"
-            val result = geminiService.fetchAvailableModels(
+            val serviceFlow = "$flow -> CompositeAiService.fetchAvailableModels"
+            val result = aiService.fetchAvailableModels(
                 providedApiKey = currentApiKey,
                 provider = currentProvider,
                 customUrl = currentCustomUrl,
@@ -321,9 +321,9 @@ class ScanViewModel(
         Napier.d("[$flow] ScanUiState updated: isLoading=true, provider=${currentProvider.id}, selectedModel=$currentModel", tag = TAG)
 
         viewModelScope.launch {
-            val serviceFlow = "$flow -> GeminiService.processPrescriptionImage"
-            Napier.d("[$flow] Delegating to GeminiService with provider '${currentProvider.id}' & model '$currentModel'...", tag = TAG)
-            val result = geminiService.processPrescriptionImage(
+            val serviceFlow = "$flow -> CompositeAiService.processPrescriptionImage"
+            Napier.d("[$flow] Delegating to CompositeAiService with provider '${currentProvider.id}' & model '$currentModel'...", tag = TAG)
+            val result = aiService.processPrescriptionImage(
                 imageByteArray = imageByteArray,
                 selectedModel = currentModel,
                 providedApiKey = currentApiKey,
@@ -355,7 +355,7 @@ class ScanViewModel(
                     delay(1000L.milliseconds)
 
                     val immutableList = items.toImmutableList()
-                    Napier.d("[$flow -> Success] Received ${items.size} medicine items from GeminiService", tag = TAG)
+                    Napier.d("[$flow -> Success] Received ${items.size} medicine items from CompositeAiService", tag = TAG)
 
                     _uiState.update {
                         it.copy(
