@@ -3,6 +3,8 @@ package com.snehonir.lipirx.data.local
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlSchema
+import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.model.AppConfigKey
 import io.github.aakira.napier.Napier
 
 val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
@@ -124,15 +126,16 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: last_selected_model='$modelName'", tag = TAG)
         driver.execute(
             identifier = null,
-            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('last_selected_model', ?)",
-            parameters = 1
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
         ) {
-            bindString(0, modelName)
+            bindString(0, AppConfigKey.LAST_SELECTED_MODEL.key)
+            bindString(1, modelName)
         }
     }
 
     fun getLastSelectedModel(flow: String = "App -> LipiRxLocalDatabase.getLastSelectedModel"): String {
-        return getConfigValue("last_selected_model")
+        return getConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key)
     }
 
     fun saveApiKey(apiKey: String, flow: String = "App -> LipiRxLocalDatabase.saveApiKey") {
@@ -140,15 +143,16 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: gemini_api_key (length=${cleanKey.length})", tag = TAG)
         driver.execute(
             identifier = null,
-            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('gemini_api_key', ?)",
-            parameters = 1
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
         ) {
-            bindString(0, cleanKey)
+            bindString(0, AppConfigKey.GEMINI_API_KEY.key)
+            bindString(1, cleanKey)
         }
     }
 
     fun getApiKey(flow: String = "App -> LipiRxLocalDatabase.getApiKey"): String {
-        return getConfigValue("gemini_api_key")
+        return getConfigValue(AppConfigKey.GEMINI_API_KEY.key)
     }
 
     fun saveProviderConfig(
@@ -159,26 +163,28 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         flow: String = "App -> LipiRxLocalDatabase.saveProviderConfig"
     ) {
         val cleanKey = apiKey.trim()
-        val providerKeyName = when (providerType) {
-            "groq" -> "groq_api_key"
-            "openai" -> "openai_api_key"
-            "custom" -> "custom_api_key"
-            else -> "gemini_api_key"
+        val providerObj = AiProvider.fromId(providerType)
+        val providerKey = AppConfigKey.keyForProvider(providerObj)
+
+        Napier.d("[$flow] Saving provider config: provider=${providerObj.id}, keyName=${providerKey.key}, customUrl=$customUrl, model=$modelName", tag = TAG)
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.PROVIDER_TYPE.key)
+            bindString(1, providerObj.id)
         }
 
-        Napier.d("[$flow] Saving provider config: type=$providerType, keyName=$providerKeyName, customUrl=$customUrl, model=$modelName", tag = TAG)
-
         driver.execute(
             identifier = null,
-            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('provider_type', ?)",
-            parameters = 1
-        ) { bindString(0, providerType.trim()) }
-
-        driver.execute(
-            identifier = null,
-            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('custom_url', ?)",
-            parameters = 1
-        ) { bindString(0, customUrl.trim()) }
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.CUSTOM_URL.key)
+            bindString(1, customUrl.trim())
+        }
 
         // Save under provider-specific key name
         driver.execute(
@@ -186,34 +192,33 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
             sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
             parameters = 2
         ) {
-            bindString(0, providerKeyName)
+            bindString(0, providerKey.key)
             bindString(1, cleanKey)
         }
 
         if (modelName.isNotBlank()) {
             driver.execute(
                 identifier = null,
-                sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('last_selected_model', ?)",
-                parameters = 1
-            ) { bindString(0, modelName.trim()) }
+                sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                parameters = 2
+            ) {
+                bindString(0, AppConfigKey.LAST_SELECTED_MODEL.key)
+                bindString(1, modelName.trim())
+            }
         }
     }
 
     fun getApiKeyForProvider(providerType: String): String {
-        val keyName = when (providerType) {
-            "groq" -> "groq_api_key"
-            "openai" -> "openai_api_key"
-            "custom" -> "custom_api_key"
-            else -> "gemini_api_key"
-        }
-        return getConfigValue(keyName)
+        val providerObj = AiProvider.fromId(providerType)
+        val key = AppConfigKey.keyForProvider(providerObj)
+        return getConfigValue(key.key)
     }
 
     fun getProviderConfig(flow: String = "App -> LipiRxLocalDatabase.getProviderConfig"): ProviderConfigEntity {
-        val providerType = getConfigValue("provider_type").ifBlank { "gemini" }
-        val customUrl = getConfigValue("custom_url")
+        val providerType = getConfigValue(AppConfigKey.PROVIDER_TYPE.key).ifBlank { AiProvider.Gemini.id }
+        val customUrl = getConfigValue(AppConfigKey.CUSTOM_URL.key)
         val apiKey = getApiKeyForProvider(providerType)
-        val modelName = getConfigValue("last_selected_model")
+        val modelName = getConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key)
 
         val config = ProviderConfigEntity(
             providerType = providerType,

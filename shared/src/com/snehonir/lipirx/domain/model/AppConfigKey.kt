@@ -1,0 +1,20 @@
+package com.snehonir.lipirx.domain.model
+
+enum class AppConfigKey(val key: String) {
+    PROVIDER_TYPE("provider_type"),
+    CUSTOM_URL("custom_url"),
+    LAST_SELECTED_MODEL("last_selected_model"),
+    GEMINI_API_KEY("gemini_api_key"),
+    GROQ_API_KEY("groq_api_key"),
+    OPENAI_API_KEY("openai_api_key"),
+    CUSTOM_API_KEY("custom_api_key");
+
+    companion object {
+        fun keyForProvider(provider: AiProvider): AppConfigKey = when (provider) {
+            AiProvider.Groq -> GROQ_API_KEY
+            AiProvider.OpenAi -> OPENAI_API_KEY
+            AiProvider.Custom -> CUSTOM_API_KEY
+            AiProvider.Gemini -> GEMINI_API_KEY
+        }
+    }
+}

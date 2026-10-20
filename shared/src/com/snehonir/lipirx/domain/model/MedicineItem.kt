@@ -33,6 +33,15 @@ data class MedicineItem(
     val enrichmentConfidence: String = "low",     // From enrichment enrichment_confidence ("high", "medium", "low")
     val needsReview: Boolean = false             // Computed review flag
 ) {
+    // Type-safe enum getters
+    val dosageFormEnum: DosageForm get() = DosageForm.fromValue(dosageForm)
+    val doseUnitEnum: DoseUnit get() = DoseUnit.fromValue(doseUnit)
+    val unitTypeEnum: UnitType get() = UnitType.fromValue(unitType)
+    val confidenceEnum: ConfidenceLevel get() = ConfidenceLevel.fromValue(confidence)
+    val patientAgeGroupEnum: PatientAgeGroup get() = PatientAgeGroup.fromValue(patientAgeGroup)
+    val strengthSourceEnum: StrengthSource get() = StrengthSource.fromValue(strengthSource)
+    val enrichmentConfidenceEnum: ConfidenceLevel get() = ConfidenceLevel.fromValue(enrichmentConfidence)
+
     // Backwards compatibility getters
     val totalTablets: Int get() = units
     val similarBrand: String get() = formattedSimilarBrands
