@@ -12,9 +12,8 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.json.Json
+import kotlin.io.encoding.Base64
 
 abstract class OpenAiCompatibleAiService(
     private val httpClient: HttpClient,
@@ -65,20 +64,14 @@ abstract class OpenAiCompatibleAiService(
             // Server-driven modalities & capability check:
             val visionModels = allModels.filter { dto ->
                 val modalities = dto.inputModalities
-                if (modalities != null) {
-                    modalities.contains("image")
-                } else {
-                    isVisionCapableModel(provider, dto.id)
-                }
+                modalities?.contains("image") ?: isVisionCapableModel(provider, dto.id)
             }.map { dto ->
                 ModelInfoDto(name = dto.id, displayName = dto.id)
             }
 
             Napier.d("[$flow] Filtered ${allModels.size} total models down to ${visionModels.size} Vision-capable models for ${provider.displayName}", tag = TAG)
 
-            val finalModels = if (visionModels.isNotEmpty()) {
-                visionModels
-            } else {
+            val finalModels = visionModels.ifEmpty {
                 allModels.map { ModelInfoDto(name = it.id, displayName = it.id) }
             }
 
@@ -90,7 +83,6 @@ abstract class OpenAiCompatibleAiService(
         }
     }
 
-    @OptIn(ExperimentalEncodingApi::class)
     override suspend fun processPrescriptionImage(
         imageByteArray: ByteArray,
         selectedModel: String,
@@ -302,16 +294,16 @@ abstract class OpenAiCompatibleAiService(
             cleanId.contains("aqa")
         )
 
-        if (isNonVisionUtility) return false
-
-        return when (provider) {
+        return !isNonVisionUtility && when (provider) {
             AiProvider.Gemini -> true
             AiProvider.Groq -> {
                 cleanId.contains("vision") || cleanId.contains("llama-3.2-90b") || cleanId.contains("llama-3.2-11b") || cleanId.contains("qwen")
             }
+
             AiProvider.OpenAi -> {
                 cleanId.startsWith("gpt-") || cleanId.startsWith("o1") || cleanId.startsWith("o3") || cleanId.startsWith("o4") || cleanId.startsWith("chatgpt-")
             }
+
             AiProvider.Custom -> true
         }
     }

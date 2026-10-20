@@ -10,9 +10,8 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.json.Json
+import kotlin.io.encoding.Base64
 
 class GeminiAiService(
     private val httpClient: HttpClient,
@@ -56,7 +55,6 @@ class GeminiAiService(
         }
     }
 
-    @OptIn(ExperimentalEncodingApi::class)
     override suspend fun processPrescriptionImage(
         imageByteArray: ByteArray,
         selectedModel: String,
