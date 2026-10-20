@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -226,6 +225,7 @@ fun ModelChip(
     onModelSelected: (String) -> Unit
 ) {
     var showSheet by remember { mutableStateOf(false) }
+    val currentProvider = AiProvider.fromId(providerType)
 
     Surface(
         modifier = Modifier
@@ -240,13 +240,14 @@ fun ModelChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .background(if (availableModels.isNotEmpty()) Lipi.Success else Lipi.Error, CircleShape)
+            Icon(
+                imageVector = currentProvider.icon,
+                contentDescription = null,
+                modifier = Modifier.size(15.dp),
+                tint = currentProvider.brandColor
             )
             Text(
-                text = if (selectedModel.isNotBlank()) selectedModel else "Set AI Provider",
+                text = selectedModel.ifBlank { currentProvider.displayName },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Lipi.Ink,
@@ -276,7 +277,7 @@ fun ModelChip(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelSelectionBottomSheet(
     selectedModel: String,
@@ -338,6 +339,7 @@ fun ModelSelectionBottomSheet(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            val activeProviderObj = AiProvider.fromId(providerType)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -349,11 +351,16 @@ fun ModelSelectionBottomSheet(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .background(Lipi.PrimaryContainer, RoundedCornerShape(10.dp)),
+                            .size(38.dp)
+                            .background(activeProviderObj.brandColor.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🤖", fontSize = 18.sp)
+                        Icon(
+                            imageVector = activeProviderObj.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = activeProviderObj.brandColor
+                        )
                     }
                     Column {
                         Text("AI Provider & Settings", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
@@ -373,16 +380,27 @@ fun ModelSelectionBottomSheet(
                     Surface(
                         onClick = { onProviderTabSelected(providerItem.id) },
                         shape = CircleShape,
-                        color = if (isSelected) Lipi.Primary else Lipi.Background,
-                        border = BorderStroke(1.dp, if (isSelected) Lipi.Primary else Lipi.Outline)
+                        color = if (isSelected) providerItem.brandColor else Lipi.Background,
+                        border = BorderStroke(1.dp, if (isSelected) providerItem.brandColor else Lipi.Outline)
                     ) {
-                        Text(
-                            text = providerItem.displayName,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.White else Lipi.Ink
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = providerItem.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = if (isSelected) Color.White else providerItem.brandColor
+                            )
+                            Text(
+                                text = providerItem.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) Color.White else Lipi.Ink
+                            )
+                        }
                     }
                 }
             }
@@ -473,7 +491,7 @@ fun ModelSelectionBottomSheet(
                         enabled = !isTestingApiKey,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Lipi.Primary,
+                            containerColor = activeProviderObj.brandColor,
                             contentColor = Color.White
                         )
                     ) {
@@ -516,10 +534,10 @@ fun ModelSelectionBottomSheet(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            color = if (isSelected) Lipi.PrimaryContainer else Lipi.Background,
+                            color = if (isSelected) activeProviderObj.brandColor.copy(alpha = 0.12f) else Lipi.Background,
                             border = BorderStroke(
                                 width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) Lipi.Primary else Lipi.Outline
+                                color = if (isSelected) activeProviderObj.brandColor else Lipi.Outline
                             )
                         ) {
                             Row(
@@ -536,20 +554,20 @@ fun ModelSelectionBottomSheet(
                                     Box(
                                         modifier = Modifier
                                             .size(8.dp)
-                                            .background(if (isSelected) Lipi.Success else Lipi.Muted, CircleShape)
+                                            .background(if (isSelected) activeProviderObj.brandColor else Lipi.Muted, CircleShape)
                                     )
                                     Text(
                                         text = model,
                                         fontSize = 14.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                        color = if (isSelected) Lipi.Primary else Lipi.Ink
+                                        color = if (isSelected) activeProviderObj.brandColor else Lipi.Ink
                                     )
                                 }
 
                                 if (isSelected) {
                                     Surface(
                                         shape = CircleShape,
-                                        color = Lipi.Primary
+                                        color = activeProviderObj.brandColor
                                     ) {
                                         Text(
                                             text = " ✓ ",

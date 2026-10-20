@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.ui.theme.Lipi
 
 @Composable
@@ -157,6 +158,7 @@ fun ImagePreviewAndProcessView(
         ) {
             ModelSelectorCard(
                 model = selectedModel,
+                providerType = providerType,
                 onClick = { showModelBottomSheet = true }
             )
 
@@ -199,8 +201,10 @@ fun ImagePreviewAndProcessView(
 @Composable
 private fun ModelSelectorCard(
     model: String,
+    providerType: String = "gemini",
     onClick: (() -> Unit)? = null
 ) {
+    val provider = AiProvider.fromId(providerType)
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier
@@ -216,13 +220,23 @@ private fun ModelSelectorCard(
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .background(Lipi.PrimaryContainer, RoundedCornerShape(10.dp)),
+                .background(provider.brandColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("🤖", fontSize = 16.sp)
+            Icon(
+                imageVector = provider.icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = provider.brandColor
+            )
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text("AI model", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Lipi.Muted)
+            Text(
+                text = "${provider.displayName} model",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Lipi.Muted
+            )
             Text(
                 text = model.ifBlank { "Set AI Provider" },
                 fontSize = 14.sp,
@@ -232,12 +246,12 @@ private fun ModelSelectorCard(
             )
         }
         if (onClick != null) {
-            Text("Change", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Primary)
+            Text("Change", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = provider.brandColor)
             Icon(
                 imageVector = Icons.Default.ArrowDropDown,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = Lipi.Primary
+                tint = provider.brandColor
             )
         }
     }
