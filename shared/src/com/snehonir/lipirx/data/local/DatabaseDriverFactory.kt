@@ -54,6 +54,13 @@ data class PrescriptionHistoryEntity(
     val medicineSummary: String
 )
 
+data class ProviderConfigEntity(
+    val providerType: String = "gemini", // "gemini", "groq", "openai", "custom"
+    val customUrl: String = "",
+    val apiKey: String = "",
+    val modelName: String = ""
+)
+
 class LipiRxLocalDatabase(private val driver: SqlDriver) {
 
     init {
@@ -125,19 +132,7 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
     }
 
     fun getLastSelectedModel(flow: String = "App -> LipiRxLocalDatabase.getLastSelectedModel"): String {
-        Napier.d("[$flow] Querying SELECT configValue FROM AppConfig WHERE configKey = 'last_selected_model'...", tag = TAG)
-        val queryResult = driver.executeQuery(
-            identifier = null,
-            sql = "SELECT configValue FROM AppConfig WHERE configKey = 'last_selected_model'",
-            mapper = { cursor ->
-                val value = if (cursor.next().value) cursor.getString(0) ?: "" else ""
-                QueryResult.Value(value)
-            },
-            parameters = 0
-        )
-        val model = queryResult.value
-        Napier.d("[$flow -> Result] Retrieved last selected model from SQLite: '$model'", tag = TAG)
-        return model
+        return getConfigValue("last_selected_model")
     }
 
     fun saveApiKey(apiKey: String, flow: String = "App -> LipiRxLocalDatabase.saveApiKey") {
@@ -153,19 +148,96 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
     }
 
     fun getApiKey(flow: String = "App -> LipiRxLocalDatabase.getApiKey"): String {
-        Napier.d("[$flow] Querying SELECT configValue FROM AppConfig WHERE configKey = 'gemini_api_key'...", tag = TAG)
+        return getConfigValue("gemini_api_key")
+    }
+
+    fun saveProviderConfig(
+        providerType: String,
+        customUrl: String,
+        apiKey: String,
+        modelName: String,
+        flow: String = "App -> LipiRxLocalDatabase.saveProviderConfig"
+    ) {
+        val cleanKey = apiKey.trim()
+        val providerKeyName = when (providerType) {
+            "groq" -> "groq_api_key"
+            "openai" -> "openai_api_key"
+            "custom" -> "custom_api_key"
+            else -> "gemini_api_key"
+        }
+
+        Napier.d("[$flow] Saving provider config: type=$providerType, keyName=$providerKeyName, customUrl=$customUrl, model=$modelName", tag = TAG)
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('provider_type', ?)",
+            parameters = 1
+        ) { bindString(0, providerType.trim()) }
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('custom_url', ?)",
+            parameters = 1
+        ) { bindString(0, customUrl.trim()) }
+
+        // Save under provider-specific key name
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, providerKeyName)
+            bindString(1, cleanKey)
+        }
+
+        if (modelName.isNotBlank()) {
+            driver.execute(
+                identifier = null,
+                sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES ('last_selected_model', ?)",
+                parameters = 1
+            ) { bindString(0, modelName.trim()) }
+        }
+    }
+
+    fun getApiKeyForProvider(providerType: String): String {
+        val keyName = when (providerType) {
+            "groq" -> "groq_api_key"
+            "openai" -> "openai_api_key"
+            "custom" -> "custom_api_key"
+            else -> "gemini_api_key"
+        }
+        return getConfigValue(keyName)
+    }
+
+    fun getProviderConfig(flow: String = "App -> LipiRxLocalDatabase.getProviderConfig"): ProviderConfigEntity {
+        val providerType = getConfigValue("provider_type").ifBlank { "gemini" }
+        val customUrl = getConfigValue("custom_url")
+        val apiKey = getApiKeyForProvider(providerType)
+        val modelName = getConfigValue("last_selected_model")
+
+        val config = ProviderConfigEntity(
+            providerType = providerType,
+            customUrl = customUrl,
+            apiKey = apiKey,
+            modelName = modelName
+        )
+        Napier.d("[$flow -> Result] Provider Config retrieved: $config", tag = TAG)
+        return config
+    }
+
+    private fun getConfigValue(key: String): String {
         val queryResult = driver.executeQuery(
             identifier = null,
-            sql = "SELECT configValue FROM AppConfig WHERE configKey = 'gemini_api_key'",
+            sql = "SELECT configValue FROM AppConfig WHERE configKey = ?",
             mapper = { cursor ->
                 val value = if (cursor.next().value) cursor.getString(0) ?: "" else ""
                 QueryResult.Value(value)
             },
-            parameters = 0
-        )
-        val key = queryResult.value
-        Napier.d("[$flow -> Result] Retrieved API key from SQLite (length=${key.length})", tag = TAG)
-        return key
+            parameters = 1
+        ) {
+            bindString(0, key)
+        }
+        return queryResult.value
     }
 
     companion object {

@@ -33,9 +33,16 @@ fun EmptyStateView(
     selectedModel: String,
     availableModels: List<String>,
     apiKey: String = "",
+    geminiApiKey: String = "",
+    groqApiKey: String = "",
+    openaiApiKey: String = "",
+    customApiKey: String = "",
+    providerType: String = "gemini",
+    customUrl: String = "",
     apiKeyError: String? = null,
     isTestingApiKey: Boolean = false,
-    onSaveApiKey: (String) -> Unit = {},
+    onProviderTabSelected: (String) -> Unit = {},
+    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onModelSelected: (String) -> Unit,
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
@@ -53,9 +60,16 @@ fun EmptyStateView(
                 selectedModel = selectedModel,
                 availableModels = availableModels,
                 apiKey = apiKey,
+                geminiApiKey = geminiApiKey,
+                groqApiKey = groqApiKey,
+                openaiApiKey = openaiApiKey,
+                customApiKey = customApiKey,
+                providerType = providerType,
+                customUrl = customUrl,
                 apiKeyError = apiKeyError,
                 isTestingApiKey = isTestingApiKey,
-                onSaveApiKey = onSaveApiKey,
+                onProviderTabSelected = onProviderTabSelected,
+                onSaveProviderConfig = onSaveProviderConfig,
                 onModelSelected = onModelSelected
             )
         }
@@ -159,7 +173,7 @@ fun EmptyStateView(
                     color = Lipi.AmberContainer
                 ) {
                     Text(
-                        text = "🔑 Please tap the model button on top right to enter your Gemini API Key and load models.",
+                        text = "🔑 Please tap the model button on top right to configure your AI Provider.",
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,

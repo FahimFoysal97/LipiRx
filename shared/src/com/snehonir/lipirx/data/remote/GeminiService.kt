@@ -1,18 +1,22 @@
 package com.snehonir.lipirx.data.remote
 
+import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlin.io.encoding.Base64
 
 class GeminiService(
     private val httpClient: HttpClient,
@@ -22,31 +26,73 @@ class GeminiService(
         ignoreUnknownKeys = true
         isLenient = true
         explicitNulls = false
+        encodeDefaults = true
     }
 
     suspend fun fetchAvailableModels(
         providedApiKey: String = "",
+        provider: AiProvider = AiProvider.Gemini,
+        customUrl: String = "",
         flow: String = "App -> GeminiService.fetchAvailableModels"
     ): Result<List<ModelInfoDto>> {
         return try {
             val targetApiKey = providedApiKey.ifBlank { apiKey }.trim()
-            if (targetApiKey.isBlank()) {
-                throw IllegalStateException("Gemini API key is required. Please enter your API key in Model Settings.")
+            if (targetApiKey.isBlank() && provider.requiresApiKey) {
+                throw IllegalStateException("API key is required for ${provider.displayName}. Please enter a valid API key.")
             }
-            val endpoint = "https://generativelanguage.googleapis.com/v1beta/models?key=$targetApiKey"
 
-            Napier.d("[$flow] Fetching all available models from API: $endpoint", tag = TAG)
+            val modelsList = when (provider) {
+                AiProvider.Groq -> fetchOpenAiCompatibleModels(
+                    endpoint = provider.defaultEndpoint,
+                    apiKey = targetApiKey,
+                    provider = provider,
+                    flow = flow
+                )
+                AiProvider.OpenAi -> fetchOpenAiCompatibleModels(
+                    endpoint = provider.defaultEndpoint,
+                    apiKey = targetApiKey,
+                    provider = provider,
+                    flow = flow
+                )
+                AiProvider.Custom -> {
+                    val customModelsUrl = if (customUrl.contains("/chat/completions")) {
+                        customUrl.replace("/chat/completions", "/models")
+                    } else if (customUrl.endsWith("/")) {
+                        "${customUrl}models"
+                    } else {
+                        "$customUrl/models"
+                    }
+                    runCatching {
+                        fetchOpenAiCompatibleModels(
+                            endpoint = customModelsUrl,
+                            apiKey = targetApiKey,
+                            provider = provider,
+                            flow = flow
+                        )
+                    }.getOrElse {
+                        val fallbackName = customUrl.substringAfterLast("/").ifBlank { provider.defaultModel }
+                        listOf(ModelInfoDto(name = fallbackName, displayName = fallbackName))
+                    }
+                }
+                AiProvider.Gemini -> {
+                    val endpoint = "${provider.defaultEndpoint}?key=$targetApiKey"
+                    Napier.d("[$flow] Dynamically fetching online models from Gemini server: $endpoint", tag = TAG)
 
-            val responseText: String = httpClient.get(endpoint).body()
-            Napier.d("[$flow] Received models response string (${responseText.length} chars)", tag = TAG)
+                    val responseText: String = httpClient.get(endpoint).body()
+                    Napier.d("[$flow -> Gemini Models RawResponse] Raw models response:\n$responseText", tag = TAG)
 
-            val modelsResponse = json.decodeFromString<GeminiModelsResponse>(responseText)
-            val allContentModels = modelsResponse.models?.filter { model ->
-                model.supportedGenerationMethods == null || model.supportedGenerationMethods.contains("generateContent")
-            } ?: emptyList()
+                    val modelsResponse = json.decodeFromString<GeminiModelsResponse>(responseText)
+                    modelsResponse.models?.filter { model ->
+                        val cleanName = model.name.lowercase()
+                        val supportsGenerate = model.supportedGenerationMethods != null && model.supportedGenerationMethods.contains("generateContent")
+                        val isNonVisionType = cleanName.contains("tts") || cleanName.contains("lyria") || cleanName.contains("embedding") || cleanName.contains("aqa")
+                        supportsGenerate && !isNonVisionType
+                    } ?: emptyList()
+                }
+            }
 
-            Napier.d("[$flow -> Result] Found ${allContentModels.size} total models from API: ${allContentModels.map { it.name }}", tag = TAG)
-            Result.success(allContentModels)
+            Napier.d("[$flow -> Result] Found ${modelsList.size} dynamic online Vision models from ${provider.displayName} server: ${modelsList.map { it.name }}", tag = TAG)
+            Result.success(modelsList)
         } catch (ex: Throwable) {
             val userFriendlyMessage = formatGeminiErrorMessage(ex)
             Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
@@ -54,56 +100,194 @@ class GeminiService(
         }
     }
 
+    private suspend fun fetchOpenAiCompatibleModels(
+        endpoint: String,
+        apiKey: String,
+        provider: AiProvider,
+        flow: String
+    ): List<ModelInfoDto> {
+        Napier.d("[$flow] Dynamically fetching online models from ${provider.displayName} server: $endpoint", tag = TAG)
+        val responseText: String = httpClient.get(endpoint) {
+            if (apiKey.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $apiKey")
+            }
+        }.body()
+
+        Napier.d("[$flow -> ${provider.displayName} Models RawResponse] Raw models response:\n$responseText", tag = TAG)
+
+        val response = json.decodeFromString<OpenAiModelsListResponse>(responseText)
+        val allModels = response.data ?: emptyList()
+
+        // Server-driven modalities & capability check:
+        // 1. Filter out audio/speech/embedding/guard/codex/realtime/tts models.
+        // 2. If server explicitly returns input_modalities: ["text", "image"], verify "image" is present.
+        val visionModels = allModels.filter { dto ->
+            val modalities = dto.inputModalities
+            modalities?.contains("image") ?: isVisionCapableModel(provider, dto.id)
+        }.map { dto ->
+            ModelInfoDto(name = dto.id, displayName = dto.id)
+        }
+
+        Napier.d("[$flow] Filtered ${allModels.size} total models down to ${visionModels.size} Vision-capable models for ${provider.displayName}", tag = TAG)
+
+        return if (visionModels.isNotEmpty()) {
+            visionModels
+        } else {
+            allModels.map { ModelInfoDto(name = it.id, displayName = it.id) }
+        }
+    }
+
+    private fun isVisionCapableModel(provider: AiProvider, modelId: String): Boolean {
+        val cleanId = modelId.lowercase().trim()
+
+        val isNonVisionUtility = (
+            cleanId.contains("tts") ||
+            cleanId.contains("whisper") ||
+            cleanId.contains("embed") ||
+            cleanId.contains("babbage") ||
+            cleanId.contains("davinci") ||
+            cleanId.contains("sora") ||
+            cleanId.contains("moderation") ||
+            cleanId.contains("realtime") ||
+            cleanId.contains("audio") ||
+            cleanId.contains("transcribe") ||
+            cleanId.contains("codex") ||
+            cleanId.contains("search-api") ||
+            cleanId.contains("prompt-guard") ||
+            cleanId.contains("orpheus") ||
+            cleanId.contains("lyria") ||
+            cleanId.contains("aqa")
+        )
+
+        if (isNonVisionUtility) return false
+
+        return when (provider) {
+            AiProvider.Gemini -> true
+            AiProvider.Groq -> {
+                cleanId.contains("vision") || cleanId.contains("llama-3.2-90b") || cleanId.contains("llama-3.2-11b") || cleanId.contains("qwen")
+            }
+            AiProvider.OpenAi -> {
+                cleanId.startsWith("gpt-") || cleanId.startsWith("o1") || cleanId.startsWith("o3") || cleanId.startsWith("o4") || cleanId.startsWith("chatgpt-")
+            }
+            AiProvider.Custom -> true
+        }
+    }
+
+    @OptIn(ExperimentalEncodingApi::class)
     suspend fun processPrescriptionImage(
         imageByteArray: ByteArray,
         selectedModel: String = "gemini-1.5-pro",
         providedApiKey: String = "",
+        provider: AiProvider = AiProvider.Gemini,
+        customUrl: String = "",
         mimeType: String = "image/jpeg",
         flow: String = "App -> GeminiService.processPrescriptionImage",
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>> {
         return try {
             val targetApiKey = providedApiKey.ifBlank { apiKey }.trim()
-            if (targetApiKey.isBlank()) {
-                throw IllegalStateException("Gemini API key is missing. Please set your API key in Model Settings.")
+            if (provider.requiresApiKey && targetApiKey.isBlank()) {
+                throw IllegalStateException("${provider.displayName} API key is missing. Please set your API key in Model Settings.")
             }
-            val cleanModel = selectedModel.removePrefix("models/").ifBlank { "gemini-1.5-pro" }
+            val cleanModel = selectedModel.removePrefix("models/").ifBlank { provider.defaultModel }
             onProgress(0, "Encoding image & payload")
-            Napier.d("[$flow] Starting prescription image processing with model '$cleanModel'. Input size: ${imageByteArray.size} bytes", tag = TAG)
+            Napier.d("[$flow] Starting processing: provider=${provider.id}, model=$cleanModel, size=${imageByteArray.size} bytes", tag = TAG)
 
             val base64Image = Base64.encode(imageByteArray)
-            Napier.d("[$flow] Base64 encoding complete. Payload length: ${base64Image.length} chars", tag = TAG)
-
-            val requestPayload = GeminiRequest(
-                systemInstruction = SystemInstruction(
-                    parts = listOf(Part(text = SINGLE_CALL_PROMPT))
-                ),
-                contents = listOf(
-                    Content(
-                        role = "user",
-                        parts = listOf(
-                            Part(inlineData = InlineData(mimeType = mimeType, data = base64Image)),
-                            Part(text = "Please analyze this prescription image and extract all medicine items.")
-                        )
-                    )
-                ),
-                generationConfig = GenerationConfig(
-                    responseMimeType = "application/json",
-                    temperature = 0.0,
-                    maxOutputTokens = 8192
-                )
-            )
-
-            val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
 
             onProgress(1, "Reading handwriting")
-            var rawResponseText = executeGeminiPostCall(endpoint, requestPayload, flow)
+            var rawResponseText = when (provider) {
+                AiProvider.OpenAi, AiProvider.Groq, AiProvider.Custom -> {
+                    val endpoint = when (provider) {
+                        AiProvider.OpenAi -> "https://api.openai.com/v1/chat/completions"
+                        AiProvider.Groq -> "https://api.groq.com/openai/v1/chat/completions"
+                        AiProvider.Custom -> customUrl.ifBlank { "https://api.openai.com/v1/chat/completions" }
+                        AiProvider.Gemini -> "https://generativelanguage.googleapis.com"
+                    }
+                    executeOpenAiPostCall(
+                        endpoint = endpoint,
+                        apiKey = targetApiKey,
+                        modelName = cleanModel,
+                        promptText = SINGLE_CALL_PROMPT,
+                        base64Image = base64Image,
+                        mimeType = mimeType,
+                        flow = flow
+                    )
+                }
+                AiProvider.Gemini -> {
+                    val requestPayload = GeminiRequest(
+                        systemInstruction = SystemInstruction(
+                            parts = listOf(Part(text = SINGLE_CALL_PROMPT))
+                        ),
+                        contents = listOf(
+                            Content(
+                                role = "user",
+                                parts = listOf(
+                                    Part(inlineData = InlineData(mimeType = mimeType, data = base64Image)),
+                                    Part(text = "Please analyze this prescription image and extract all medicine items.")
+                                )
+                            )
+                        ),
+                        generationConfig = GenerationConfig(
+                            responseMimeType = "application/json",
+                            temperature = 0.0,
+                            maxOutputTokens = 16384
+                        )
+                    )
+
+                    val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
+                    executeGeminiPostCall(endpoint, requestPayload, flow)
+                }
+            }
+
             var parseResult = runCatching { parseTwoPassResponse(rawResponseText) }
 
             if (parseResult.isFailure) {
                 Napier.w("[$flow -> Retry] Parsing failed on first attempt: ${parseResult.exceptionOrNull()?.message}. Retrying request once...", tag = TAG)
                 onProgress(1, "Retrying Vision AI request...")
-                rawResponseText = executeGeminiPostCall(endpoint, requestPayload, flow)
+                rawResponseText = when (provider) {
+                    AiProvider.OpenAi, AiProvider.Groq, AiProvider.Custom -> {
+                        val endpoint = when (provider) {
+                            AiProvider.OpenAi -> "https://api.openai.com/v1/chat/completions"
+                            AiProvider.Groq -> "https://api.groq.com/openai/v1/chat/completions"
+                            AiProvider.Custom -> customUrl.ifBlank { "https://api.openai.com/v1/chat/completions" }
+                            AiProvider.Gemini -> "https://generativelanguage.googleapis.com"
+                        }
+                        executeOpenAiPostCall(
+                            endpoint = endpoint,
+                            apiKey = targetApiKey,
+                            modelName = cleanModel,
+                            promptText = SINGLE_CALL_PROMPT,
+                            base64Image = base64Image,
+                            mimeType = mimeType,
+                            flow = flow
+                        )
+                    }
+                    AiProvider.Gemini -> {
+                        val requestPayload = GeminiRequest(
+                            systemInstruction = SystemInstruction(
+                                parts = listOf(Part(text = SINGLE_CALL_PROMPT))
+                            ),
+                            contents = listOf(
+                                Content(
+                                    role = "user",
+                                    parts = listOf(
+                                        Part(inlineData = InlineData(mimeType = mimeType, data = base64Image)),
+                                        Part(text = "Please analyze this prescription image and extract all medicine items.")
+                                    )
+                                )
+                            ),
+                            generationConfig = GenerationConfig(
+                                responseMimeType = "application/json",
+                                temperature = 0.0,
+                                maxOutputTokens = 16384
+                            )
+                        )
+
+                        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
+                        executeGeminiPostCall(endpoint, requestPayload, flow)
+                    }
+                }
                 parseResult = runCatching { parseTwoPassResponse(rawResponseText) }
             }
 
@@ -116,7 +300,7 @@ class GeminiService(
             )
 
             onProgress(3, "Finding similar brands")
-            Napier.d("[$flow -> Result] Merged ${items.size} MedicineItem objects from two-pass call: $items", tag = TAG)
+            Napier.d("[$flow -> Result] Merged ${items.size} MedicineItem objects: $items", tag = TAG)
             Result.success(items)
         } catch (ex: Throwable) {
             val userFriendlyMessage = formatGeminiErrorMessage(ex)
@@ -142,6 +326,56 @@ class GeminiService(
         return responseText
     }
 
+    private suspend fun executeOpenAiPostCall(
+        endpoint: String,
+        apiKey: String,
+        modelName: String,
+        promptText: String,
+        base64Image: String,
+        mimeType: String,
+        flow: String
+    ): String {
+        val payload = OpenAiChatRequest(
+            model = modelName,
+            messages = listOf(
+                OpenAiMessage(
+                    role = "user",
+                    content = listOf(
+                        OpenAiContentPart(type = "text", text = promptText),
+                        OpenAiContentPart(
+                            type = "image_url",
+                            imageUrl = OpenAiImageUrl(url = "data:$mimeType;base64,$base64Image")
+                        )
+                    )
+                )
+            ),
+            temperature = 0.0
+        )
+
+        val requestJson = json.encodeToString(payload)
+        Napier.d("[$flow] Sending OpenAI-compatible POST request (${requestJson.length} bytes) to $endpoint", tag = TAG)
+
+        val responseText: String = httpClient.post(endpoint) {
+            contentType(ContentType.Application.Json)
+            if (apiKey.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $apiKey")
+            }
+            setBody(requestJson)
+        }.body()
+
+        Napier.d("[$flow -> RawResponse] OpenAI-compatible Raw Response:\n$responseText", tag = TAG)
+
+        val openAiResponse = json.decodeFromString<OpenAiChatResponse>(responseText)
+        if (openAiResponse.error != null) {
+            throw IllegalStateException("API Error: ${openAiResponse.error.message ?: "Unknown error"}")
+        }
+
+        val content = openAiResponse.choices?.firstOrNull()?.message?.content
+            ?: throw IllegalStateException("No text response received from AI model.")
+
+        return cleanJsonResponse(content)
+    }
+
     private fun parseTwoPassResponse(responseText: String): GeminiTwoPassResponse {
         val response = json.decodeFromString<GeminiResponse>(responseText)
 
@@ -151,12 +385,14 @@ class GeminiService(
             throw IllegalStateException("Gemini API Error: $errorMsg")
         }
 
-        val rawContent = response.candidates
-            ?.firstOrNull()
-            ?.content
-            ?.parts
-            ?.firstOrNull()
-            ?.text
+        val candidate = response.candidates?.firstOrNull()
+            ?: throw IllegalStateException("No candidate response received from Gemini API.")
+
+        if (candidate.finishReason == "MAX_TOKENS") {
+            Napier.w("[parseTwoPassResponse -> Warning] Response reached MAX_TOKENS limit", tag = TAG)
+        }
+
+        val rawContent = candidate.content?.parts?.firstOrNull()?.text
             ?: throw IllegalStateException("No text response received from Gemini API.")
 
         val cleanedJson = cleanJsonResponse(rawContent)
@@ -275,6 +511,12 @@ class GeminiService(
     private fun formatGeminiErrorMessage(ex: Throwable): String {
         val msg = ex.message ?: ""
         return when {
+            msg.contains("content must be a string", ignoreCase = true) -> {
+                "The selected model does not support image analysis. Please select a vision-capable model."
+            }
+            msg.contains("UnknownHostException", ignoreCase = true) || msg.contains("Unable to resolve host", ignoreCase = true) || msg.contains("No address associated with hostname", ignoreCase = true) -> {
+                "No internet connection or server unreachable. Please check your network connection and tap 'Analyze Prescription' to try again."
+            }
             msg.contains("429") || msg.contains("RESOURCE_EXHAUSTED", ignoreCase = true) || msg.contains("quota", ignoreCase = true) -> {
                 "Model is currently in high demand. Please tap 'Analyze Prescription' to try again or switch model."
             }
@@ -285,10 +527,10 @@ class GeminiService(
                 "Server encountered a temporary issue. Please tap 'Analyze Prescription' to retry."
             }
             msg.contains("401") || msg.contains("UNAUTHENTICATED", ignoreCase = true) || msg.contains("API key not valid", ignoreCase = true) -> {
-                "API key not valid. Please enter a valid Gemini API Key in settings."
+                "API key not valid. Please check your API key in Model Settings."
             }
             msg.contains("403") || msg.contains("PERMISSION_DENIED", ignoreCase = true) -> {
-                "Access forbidden. Please check your Gemini API key permissions."
+                "Access forbidden. Please check your API key permissions."
             }
             msg.contains("400") || msg.contains("INVALID_ARGUMENT", ignoreCase = true) -> {
                 "Bad request. Please check your API key or model parameters."
@@ -307,6 +549,63 @@ class GeminiService(
         private const val TAG = "GeminiService"
     }
 }
+
+@Serializable
+internal data class OpenAiModelsListResponse(
+    val data: List<OpenAiModelDto>? = null
+)
+
+@Serializable
+internal data class OpenAiModelDto(
+    val id: String,
+    @SerialName("input_modalities") val inputModalities: List<String>? = null
+)
+
+@Serializable
+internal data class OpenAiChatRequest(
+    val model: String,
+    val messages: List<OpenAiMessage>,
+    val temperature: Double = 0.0
+)
+
+@Serializable
+internal data class OpenAiMessage(
+    val role: String,
+    val content: List<OpenAiContentPart>
+)
+
+@Serializable
+internal data class OpenAiContentPart(
+    val type: String,
+    val text: String? = null,
+    @SerialName("image_url") val imageUrl: OpenAiImageUrl? = null
+)
+
+@Serializable
+internal data class OpenAiImageUrl(
+    val url: String
+)
+
+@Serializable
+internal data class OpenAiChatResponse(
+    val choices: List<OpenAiChoice>? = null,
+    val error: OpenAiError? = null
+)
+
+@Serializable
+internal data class OpenAiChoice(
+    val message: OpenAiResponseMessage? = null
+)
+
+@Serializable
+internal data class OpenAiResponseMessage(
+    val content: String? = null
+)
+
+@Serializable
+internal data class OpenAiError(
+    val message: String? = null
+)
 
 @Serializable
 internal data class GeminiModelsResponse(
@@ -373,7 +672,8 @@ internal data class GeminiError(
 
 @Serializable
 internal data class Candidate(
-    val content: ResponseContent? = null
+    val content: ResponseContent? = null,
+    val finishReason: String? = null
 )
 
 @Serializable

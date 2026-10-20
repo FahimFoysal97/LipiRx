@@ -91,10 +91,19 @@ fun ScanResultScreen(
                             selectedModel = uiState.selectedModel,
                             availableModels = uiState.availableModels,
                             apiKey = uiState.apiKey,
+                            geminiApiKey = uiState.geminiApiKey,
+                            groqApiKey = uiState.groqApiKey,
+                            openaiApiKey = uiState.openaiApiKey,
+                            customApiKey = uiState.customApiKey,
+                            providerType = uiState.providerType,
+                            customUrl = uiState.customUrl,
                             apiKeyError = uiState.apiKeyError,
                             isTestingApiKey = uiState.isTestingApiKey,
-                            onSaveApiKey = { key ->
-                                viewModel.saveAndTestApiKey(key, flow = "$flow -> ScanResultScreen.saveAndTestApiKey")
+                            onProviderTabSelected = { type ->
+                                viewModel.onProviderTabSelected(type, flow = "$flow -> ScanResultScreen.onProviderTabSelected")
+                            },
+                            onSaveProviderConfig = { type, url, key, model ->
+                                viewModel.saveAndTestProviderConfig(type, url, key, model, flow = "$flow -> ScanResultScreen.saveAndTestProviderConfig")
                             },
                             onModelSelected = { model ->
                                 viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")
@@ -110,11 +119,20 @@ fun ScanResultScreen(
                             selectedModel = uiState.selectedModel,
                             availableModels = uiState.availableModels,
                             apiKey = uiState.apiKey,
+                            geminiApiKey = uiState.geminiApiKey,
+                            groqApiKey = uiState.groqApiKey,
+                            openaiApiKey = uiState.openaiApiKey,
+                            customApiKey = uiState.customApiKey,
+                            providerType = uiState.providerType,
+                            customUrl = uiState.customUrl,
                             apiKeyError = uiState.apiKeyError,
                             errorMessage = uiState.errorMessage,
                             isTestingApiKey = uiState.isTestingApiKey,
-                            onSaveApiKey = { key ->
-                                viewModel.saveAndTestApiKey(key, flow = "$flow -> ScanResultScreen.saveAndTestApiKey")
+                            onProviderTabSelected = { type ->
+                                viewModel.onProviderTabSelected(type, flow = "$flow -> ScanResultScreen.onProviderTabSelected")
+                            },
+                            onSaveProviderConfig = { type, url, key, model ->
+                                viewModel.saveAndTestProviderConfig(type, url, key, model, flow = "$flow -> ScanResultScreen.saveAndTestProviderConfig")
                             },
                             onModelSelected = { model ->
                                 viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")

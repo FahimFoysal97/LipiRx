@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.ui.theme.Lipi
 import kotlinx.coroutines.launch
 
@@ -210,9 +213,16 @@ fun ModelChip(
     selectedModel: String,
     availableModels: List<String>,
     apiKey: String = "",
+    geminiApiKey: String = "",
+    groqApiKey: String = "",
+    openaiApiKey: String = "",
+    customApiKey: String = "",
+    providerType: String = "gemini",
+    customUrl: String = "",
     apiKeyError: String? = null,
     isTestingApiKey: Boolean = false,
-    onSaveApiKey: (String) -> Unit = {},
+    onProviderTabSelected: (String) -> Unit = {},
+    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onModelSelected: (String) -> Unit
 ) {
     var showSheet by remember { mutableStateOf(false) }
@@ -236,7 +246,7 @@ fun ModelChip(
                     .background(if (availableModels.isNotEmpty()) Lipi.Success else Lipi.Error, CircleShape)
             )
             Text(
-                text = if (selectedModel.isNotBlank()) selectedModel else "Set API Key",
+                text = if (selectedModel.isNotBlank()) selectedModel else "Set AI Provider",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Lipi.Ink,
@@ -250,24 +260,38 @@ fun ModelChip(
             selectedModel = selectedModel,
             availableModels = availableModels,
             apiKey = apiKey,
+            geminiApiKey = geminiApiKey,
+            groqApiKey = groqApiKey,
+            openaiApiKey = openaiApiKey,
+            customApiKey = customApiKey,
+            providerType = providerType,
+            customUrl = customUrl,
             apiKeyError = apiKeyError,
             isTestingApiKey = isTestingApiKey,
-            onSaveApiKey = onSaveApiKey,
+            onProviderTabSelected = onProviderTabSelected,
+            onSaveProviderConfig = onSaveProviderConfig,
             onModelSelected = onModelSelected,
             onDismiss = { showSheet = false }
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ModelSelectionBottomSheet(
     selectedModel: String,
     availableModels: List<String>,
     apiKey: String = "",
+    geminiApiKey: String = "",
+    groqApiKey: String = "",
+    openaiApiKey: String = "",
+    customApiKey: String = "",
+    providerType: String = "gemini",
+    customUrl: String = "",
     apiKeyError: String? = null,
     isTestingApiKey: Boolean = false,
-    onSaveApiKey: (String) -> Unit = {},
+    onProviderTabSelected: (String) -> Unit = {},
+    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onModelSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -276,8 +300,18 @@ fun ModelSelectionBottomSheet(
 
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
-    var inputKey by remember(apiKey) { mutableStateOf(apiKey) }
-    val isNewKeyPasted = inputKey.isNotBlank() && inputKey != apiKey
+
+    val keyForSelectedProvider = when (providerType) {
+        "groq" -> groqApiKey.ifBlank { apiKey }
+        "openai" -> openaiApiKey.ifBlank { apiKey }
+        "custom" -> customApiKey.ifBlank { apiKey }
+        else -> geminiApiKey.ifBlank { apiKey }
+    }
+
+    var inputKey by remember(providerType, keyForSelectedProvider) { mutableStateOf(keyForSelectedProvider) }
+    var inputUrl by remember(customUrl) { mutableStateOf(customUrl) }
+    var inputCustomModel by remember(selectedModel) { mutableStateOf(if (providerType == "custom") selectedModel else "") }
+
     val displayKeyText = remember(inputKey) { formatMaskedApiKey(inputKey) }
 
     fun dismissWithAnimation(onComplete: () -> Unit = {}) {
@@ -292,9 +326,7 @@ fun ModelSelectionBottomSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = {
-            dismissWithAnimation()
-        },
+        onDismissRequest = { dismissWithAnimation() },
         sheetState = sheetState,
         containerColor = Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
@@ -321,16 +353,41 @@ fun ModelSelectionBottomSheet(
                             .background(Lipi.PrimaryContainer, RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🔑", fontSize = 18.sp)
+                        Text("🤖", fontSize = 18.sp)
                     }
                     Column {
-                        Text("Gemini API Key & Models", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
-                        Text("Set key to fetch models & enable scanning", fontSize = 12.sp, color = Lipi.Muted)
+                        Text("AI Provider & Settings", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+                        Text("Configure Gemini, Groq, OpenAI, or Custom URL", fontSize = 12.sp, color = Lipi.Muted)
                     }
                 }
             }
 
-            // API Key Input Card
+            // Provider Selector Tabs
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                AiProvider.ALL.forEach { providerItem ->
+                    val isSelected = providerType == providerItem.id
+                    Surface(
+                        onClick = { onProviderTabSelected(providerItem.id) },
+                        shape = CircleShape,
+                        color = if (isSelected) Lipi.Primary else Lipi.Background,
+                        border = BorderStroke(1.dp, if (isSelected) Lipi.Primary else Lipi.Outline)
+                    ) {
+                        Text(
+                            text = providerItem.displayName,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else Lipi.Ink
+                        )
+                    }
+                }
+            }
+
+            // Provider Input Config Card
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
@@ -341,12 +398,29 @@ fun ModelSelectionBottomSheet(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "Gemini API Key",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Lipi.Ink
-                    )
+                    if (providerType == "custom") {
+                        Text("Custom Endpoint URL", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        OutlinedTextField(
+                            value = inputUrl,
+                            onValueChange = { inputUrl = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("e.g. http://192.168.1.50:11434/v1/chat/completions", fontSize = 12.sp) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Text("Custom Model Name", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        OutlinedTextField(
+                            value = inputCustomModel,
+                            onValueChange = { inputCustomModel = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("e.g. llava or gpt-4o", fontSize = 12.sp) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    Text("API Key", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -355,10 +429,10 @@ fun ModelSelectionBottomSheet(
                     ) {
                         OutlinedTextField(
                             value = displayKeyText,
-                            onValueChange = {}, // Uneditable by soft keyboard
+                            onValueChange = {}, // Uneditable
                             readOnly = true,
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Tap 'Paste' to insert API key...", fontSize = 13.sp) },
+                            placeholder = { Text("Tap 'Paste' to insert key...", fontSize = 12.sp) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -385,11 +459,18 @@ fun ModelSelectionBottomSheet(
                     }
 
                     Button(
-                        onClick = { onSaveApiKey(inputKey) },
+                        onClick = {
+                            onSaveProviderConfig(
+                                providerType,
+                                inputUrl,
+                                inputKey,
+                                inputCustomModel
+                            )
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp),
-                        enabled = !isTestingApiKey && isNewKeyPasted,
+                        enabled = !isTestingApiKey,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Lipi.Primary,
@@ -403,9 +484,9 @@ fun ModelSelectionBottomSheet(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Verifying Key & Loading Models...", fontSize = 13.sp)
+                            Text("Connecting & Saving...", fontSize = 13.sp)
                         } else {
-                            Text("🔑 Save Key & Load Models", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("🔑 Save Provider Config", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -423,7 +504,7 @@ fun ModelSelectionBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 240.dp)
+                        .heightIn(max = 200.dp)
                 ) {
                     items(availableModels) { model ->
                         val isSelected = model == selectedModel
@@ -590,7 +671,7 @@ fun PaperIllustration(
     rotation: Float = -5f,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(10.dp)
     Column(
         modifier = modifier
             .size(width, height)
