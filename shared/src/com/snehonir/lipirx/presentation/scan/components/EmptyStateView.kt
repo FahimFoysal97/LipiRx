@@ -54,7 +54,7 @@ fun EmptyStateView(
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
 ) {
-    val isModelAvailable = availableModels.isNotEmpty()
+    val isModelAvailable = selectedModel.isNotBlank() || apiKey.isNotBlank() || agentConfigs.isNotEmpty() || availableModels.isNotEmpty()
 
     Column(
         modifier = Modifier

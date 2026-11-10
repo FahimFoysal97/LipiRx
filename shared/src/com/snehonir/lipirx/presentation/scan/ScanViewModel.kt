@@ -106,6 +106,10 @@ class ScanViewModel(
             Napier.d("[$flow] Skipping fetch for ${targetProvider.id} because API key is blank", tag = TAG)
             return
         }
+        if (targetProvider == AiProvider.Custom && customUrl.isBlank()) {
+            Napier.d("[$flow] Skipping fetch for Custom provider because customUrl is blank", tag = TAG)
+            return
+        }
 
         Napier.d("[$flow] Auto-fetching models for ${targetProvider.displayName}...", tag = TAG)
 

@@ -463,10 +463,6 @@ fun ModelSelectionBottomSheet(
                                 Surface(
                                     onClick = {
                                         onAgentProviderSelected(agentType, prov)
-                                        val modelsForProv = providerModelsMap[prov.id] ?: emptyList()
-                                        if (modelsForProv.isNotEmpty()) {
-                                            onAgentModelSelected(agentType, modelsForProv.first())
-                                        }
                                     },
                                     shape = CircleShape,
                                     color = if (isSelected) prov.brandColor else Color.White,
@@ -523,13 +519,13 @@ fun ModelSelectionBottomSheet(
                                         )
                                         Text(
                                             text = when {
-                                                liveModelsForProvider.isNotEmpty() && currentAssignedModel.isNotBlank() -> currentAssignedModel
+                                                currentAssignedModel.isNotBlank() -> currentAssignedModel
                                                 liveModelsForProvider.isNotEmpty() -> liveModelsForProvider.first()
                                                 else -> "Configure API key to load models"
                                             },
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = if (liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor else Lipi.Error
+                                            color = if (currentAssignedModel.isNotBlank() || liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor else Lipi.Error
                                         )
                                     }
                                     Icon(

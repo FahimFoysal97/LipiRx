@@ -25,9 +25,9 @@ class MultiAgentRxOrchestrator(
         val transcriptionProvider = transcriptionConfig?.provider ?: input.provider
         val transcriptionModel = transcriptionConfig?.selectedModel?.ifBlank { input.selectedModel } ?: input.selectedModel
 
-        // Retrieve provider-specific API Key and Custom URL for Stage 1
-        val stage1ApiKey = database.getApiKeyForProvider(transcriptionProvider.id)
-        val stage1CustomUrl = if (transcriptionProvider == AiProvider.Custom) database.getProviderConfig().customUrl else ""
+        // Retrieve provider-specific API Key and Custom URL for Stage 1 (with input fallback)
+        val stage1ApiKey = database.getApiKeyForProvider(transcriptionProvider.id).ifBlank { input.providedApiKey }
+        val stage1CustomUrl = (if (transcriptionProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
 
         Napier.d("[$TAG -> Stage 1] ${visionTranscriptionAgent.agentName} assigned to provider '${transcriptionProvider.displayName}' (model: $transcriptionModel, apiKeyLength=${stage1ApiKey.length})", tag = TAG)
 
@@ -49,24 +49,51 @@ class MultiAgentRxOrchestrator(
         val parserConfig = agentConfigs[RxAgentType.ENTITY_PARSER]
         val parserProvider = parserConfig?.provider ?: AiProvider.Gemini
         val parserModel = parserConfig?.selectedModel?.ifBlank { parserProvider.defaultModel } ?: parserProvider.defaultModel
-        Napier.d("[$TAG -> Stage 2] ${medicalEntityParserAgent.agentName} assigned to provider '${parserProvider.displayName}' (model: $parserModel)", tag = TAG)
+        val parserApiKey = database.getApiKeyForProvider(parserProvider.id).ifBlank { input.providedApiKey }
+        val parserCustomUrl = (if (parserProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
+
+        Napier.d("[$TAG -> Stage 2] ${medicalEntityParserAgent.agentName} assigned to provider '${parserProvider.displayName}' (model: $parserModel, apiKeyLength=${parserApiKey.length})", tag = TAG)
         onProgress(ProcessingStep.MATCHING_BRANDS)
-        val parsedMedicines = medicalEntityParserAgent.execute(rawMedicines).getOrDefault(rawMedicines)
+        val parsedMedicines = medicalEntityParserAgent.execute(
+            input = rawMedicines,
+            provider = parserProvider,
+            selectedModel = parserModel,
+            apiKey = parserApiKey,
+            customUrl = parserCustomUrl
+        ).getOrDefault(rawMedicines)
 
         // Stage 3: Generic & Substitute Agent
         val substituteConfig = agentConfigs[RxAgentType.GENERIC_SUBSTITUTE]
         val substituteProvider = substituteConfig?.provider ?: AiProvider.Groq
         val substituteModel = substituteConfig?.selectedModel?.ifBlank { substituteProvider.defaultModel } ?: substituteProvider.defaultModel
-        Napier.d("[$TAG -> Stage 3] ${genericSubstituteAgent.agentName} assigned to provider '${substituteProvider.displayName}' (model: $substituteModel)", tag = TAG)
+        val substituteApiKey = database.getApiKeyForProvider(substituteProvider.id).ifBlank { input.providedApiKey }
+        val substituteCustomUrl = (if (substituteProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
+
+        Napier.d("[$TAG -> Stage 3] ${genericSubstituteAgent.agentName} assigned to provider '${substituteProvider.displayName}' (model: $substituteModel, apiKeyLength=${substituteApiKey.length})", tag = TAG)
         onProgress(ProcessingStep.FINDING_SIMILAR)
-        val enrichedMedicines = genericSubstituteAgent.execute(parsedMedicines).getOrDefault(parsedMedicines)
+        val enrichedMedicines = genericSubstituteAgent.execute(
+            input = parsedMedicines,
+            provider = substituteProvider,
+            selectedModel = substituteModel,
+            apiKey = substituteApiKey,
+            customUrl = substituteCustomUrl
+        ).getOrDefault(parsedMedicines)
 
         // Stage 4: Safety Auditor Agent
         val safetyConfig = agentConfigs[RxAgentType.SAFETY_AUDITOR]
         val safetyProvider = safetyConfig?.provider ?: AiProvider.OpenAi
         val safetyModel = safetyConfig?.selectedModel?.ifBlank { safetyProvider.defaultModel } ?: safetyProvider.defaultModel
-        Napier.d("[$TAG -> Stage 4] ${safetyAuditorAgent.agentName} assigned to provider '${safetyProvider.displayName}' (model: $safetyModel)", tag = TAG)
-        val finalAuditedMedicines = safetyAuditorAgent.execute(enrichedMedicines).getOrDefault(enrichedMedicines)
+        val safetyApiKey = database.getApiKeyForProvider(safetyProvider.id).ifBlank { input.providedApiKey }
+        val safetyCustomUrl = (if (safetyProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
+
+        Napier.d("[$TAG -> Stage 4] ${safetyAuditorAgent.agentName} assigned to provider '${safetyProvider.displayName}' (model: $safetyModel, apiKeyLength=${safetyApiKey.length})", tag = TAG)
+        val finalAuditedMedicines = safetyAuditorAgent.execute(
+            input = enrichedMedicines,
+            provider = safetyProvider,
+            selectedModel = safetyModel,
+            apiKey = safetyApiKey,
+            customUrl = safetyCustomUrl
+        ).getOrDefault(enrichedMedicines)
 
         onProgress(ProcessingStep.COMPLETE)
         Napier.d("[$TAG -> Pipeline Success] Successfully processed ${finalAuditedMedicines.size} medicine items through all 4 AI agents.", tag = TAG)

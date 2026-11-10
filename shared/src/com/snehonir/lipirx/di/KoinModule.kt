@@ -96,7 +96,7 @@ val sharedModule = module {
         )
     }
 
-    single { ScanViewModel(aiService = get(), orchestrator = get(), database = get()) }
+    factory { ScanViewModel(aiService = get(), orchestrator = get(), database = get()) }
 }
 
 fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {

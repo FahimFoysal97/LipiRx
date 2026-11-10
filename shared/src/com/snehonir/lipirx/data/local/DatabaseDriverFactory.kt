@@ -243,24 +243,28 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
 
         Napier.d("[$flow] Saving agent config: agent=${agentType.id}, provider=${provider.id}, model=$modelName", tag = TAG)
 
-        driver.execute(
-            identifier = null,
-            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
-            parameters = 2
-        ) {
-            bindString(0, providerKey)
-            bindString(1, provider.id)
-        }
-
-        if (modelName.isNotBlank()) {
+        runCatching {
             driver.execute(
                 identifier = null,
                 sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
                 parameters = 2
             ) {
-                bindString(0, modelKey)
-                bindString(1, modelName.trim())
+                bindString(0, providerKey)
+                bindString(1, provider.id)
             }
+
+            if (modelName.isNotBlank()) {
+                driver.execute(
+                    identifier = null,
+                    sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                    parameters = 2
+                ) {
+                    bindString(0, modelKey)
+                    bindString(1, modelName.trim())
+                }
+            }
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to save agent config into SQLite: ${ex.message}", throwable = ex, tag = TAG)
         }
     }
 
@@ -294,13 +298,17 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         val serializedModels = models.joinToString(separator = "||")
         Napier.d("[$flow] Saving ${models.size} live models for provider '$providerType' into SQLite", tag = TAG)
 
-        driver.execute(
-            identifier = null,
-            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
-            parameters = 2
-        ) {
-            bindString(0, configKey)
-            bindString(1, serializedModels)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                parameters = 2
+            ) {
+                bindString(0, configKey)
+                bindString(1, serializedModels)
+            }
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to save provider models into SQLite: ${ex.message}", throwable = ex, tag = TAG)
         }
     }
 

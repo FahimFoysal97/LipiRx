@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.domain.agent
 
+import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
 
@@ -9,7 +10,17 @@ class SafetyAuditorAgent : RxAgent<List<MedicineItem>, List<MedicineItem>> {
     override val description: String = "Audits dosage safety, confidence levels, and sets review flags for pharmacist verification"
 
     override suspend fun execute(input: List<MedicineItem>): Result<List<MedicineItem>> {
-        Napier.d("[$agentName] Auditing ${input.size} medicine items for prescription safety...", tag = TAG)
+        return execute(input, AiProvider.OpenAi, "", "", "")
+    }
+
+    fun execute(
+        input: List<MedicineItem>,
+        provider: AiProvider = AiProvider.OpenAi,
+        selectedModel: String = "",
+        apiKey: String = "",
+        customUrl: String = ""
+    ): Result<List<MedicineItem>> {
+        Napier.d("[$agentName] Auditing ${input.size} medicine items for safety via ${provider.displayName} ($selectedModel, keyLength=${apiKey.length})...", tag = TAG)
 
         val audited = input.map { item ->
             val isLowConfidence = item.confidenceEnum.isLow || item.enrichmentConfidenceEnum.isLow

@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.domain.agent
 
+import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
 
@@ -9,7 +10,17 @@ class GenericSubstituteAgent : RxAgent<List<MedicineItem>, List<MedicineItem>> {
     override val description: String = "Cross-references DGDA generic compositions and matches alternative Bangladeshi brand substitutes"
 
     override suspend fun execute(input: List<MedicineItem>): Result<List<MedicineItem>> {
-        Napier.d("[$agentName] Matching generic substitutes for ${input.size} items...", tag = TAG)
+        return execute(input, AiProvider.Groq, "", "", "")
+    }
+
+    fun execute(
+        input: List<MedicineItem>,
+        provider: AiProvider = AiProvider.Groq,
+        selectedModel: String = "",
+        apiKey: String = "",
+        customUrl: String = ""
+    ): Result<List<MedicineItem>> {
+        Napier.d("[$agentName] Matching generic substitutes for ${input.size} items via ${provider.displayName} ($selectedModel, keyLength=${apiKey.length})...", tag = TAG)
 
         val enriched = input.map { item ->
             if (item.similarBrands.isEmpty() && item.genericName.isNotBlank()) {
