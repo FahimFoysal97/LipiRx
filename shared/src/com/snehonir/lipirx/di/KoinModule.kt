@@ -82,9 +82,9 @@ val sharedModule = module {
 
     // Multiagent Architecture Components
     single { VisionTranscriptionAgent(aiService = get()) }
-    single { MedicalEntityParserAgent() }
-    single { GenericSubstituteAgent() }
-    single { SafetyAuditorAgent() }
+    single { MedicalEntityParserAgent(aiService = get()) }
+    single { GenericSubstituteAgent(aiService = get()) }
+    single { SafetyAuditorAgent(aiService = get()) }
 
     single {
         MultiAgentRxOrchestrator(

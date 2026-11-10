@@ -45,6 +45,25 @@ class CompositeAiService(
         )
     }
 
+    suspend fun processTextPrompt(
+        promptText: String,
+        selectedModel: String = "",
+        providedApiKey: String = "",
+        provider: AiProvider = AiProvider.Gemini,
+        customUrl: String = "",
+        flow: String = "App -> CompositeAiService.processTextPrompt"
+    ): Result<String> {
+        val activeService = getService(provider)
+        Napier.d("[$flow] Routing processTextPrompt to ${activeService::class.simpleName} for ${provider.displayName}", tag = TAG)
+        return activeService.processTextPrompt(
+            promptText = promptText,
+            selectedModel = selectedModel,
+            providedApiKey = providedApiKey,
+            customUrl = customUrl,
+            flow = flow
+        )
+    }
+
     companion object {
         private const val TAG = "CompositeAiService"
     }

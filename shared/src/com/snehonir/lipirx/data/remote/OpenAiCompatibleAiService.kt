@@ -155,6 +155,58 @@ abstract class OpenAiCompatibleAiService(
         }
     }
 
+    override suspend fun processTextPrompt(
+        promptText: String,
+        selectedModel: String,
+        providedApiKey: String,
+        customUrl: String,
+        flow: String
+    ): Result<String> {
+        return try {
+            val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
+            if (provider.requiresApiKey && targetApiKey.isBlank()) {
+                throw IllegalStateException("${provider.displayName} API key is missing. Please set your API key in Model Settings.")
+            }
+            val cleanModel = selectedModel.removePrefix("models/").ifBlank { provider.defaultModel }
+            val endpoint = if (provider == AiProvider.Custom) {
+                customUrl.ifBlank { completionsEndpoint }
+            } else {
+                completionsEndpoint
+            }
+
+            val requestPayload = OpenAiChatRequest(
+                model = cleanModel,
+                messages = listOf(
+                    OpenAiMessage(
+                        role = "user",
+                        content = listOf(
+                            OpenAiContentPart(type = "text", text = promptText)
+                        )
+                    )
+                ),
+                temperature = 0.1
+            )
+
+            val requestJson = jsonParser.encodeToString(requestPayload)
+            val responseText: String = httpClient.post(endpoint) {
+                if (targetApiKey.isNotBlank()) {
+                    header(HttpHeaders.Authorization, "Bearer $targetApiKey")
+                }
+                contentType(ContentType.Application.Json)
+                setBody(requestJson)
+            }.body()
+
+            val chatResponse = jsonParser.decodeFromString<OpenAiChatResponse>(responseText)
+            val contentText = chatResponse.choices?.firstOrNull()?.message?.content ?: ""
+            val cleaned = cleanJsonResponse(contentText)
+            Result.success(cleaned)
+        } catch (ex: Throwable) {
+            val userFriendlyMessage = formatErrorMessage(ex)
+            Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
+            Result.failure(IllegalStateException(userFriendlyMessage, ex))
+        }
+    }
+
     private suspend fun executeOpenAiPostCall(
         endpoint: String,
         apiKey: String,

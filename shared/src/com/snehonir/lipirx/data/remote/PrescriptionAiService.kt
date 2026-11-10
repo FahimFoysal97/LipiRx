@@ -21,4 +21,12 @@ interface PrescriptionAiService {
         flow: String = "App -> PrescriptionAiService.processPrescriptionImage",
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>>
+
+    suspend fun processTextPrompt(
+        promptText: String,
+        selectedModel: String,
+        providedApiKey: String = "",
+        customUrl: String = "",
+        flow: String = "App -> PrescriptionAiService.processTextPrompt"
+    ): Result<String>
 }

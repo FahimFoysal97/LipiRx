@@ -125,6 +125,46 @@ class GeminiAiService(
         }
     }
 
+    override suspend fun processTextPrompt(
+        promptText: String,
+        selectedModel: String,
+        providedApiKey: String,
+        customUrl: String,
+        flow: String
+    ): Result<String> {
+        return try {
+            val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
+            if (targetApiKey.isBlank()) {
+                throw IllegalStateException("Gemini API key is missing. Please set your API key in Model Settings.")
+            }
+            val cleanModel = selectedModel.removePrefix("models/").ifBlank { provider.defaultModel }
+            val requestPayload = GeminiRequest(
+                contents = listOf(
+                    Content(
+                        role = "user",
+                        parts = listOf(Part(text = promptText))
+                    )
+                ),
+                generationConfig = GenerationConfig(
+                    responseMimeType = "application/json",
+                    temperature = 0.1,
+                    maxOutputTokens = 8192
+                )
+            )
+
+            val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
+            val rawResponseText = executeGeminiPostCall(endpoint, requestPayload, flow)
+            val response = jsonParser.decodeFromString<GeminiResponse>(rawResponseText)
+            val candidateText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+            val cleaned = cleanJsonResponse(candidateText)
+            Result.success(cleaned)
+        } catch (ex: Throwable) {
+            val userFriendlyMessage = formatErrorMessage(ex)
+            Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
+            Result.failure(IllegalStateException(userFriendlyMessage, ex))
+        }
+    }
+
     private suspend fun executeGeminiPostCall(
         endpoint: String,
         requestPayload: GeminiRequest,
