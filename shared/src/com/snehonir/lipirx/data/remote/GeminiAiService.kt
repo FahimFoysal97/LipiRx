@@ -155,7 +155,15 @@ class GeminiAiService(
             val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
             val rawResponseText = executeGeminiPostCall(endpoint, requestPayload, flow)
             val response = jsonParser.decodeFromString<GeminiResponse>(rawResponseText)
-            val candidateText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+            if (response.error != null) {
+                val errorMsg = response.error.message ?: "Unknown error"
+                Napier.e("[$flow -> Error] Gemini API returned error: $errorMsg", tag = TAG)
+                throw IllegalStateException("Gemini API Error: $errorMsg")
+            }
+            val candidateText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            if (candidateText.isNullOrBlank()) {
+                throw IllegalStateException("No candidate text response received from Gemini API.")
+            }
             val cleaned = cleanJsonResponse(candidateText)
             Result.success(cleaned)
         } catch (ex: Throwable) {

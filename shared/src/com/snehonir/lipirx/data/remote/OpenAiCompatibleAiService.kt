@@ -197,7 +197,13 @@ abstract class OpenAiCompatibleAiService(
             }.body()
 
             val chatResponse = jsonParser.decodeFromString<OpenAiChatResponse>(responseText)
-            val contentText = chatResponse.choices?.firstOrNull()?.message?.content ?: ""
+            if (chatResponse.error != null) {
+                throw IllegalStateException("API Error: ${chatResponse.error.message ?: "Unknown error"}")
+            }
+            val contentText = chatResponse.choices?.firstOrNull()?.message?.content
+            if (contentText.isNullOrBlank()) {
+                throw IllegalStateException("No text response received from AI model.")
+            }
             val cleaned = cleanJsonResponse(contentText)
             Result.success(cleaned)
         } catch (ex: Throwable) {
