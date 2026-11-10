@@ -32,15 +32,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.snehonir.lipirx.ui.theme.Lipi
 
-/** @param activeStep 0 = encoding payload, 1 = reading handwriting, 2 = matching brands, 3 = finding substitutes */
+/** @param activeStep 0 = Manager Orchestration, 1 = Vision OCR, 2 = Entity Parser, 3 = Generic Substitutes, 4 = Safety Auditor */
 @Composable
 fun LoadingView(
     selectedModel: String,
@@ -73,16 +71,6 @@ fun LoadingView(
                 .background(Color.White),
             contentAlignment = Alignment.Center,
         ) {
-            /*if (imageByteArray != null && imageByteArray.isNotEmpty()) {
-                AsyncImage(
-                    model = imageByteArray,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                PaperIllustration(120.dp, 160.dp)
-            }*/
             PaperIllustration(120.dp, 160.dp)
             Canvas(modifier = Modifier.matchParentSize()) {
                 val y = size.height * progress
@@ -114,7 +102,7 @@ fun LoadingView(
             Text("Analyzing Prescription", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = statusText.ifBlank { "using ${selectedModel.ifBlank { "Gemini AI" }}..." },
+                text = statusText.ifBlank { "Multi-Agent AI Orchestration System..." },
                 fontSize = 14.sp,
                 color = Lipi.Muted,
                 textAlign = TextAlign.Center,
@@ -123,10 +111,11 @@ fun LoadingView(
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(
-                "Encoding image & payload",
-                "Reading handwriting",
-                "Matching brand names",
-                "Finding similar brands"
+                "Manager Agent Orchestrating",
+                "Vision Handwriting OCR",
+                "Medical Entity Parser",
+                "Generic & Substitute Finder",
+                "Patient Safety Auditor"
             ).forEachIndexed { i, label ->
                 val (mark, color) = when {
                     i < activeStep -> "✓" to Lipi.Primary
