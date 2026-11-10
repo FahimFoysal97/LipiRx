@@ -7,6 +7,7 @@ import com.snehonir.lipirx.domain.model.ProcessingStep
 import io.github.aakira.napier.Napier
 
 class MultiAgentRxOrchestrator(
+    private val rxSupervisorAgent: RxSupervisorAgent,
     private val visionTranscriptionAgent: VisionTranscriptionAgent,
     private val medicalEntityParserAgent: MedicalEntityParserAgent,
     private val genericSubstituteAgent: GenericSubstituteAgent,
@@ -18,87 +19,118 @@ class MultiAgentRxOrchestrator(
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
         onProgress: (step: ProcessingStep) -> Unit = {}
     ): Result<List<MedicineItem>> {
-        Napier.d("[$TAG] Initiating Multiagent Pipeline with ${agentConfigs.size} custom agent assignments...", tag = TAG)
+        Napier.d("[$TAG] Initiating Manager/Supervisor-Driven Multiagent Orchestration Pipeline...", tag = TAG)
 
-        // Stage 1 Provider & Model
-        val transcriptionConfig = agentConfigs[RxAgentType.TRANSCRIPTION]
-        val transcriptionProvider = transcriptionConfig?.provider ?: input.provider
-        val transcriptionModel = transcriptionConfig?.selectedModel?.ifBlank { input.selectedModel } ?: input.selectedModel
+        // Retrieve Supervisor configuration (default to Gemini if not explicitly assigned)
+        val supervisorConfig = agentConfigs[RxAgentType.SUPERVISOR]
+        val supervisorProvider = supervisorConfig?.provider ?: AiProvider.Gemini
+        val supervisorModel = supervisorConfig?.selectedModel?.ifBlank { supervisorProvider.defaultModel } ?: supervisorProvider.defaultModel
+        val supervisorApiKey = database.getApiKeyForProvider(supervisorProvider.id).ifBlank { input.providedApiKey }
+        val supervisorCustomUrl = (if (supervisorProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
 
-        // Retrieve provider-specific API Key and Custom URL for Stage 1 (with input fallback)
-        val stage1ApiKey = database.getApiKeyForProvider(transcriptionProvider.id).ifBlank { input.providedApiKey }
-        val stage1CustomUrl = (if (transcriptionProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
+        var state = SupervisorState(input = input)
+        val maxTurns = 6
 
-        Napier.d("[$TAG -> Stage 1] ${visionTranscriptionAgent.agentName} assigned to provider '${transcriptionProvider.displayName}' (model: $transcriptionModel, apiKeyLength=${stage1ApiKey.length})", tag = TAG)
+        while (!state.isFinished && state.turnCount < maxTurns) {
+            val decision = rxSupervisorAgent.decideNextStep(
+                state = state,
+                provider = supervisorProvider,
+                selectedModel = supervisorModel,
+                apiKey = supervisorApiKey,
+                customUrl = supervisorCustomUrl
+            )
 
-        val stage1Input = input.copy(
-            provider = transcriptionProvider,
-            selectedModel = transcriptionModel,
-            providedApiKey = stage1ApiKey,
-            customUrl = stage1CustomUrl
-        )
+            if (decision.isFinished || decision.nextAgent == null) {
+                Napier.d("[$TAG -> Finished] Supervisor marked orchestration complete at Turn ${state.turnCount}. Reasoning: ${decision.reasoning}", tag = TAG)
+                break
+            }
 
-        // Stage 1: Vision Transcription Agent (Handwriting OCR)
-        onProgress(ProcessingStep.READING_HANDWRITING)
-        val rawMedicines = visionTranscriptionAgent.execute(stage1Input).getOrElse { ex ->
-            Napier.e("[$TAG -> Stage 1 Failure] ${visionTranscriptionAgent.agentName} failed: ${ex.message}", throwable = ex, tag = TAG)
-            return Result.failure(ex)
+            val targetAgentType = decision.nextAgent
+            Napier.d("[$TAG -> Turn ${state.turnCount + 1}] Supervisor dispatches to ${targetAgentType.displayName}. Reason: ${decision.reasoning}", tag = TAG)
+
+            // Resolve target agent's configured provider and model
+            val agentConfig = agentConfigs[targetAgentType]
+            val agentProvider = agentConfig?.provider ?: targetAgentType.defaultProvider
+            val agentModel = agentConfig?.selectedModel?.ifBlank { agentProvider.defaultModel } ?: targetAgentType.defaultModel
+            val agentApiKey = database.getApiKeyForProvider(agentProvider.id).ifBlank { input.providedApiKey }
+            val agentCustomUrl = (if (agentProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
+
+            val stepEnum = when (targetAgentType) {
+                RxAgentType.TRANSCRIPTION -> ProcessingStep.READING_HANDWRITING
+                RxAgentType.ENTITY_PARSER -> ProcessingStep.MATCHING_BRANDS
+                RxAgentType.GENERIC_SUBSTITUTE -> ProcessingStep.FINDING_SIMILAR
+                RxAgentType.SAFETY_AUDITOR -> ProcessingStep.COMPLETE
+                RxAgentType.SUPERVISOR -> ProcessingStep.ENCODING
+            }
+            onProgress(stepEnum)
+
+            val newItemsResult = when (targetAgentType) {
+                RxAgentType.TRANSCRIPTION -> {
+                    val stage1Input = input.copy(
+                        provider = agentProvider,
+                        selectedModel = agentModel,
+                        providedApiKey = agentApiKey,
+                        customUrl = agentCustomUrl
+                    )
+                    visionTranscriptionAgent.execute(stage1Input)
+                }
+                RxAgentType.ENTITY_PARSER -> {
+                    medicalEntityParserAgent.execute(
+                        input = state.items,
+                        provider = agentProvider,
+                        selectedModel = agentModel,
+                        apiKey = agentApiKey,
+                        customUrl = agentCustomUrl,
+                        feedbackPrompt = decision.feedbackPrompt
+                    )
+                }
+                RxAgentType.GENERIC_SUBSTITUTE -> {
+                    genericSubstituteAgent.execute(
+                        input = state.items,
+                        provider = agentProvider,
+                        selectedModel = agentModel,
+                        apiKey = agentApiKey,
+                        customUrl = agentCustomUrl,
+                        feedbackPrompt = decision.feedbackPrompt
+                    )
+                }
+                RxAgentType.SAFETY_AUDITOR -> {
+                    safetyAuditorAgent.execute(
+                        input = state.items,
+                        provider = agentProvider,
+                        selectedModel = agentModel,
+                        apiKey = agentApiKey,
+                        customUrl = agentCustomUrl,
+                        feedbackPrompt = decision.feedbackPrompt
+                    )
+                }
+                RxAgentType.SUPERVISOR -> Result.success(state.items)
+            }
+
+            if (newItemsResult.isFailure && targetAgentType == RxAgentType.TRANSCRIPTION) {
+                val ex = newItemsResult.exceptionOrNull() ?: IllegalStateException("Vision transcription agent failed")
+                Napier.e("[$TAG -> Failure] Primary Vision Transcription Agent failed: ${ex.message}", throwable = ex, tag = TAG)
+                return Result.failure(ex)
+            }
+
+            val updatedItems = newItemsResult.getOrDefault(state.items)
+            val record = AgentExecutionRecord(
+                agentType = targetAgentType,
+                reasoning = decision.reasoning,
+                feedbackPrompt = decision.feedbackPrompt,
+                itemCount = updatedItems.size
+            )
+
+            state = state.copy(
+                items = updatedItems,
+                history = state.history + record,
+                turnCount = state.turnCount + 1
+            )
         }
 
-        // Stage 2: Medical Entity Parser Agent
-        val parserConfig = agentConfigs[RxAgentType.ENTITY_PARSER]
-        val parserProvider = parserConfig?.provider ?: AiProvider.Gemini
-        val parserModel = parserConfig?.selectedModel?.ifBlank { parserProvider.defaultModel } ?: parserProvider.defaultModel
-        val parserApiKey = database.getApiKeyForProvider(parserProvider.id).ifBlank { input.providedApiKey }
-        val parserCustomUrl = (if (parserProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
-
-        Napier.d("[$TAG -> Stage 2] ${medicalEntityParserAgent.agentName} assigned to provider '${parserProvider.displayName}' (model: $parserModel, apiKeyLength=${parserApiKey.length})", tag = TAG)
-        onProgress(ProcessingStep.MATCHING_BRANDS)
-        val parsedMedicines = medicalEntityParserAgent.execute(
-            input = rawMedicines,
-            provider = parserProvider,
-            selectedModel = parserModel,
-            apiKey = parserApiKey,
-            customUrl = parserCustomUrl
-        ).getOrDefault(rawMedicines)
-
-        // Stage 3: Generic & Substitute Agent
-        val substituteConfig = agentConfigs[RxAgentType.GENERIC_SUBSTITUTE]
-        val substituteProvider = substituteConfig?.provider ?: AiProvider.Groq
-        val substituteModel = substituteConfig?.selectedModel?.ifBlank { substituteProvider.defaultModel } ?: substituteProvider.defaultModel
-        val substituteApiKey = database.getApiKeyForProvider(substituteProvider.id).ifBlank { input.providedApiKey }
-        val substituteCustomUrl = (if (substituteProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
-
-        Napier.d("[$TAG -> Stage 3] ${genericSubstituteAgent.agentName} assigned to provider '${substituteProvider.displayName}' (model: $substituteModel, apiKeyLength=${substituteApiKey.length})", tag = TAG)
-        onProgress(ProcessingStep.FINDING_SIMILAR)
-        val enrichedMedicines = genericSubstituteAgent.execute(
-            input = parsedMedicines,
-            provider = substituteProvider,
-            selectedModel = substituteModel,
-            apiKey = substituteApiKey,
-            customUrl = substituteCustomUrl
-        ).getOrDefault(parsedMedicines)
-
-        // Stage 4: Safety Auditor Agent
-        val safetyConfig = agentConfigs[RxAgentType.SAFETY_AUDITOR]
-        val safetyProvider = safetyConfig?.provider ?: AiProvider.OpenAi
-        val safetyModel = safetyConfig?.selectedModel?.ifBlank { safetyProvider.defaultModel } ?: safetyProvider.defaultModel
-        val safetyApiKey = database.getApiKeyForProvider(safetyProvider.id).ifBlank { input.providedApiKey }
-        val safetyCustomUrl = (if (safetyProvider == AiProvider.Custom) database.getProviderConfig().customUrl else "").ifBlank { input.customUrl }
-
-        Napier.d("[$TAG -> Stage 4] ${safetyAuditorAgent.agentName} assigned to provider '${safetyProvider.displayName}' (model: $safetyModel, apiKeyLength=${safetyApiKey.length})", tag = TAG)
-        val finalAuditedMedicines = safetyAuditorAgent.execute(
-            input = enrichedMedicines,
-            provider = safetyProvider,
-            selectedModel = safetyModel,
-            apiKey = safetyApiKey,
-            customUrl = safetyCustomUrl
-        ).getOrDefault(enrichedMedicines)
-
         onProgress(ProcessingStep.COMPLETE)
-        Napier.d("[$TAG -> Pipeline Success] Successfully processed ${finalAuditedMedicines.size} medicine items through all 4 AI agents.", tag = TAG)
-
-        return Result.success(finalAuditedMedicines)
+        Napier.d("[$TAG -> Success] Supervisor-Driven Pipeline finished with ${state.items.size} medicines.", tag = TAG)
+        return Result.success(state.items)
     }
 
     companion object {

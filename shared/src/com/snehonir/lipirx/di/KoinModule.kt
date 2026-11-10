@@ -10,6 +10,7 @@ import com.snehonir.lipirx.data.remote.OpenAiAiService
 import com.snehonir.lipirx.domain.agent.GenericSubstituteAgent
 import com.snehonir.lipirx.domain.agent.MedicalEntityParserAgent
 import com.snehonir.lipirx.domain.agent.MultiAgentRxOrchestrator
+import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
 import com.snehonir.lipirx.domain.agent.SafetyAuditorAgent
 import com.snehonir.lipirx.domain.agent.VisionTranscriptionAgent
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -81,13 +82,15 @@ val sharedModule = module {
     }
 
     // Multiagent Architecture Components
+    single { RxSupervisorAgent(aiService = get(), jsonParser = get()) }
     single { VisionTranscriptionAgent(aiService = get()) }
-    single { MedicalEntityParserAgent(aiService = get()) }
-    single { GenericSubstituteAgent(aiService = get()) }
-    single { SafetyAuditorAgent(aiService = get()) }
+    single { MedicalEntityParserAgent(aiService = get(), jsonParser = get()) }
+    single { GenericSubstituteAgent(aiService = get(), jsonParser = get()) }
+    single { SafetyAuditorAgent(aiService = get(), jsonParser = get()) }
 
     single {
         MultiAgentRxOrchestrator(
+            rxSupervisorAgent = get(),
             visionTranscriptionAgent = get(),
             medicalEntityParserAgent = get(),
             genericSubstituteAgent = get(),

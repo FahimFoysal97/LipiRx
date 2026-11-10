@@ -124,8 +124,21 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         return records
     }
 
-    fun saveSelectedModel(modelName: String, flow: String = "App -> LipiRxLocalDatabase.saveSelectedModel") {
-        Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: last_selected_model='$modelName'", tag = TAG)
+    fun saveSelectedModel(
+        modelName: String,
+        provider: AiProvider = AiProvider.Gemini,
+        flow: String = "App -> LipiRxLocalDatabase.saveSelectedModel"
+    ) {
+        val modelKey = AppConfigKey.keyForProviderModel(provider)
+        Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: $modelKey='$modelName'", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, modelKey)
+            bindString(1, modelName)
+        }
         driver.execute(
             identifier = null,
             sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
@@ -136,8 +149,13 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getLastSelectedModel(flow: String = "App -> LipiRxLocalDatabase.getLastSelectedModel"): String {
-        return getConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key)
+    fun getLastSelectedModel(
+        provider: AiProvider = AiProvider.Gemini,
+        flow: String = "App -> LipiRxLocalDatabase.getLastSelectedModel"
+    ): String {
+        val modelKey = AppConfigKey.keyForProviderModel(provider)
+        val value = getConfigValue(modelKey)
+        return if (value.isNotBlank()) value else getConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key).ifBlank { provider.defaultModel }
     }
 
     fun saveApiKey(apiKey: String, flow: String = "App -> LipiRxLocalDatabase.saveApiKey") {

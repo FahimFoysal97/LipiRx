@@ -50,7 +50,11 @@ class ScanViewModel(
         }.getOrDefault(ProviderConfigEntity())
 
         val providerObj = AiProvider.fromId(config.providerType)
-        val cleanModel = config.modelName.removePrefix("models/").trim()
+        val savedModelForProvider = runCatching {
+            database.getLastSelectedModel(providerObj, flow = "App -> ScanViewModel.init.getLastSelectedModel")
+        }.getOrDefault("").removePrefix("models/").trim()
+        val cleanModel =
+            savedModelForProvider.ifBlank { config.modelName.removePrefix("models/").trim().ifBlank { providerObj.defaultModel } }
 
         val loadedAgentConfigs = runCatching {
             database.getAllAgentConfigs()
@@ -225,9 +229,14 @@ class ScanViewModel(
         val providerObj = AiProvider.fromId(newProviderType)
         Napier.d("[$flow] User switched provider tab to '${providerObj.id}'", tag = TAG)
 
+        val savedModelForProvider = runCatching {
+            database.getLastSelectedModel(providerObj, flow = "$flow -> LipiRxLocalDatabase.getLastSelectedModel")
+        }.getOrDefault("").removePrefix("models/").trim().ifBlank { providerObj.defaultModel }
+
         _uiState.update {
             it.copy(
                 provider = providerObj,
+                selectedModel = savedModelForProvider,
                 apiKeyError = null
             )
         }
@@ -337,11 +346,12 @@ class ScanViewModel(
 
     fun selectModel(modelName: String, flow: String = "App -> ScanViewModel.selectModel") {
         val cleanModel = modelName.removePrefix("models/").trim()
-        Napier.d("[$flow] User selected model: '$cleanModel'. Saving to SQLite...", tag = TAG)
+        val currentProvider = _uiState.value.provider
+        Napier.d("[$flow] User selected model: '$cleanModel' for provider '${currentProvider.id}'. Saving to SQLite...", tag = TAG)
         _uiState.update { it.copy(selectedModel = cleanModel) }
 
         runCatching {
-            database.saveSelectedModel(cleanModel, flow = "$flow -> LipiRxLocalDatabase.saveSelectedModel")
+            database.saveSelectedModel(cleanModel, currentProvider, flow = "$flow -> LipiRxLocalDatabase.saveSelectedModel")
         }.onFailure { ex ->
             Napier.w("[$flow -> Warning] Failed to save selected model: ${ex.message}", throwable = ex, tag = TAG)
         }
@@ -381,7 +391,7 @@ class ScanViewModel(
                         }
 
                         val savedModel = runCatching {
-                            database.getLastSelectedModel(flow = "$flow -> LipiRxLocalDatabase.getLastSelectedModel")
+                            database.getLastSelectedModel(currentProvider, flow = "$flow -> LipiRxLocalDatabase.getLastSelectedModel")
                         }.getOrDefault("").removePrefix("models/").trim()
 
                         _uiState.update { currentState ->
@@ -464,14 +474,15 @@ class ScanViewModel(
         }
 
         val state = _uiState.value
-        val currentApiKey = state.apiKey
-        val currentProvider = state.provider
-        val currentCustomUrl = state.customUrl
-        val currentModel = state.selectedModel
+        val visionConfig = state.agentConfigs[RxAgentType.TRANSCRIPTION]
+        val visionProvider = visionConfig?.provider ?: state.provider
+        val visionModel = visionConfig?.selectedModel?.ifBlank { visionProvider.defaultModel } ?: state.selectedModel.ifBlank { visionProvider.defaultModel }
+        val visionApiKey = database.getApiKeyForProvider(visionProvider.id).ifBlank { state.apiKey }
+        val customUrl = if (visionProvider == AiProvider.Custom) database.getProviderConfig().customUrl else state.customUrl
 
-        if (currentProvider == AiProvider.Gemini && currentApiKey.isBlank()) {
-            Napier.w("[$flow -> Warning] API key is missing", tag = TAG)
-            _uiState.update { it.copy(errorMessage = "Gemini API key is required. Please tap the model button to set your API key.") }
+        if (visionProvider.requiresApiKey && visionApiKey.isBlank()) {
+            Napier.w("[$flow -> Warning] API key is missing for ${visionProvider.displayName}", tag = TAG)
+            _uiState.update { it.copy(errorMessage = "${visionProvider.displayName} API key is required. Please set your API key in Model Settings.") }
             return
         }
 
@@ -484,17 +495,17 @@ class ScanViewModel(
                 capturedImageByteArray = imageByteArray
             )
         }
-        Napier.d("[$flow] ScanUiState updated: isLoading=true, provider=${currentProvider.id}, selectedModel=$currentModel", tag = TAG)
+        Napier.d("[$flow] ScanUiState updated: isLoading=true, visionProvider=${visionProvider.id}, visionModel=$visionModel", tag = TAG)
 
         viewModelScope.launch {
-            Napier.d("[$flow] Executing Multiagent Pipeline with provider '${currentProvider.id}' & model '$currentModel'...", tag = TAG)
+            Napier.d("[$flow] Executing Multiagent Pipeline with Stage 1 Vision provider '${visionProvider.id}' & model '$visionModel'...", tag = TAG)
 
             val input = TranscriptionInput(
                 imageByteArray = imageByteArray,
-                selectedModel = currentModel,
-                provider = currentProvider,
-                providedApiKey = currentApiKey,
-                customUrl = currentCustomUrl,
+                selectedModel = visionModel,
+                provider = visionProvider,
+                providedApiKey = visionApiKey,
+                customUrl = customUrl,
                 onProgress = { step, statusText ->
                     Napier.d("[$flow -> Progress] Step $step: $statusText", tag = TAG)
                     _uiState.update {

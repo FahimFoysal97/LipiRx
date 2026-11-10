@@ -9,6 +9,13 @@ enum class RxAgentType(
     val defaultProvider: AiProvider,
     val defaultModel: String
 ) {
+    SUPERVISOR(
+        id = "supervisor",
+        displayName = "0. Manager / Supervisor Agent",
+        description = "Evaluates workspace state and dynamically orchestrates worker agents",
+        defaultProvider = AiProvider.Gemini,
+        defaultModel = "gemini-2.0-flash"
+    ),
     TRANSCRIPTION(
         id = "transcription",
         displayName = "1. Vision Handwriting OCR",
@@ -41,7 +48,7 @@ enum class RxAgentType(
     companion object {
         val ALL: List<RxAgentType> = entries.toList()
 
-        fun fromId(id: String): RxAgentType = entries.firstOrNull { it.id.equals(id.trim(), ignoreCase = true) } ?: TRANSCRIPTION
+        fun fromId(id: String): RxAgentType = entries.firstOrNull { it.id.equals(id.trim(), ignoreCase = true) } ?: SUPERVISOR
     }
 }
 
