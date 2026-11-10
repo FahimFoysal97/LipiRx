@@ -2,7 +2,6 @@ package com.snehonir.lipirx.presentation.scan.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.snehonir.lipirx.domain.agent.AgentConfig
+import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.ui.theme.Lipi
 
@@ -58,6 +59,10 @@ fun ImagePreviewAndProcessView(
     apiKeyError: String? = null,
     errorMessage: String? = null,
     isTestingApiKey: Boolean = false,
+    agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
+    providerModelsMap: Map<String, List<String>> = emptyMap(),
+    onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
+    onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onModelSelected: (String) -> Unit,
@@ -156,9 +161,8 @@ fun ImagePreviewAndProcessView(
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ModelSelectorCard(
-                model = selectedModel,
-                providerType = providerType,
+            PipelineSummaryCard(
+                agentConfigs = agentConfigs,
                 onClick = { showModelBottomSheet = true }
             )
 
@@ -179,7 +183,6 @@ fun ImagePreviewAndProcessView(
     if (showModelBottomSheet) {
         ModelSelectionBottomSheet(
             selectedModel = selectedModel,
-            availableModels = availableModels,
             apiKey = apiKey,
             geminiApiKey = geminiApiKey,
             groqApiKey = groqApiKey,
@@ -189,70 +192,124 @@ fun ImagePreviewAndProcessView(
             customUrl = customUrl,
             apiKeyError = apiKeyError,
             isTestingApiKey = isTestingApiKey,
+            agentConfigs = agentConfigs,
+            providerModelsMap = providerModelsMap,
+            onAgentProviderSelected = onAgentProviderSelected,
+            onAgentModelSelected = onAgentModelSelected,
             onProviderTabSelected = onProviderTabSelected,
             onSaveProviderConfig = onSaveProviderConfig,
-            onModelSelected = onModelSelected,
             onDismiss = { showModelBottomSheet = false }
         )
     }
 }
 
-/** Shows which AI model will run. Tappable to open theme-matched bottom sheet. */
+/** Shows summary of all 4 active AI pipeline agents & models. Tappable to open theme-matched bottom sheet. */
 @Composable
-private fun ModelSelectorCard(
-    model: String,
-    providerType: String = "gemini",
+private fun PipelineSummaryCard(
+    agentConfigs: Map<RxAgentType, AgentConfig>,
     onClick: (() -> Unit)? = null
 ) {
-    val provider = AiProvider.fromId(providerType)
-    val shape = RoundedCornerShape(16.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(Color.White)
-            .border(BorderStroke(1.dp, Lipi.Outline), shape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    val shape = RoundedCornerShape(18.dp)
+    Surface(
+        onClick = { onClick?.invoke() },
+        modifier = Modifier.fillMaxWidth(),
+        shape = shape,
+        color = Color.White,
+        border = BorderStroke(1.dp, Lipi.Outline)
     ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .background(provider.brandColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center,
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = provider.icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = provider.brandColor
-            )
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "${provider.displayName} model",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Lipi.Muted
-            )
-            Text(
-                text = model.ifBlank { "Set AI Provider" },
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Ink,
-                maxLines = 1
-            )
-        }
-        if (onClick != null) {
-            Text("Change", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = provider.brandColor)
-            Icon(
-                imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = provider.brandColor
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Lipi.PrimaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = MultiAgentPipelineIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Lipi.Primary
+                        )
+                    }
+                    Text(
+                        text = "⚡ Active AI Pipeline (4 Agents)",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Lipi.Ink
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text("Configure", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Primary)
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Lipi.Primary
+                    )
+                }
+            }
+
+            // Agents Summary Row Badges
+            RxAgentType.ALL.forEach { agentType ->
+                val config = agentConfigs[agentType]
+                val provider = config?.provider ?: agentType.defaultProvider
+                val model = config?.selectedModel?.ifBlank { agentType.defaultModel } ?: agentType.defaultModel
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = agentType.displayName,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Lipi.Muted
+                    )
+
+                    Surface(
+                        shape = CircleShape,
+                        color = provider.brandColor.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, provider.brandColor.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = provider.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(10.dp),
+                                tint = provider.brandColor
+                            )
+                            Text(
+                                text = "${provider.displayName} ($model)",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = provider.brandColor,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

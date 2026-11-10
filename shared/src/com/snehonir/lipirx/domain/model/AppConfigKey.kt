@@ -1,5 +1,7 @@
 package com.snehonir.lipirx.domain.model
 
+import com.snehonir.lipirx.domain.agent.RxAgentType
+
 enum class AppConfigKey(val key: String) {
     PROVIDER_TYPE("provider_type"),
     CUSTOM_URL("custom_url"),
@@ -16,5 +18,8 @@ enum class AppConfigKey(val key: String) {
             AiProvider.Custom -> CUSTOM_API_KEY
             AiProvider.Gemini -> GEMINI_API_KEY
         }
+
+        fun keyForAgentProvider(agentType: RxAgentType): String = "agent_provider_${agentType.id}"
+        fun keyForAgentModel(agentType: RxAgentType): String = "agent_model_${agentType.id}"
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,13 +18,17 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -56,6 +61,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.snehonir.lipirx.domain.agent.AgentConfig
+import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.ui.theme.Lipi
 import kotlinx.coroutines.launch
@@ -147,6 +154,35 @@ val GalleryVectorIcon = ImageVector.Builder(
     }
 }.build()
 
+val MultiAgentPipelineIcon = ImageVector.Builder(
+    name = "MultiAgentPipeline",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Lipi.Primary),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(12f, 2f)
+        lineTo(20f, 7f)
+        lineTo(20f, 17f)
+        lineTo(12f, 22f)
+        lineTo(4f, 17f)
+        lineTo(4f, 7f)
+        close()
+        moveTo(12f, 6f)
+        lineTo(12f, 18f)
+        moveTo(6f, 9f)
+        lineTo(18f, 15f)
+        moveTo(18f, 9f)
+        lineTo(6f, 15f)
+    }
+}.build()
+
 val CopyVectorIcon = ImageVector.Builder(
     name = "CopyOutline",
     defaultWidth = 24.dp,
@@ -210,7 +246,6 @@ fun AppHeader(
 @Composable
 fun ModelChip(
     selectedModel: String,
-    availableModels: List<String>,
     apiKey: String = "",
     geminiApiKey: String = "",
     groqApiKey: String = "",
@@ -220,12 +255,14 @@ fun ModelChip(
     customUrl: String = "",
     apiKeyError: String? = null,
     isTestingApiKey: Boolean = false,
+    agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
+    providerModelsMap: Map<String, List<String>> = emptyMap(),
+    onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
+    onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
-    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
-    onModelSelected: (String) -> Unit
+    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> }
 ) {
     var showSheet by remember { mutableStateOf(false) }
-    val currentProvider = AiProvider.fromId(providerType)
 
     Surface(
         modifier = Modifier
@@ -240,16 +277,15 @@ fun ModelChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Icon(
-                imageVector = currentProvider.icon,
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = currentProvider.brandColor
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(Lipi.Success, CircleShape)
             )
             Text(
-                text = selectedModel.ifBlank { currentProvider.displayName },
+                text = "⚡ AI Pipeline (4)",
                 fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 color = Lipi.Ink,
                 maxLines = 1
             )
@@ -259,7 +295,6 @@ fun ModelChip(
     if (showSheet) {
         ModelSelectionBottomSheet(
             selectedModel = selectedModel,
-            availableModels = availableModels,
             apiKey = apiKey,
             geminiApiKey = geminiApiKey,
             groqApiKey = groqApiKey,
@@ -269,9 +304,12 @@ fun ModelChip(
             customUrl = customUrl,
             apiKeyError = apiKeyError,
             isTestingApiKey = isTestingApiKey,
+            agentConfigs = agentConfigs,
+            providerModelsMap = providerModelsMap,
+            onAgentProviderSelected = onAgentProviderSelected,
+            onAgentModelSelected = onAgentModelSelected,
             onProviderTabSelected = onProviderTabSelected,
             onSaveProviderConfig = onSaveProviderConfig,
-            onModelSelected = onModelSelected,
             onDismiss = { showSheet = false }
         )
     }
@@ -281,7 +319,6 @@ fun ModelChip(
 @Composable
 fun ModelSelectionBottomSheet(
     selectedModel: String,
-    availableModels: List<String>,
     apiKey: String = "",
     geminiApiKey: String = "",
     groqApiKey: String = "",
@@ -291,9 +328,12 @@ fun ModelSelectionBottomSheet(
     customUrl: String = "",
     apiKeyError: String? = null,
     isTestingApiKey: Boolean = false,
+    agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
+    providerModelsMap: Map<String, List<String>> = emptyMap(),
+    onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
+    onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
-    onModelSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -335,9 +375,11 @@ fun ModelSelectionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.88f)
                 .padding(horizontal = 24.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             val activeProviderObj = AiProvider.fromId(providerType)
             Row(
@@ -351,23 +393,225 @@ fun ModelSelectionBottomSheet(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .background(activeProviderObj.brandColor.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
+                            .size(42.dp)
+                            .background(Lipi.PrimaryContainer, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = activeProviderObj.icon,
+                            imageVector = MultiAgentPipelineIcon,
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = activeProviderObj.brandColor
+                            modifier = Modifier.size(22.dp),
+                            tint = Lipi.Primary
                         )
                     }
                     Column {
-                        Text("AI Provider & Settings", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
-                        Text("Configure Gemini, Groq, OpenAI, or Custom URL", fontSize = 12.sp, color = Lipi.Muted)
+                        Text("AI Pipeline & Engine Studio", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+                        Text("Assign specialized AI models per agent & configure keys", fontSize = 12.sp, color = Lipi.Muted)
                     }
                 }
             }
+
+            // --- TOP SECTION: Per-Agent AI Assignments ---
+            Text(
+                text = "Per-Agent AI & Model Assignments",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Lipi.Ink
+            )
+
+            RxAgentType.ALL.forEach { agentType ->
+                val currentConfig = agentConfigs[agentType]
+                val currentAssignedProvider = currentConfig?.provider ?: agentType.defaultProvider
+                val currentAssignedModel = currentConfig?.selectedModel?.ifBlank { "" } ?: ""
+
+                // Strictly live models for THIS agent's assigned provider from providerModelsMap
+                val liveModelsForProvider = providerModelsMap[currentAssignedProvider.id] ?: emptyList()
+
+                var showModelDropdown by remember { mutableStateOf(false) }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Lipi.Background,
+                    border = BorderStroke(1.dp, Lipi.Outline)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 1. Agent Title & Description
+                        Text(
+                            text = agentType.displayName,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Ink
+                        )
+                        Text(
+                            text = agentType.description,
+                            fontSize = 11.sp,
+                            color = Lipi.Muted
+                        )
+
+                        // 2. Provider Selector Chips Row
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            AiProvider.ALL.forEach { prov ->
+                                val isSelected = currentAssignedProvider == prov
+                                Surface(
+                                    onClick = {
+                                        onAgentProviderSelected(agentType, prov)
+                                        val modelsForProv = providerModelsMap[prov.id] ?: emptyList()
+                                        if (modelsForProv.isNotEmpty()) {
+                                            onAgentModelSelected(agentType, modelsForProv.first())
+                                        }
+                                    },
+                                    shape = CircleShape,
+                                    color = if (isSelected) prov.brandColor else Color.White,
+                                    border = BorderStroke(1.dp, if (isSelected) prov.brandColor else Lipi.Outline)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = prov.icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(12.dp),
+                                            tint = if (isSelected) Color.White else prov.brandColor
+                                        )
+                                        Text(
+                                            text = prov.displayName,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isSelected) Color.White else Lipi.Ink
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Model Dropdown Selector Bar BELOW Provider Row
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Surface(
+                                onClick = { showModelDropdown = !showModelDropdown },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color.White,
+                                border = BorderStroke(
+                                    width = 1.dp,
+                                    color = if (liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor.copy(alpha = 0.5f) else Lipi.Error
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "Model:",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Lipi.Muted
+                                        )
+                                        Text(
+                                            text = when {
+                                                liveModelsForProvider.isNotEmpty() && currentAssignedModel.isNotBlank() -> currentAssignedModel
+                                                liveModelsForProvider.isNotEmpty() -> liveModelsForProvider.first()
+                                                else -> "Configure API key to load models"
+                                            },
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = if (liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor else Lipi.Error
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select Model",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = if (liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor else Lipi.Error
+                                    )
+                                }
+                            }
+
+                            // Native Material3 DropdownMenu listing strictly live provider models (max ~5 items visible height)
+                            DropdownMenu(
+                                expanded = showModelDropdown,
+                                onDismissRequest = { showModelDropdown = false },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .heightIn(max = 220.dp)
+                                    .background(Color.White)
+                            ) {
+                                if (liveModelsForProvider.isNotEmpty()) {
+                                    liveModelsForProvider.forEach { mName ->
+                                        val isModelSelected = currentAssignedModel == mName
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = mName,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = if (isModelSelected) FontWeight.Bold else FontWeight.Medium,
+                                                        color = if (isModelSelected) currentAssignedProvider.brandColor else Lipi.Ink
+                                                    )
+                                                    if (isModelSelected) {
+                                                        Text(
+                                                            text = "✓",
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            color = currentAssignedProvider.brandColor
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                onAgentModelSelected(agentType, mName)
+                                                showModelDropdown = false
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = "No live models found for ${currentAssignedProvider.displayName}.\nTap '🔑 Save Provider Config' below to verify key & fetch models.",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Lipi.Error
+                                            )
+                                        },
+                                        onClick = {
+                                            showModelDropdown = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // --- SECOND SECTION: Global Provider Config & API Keys ---
+            Text(
+                text = "Provider Keys & Settings",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Lipi.Ink
+            )
 
             // Provider Selector Tabs
             FlowRow(
@@ -505,80 +749,6 @@ fun ModelSelectionBottomSheet(
                             Text("Connecting & Saving...", fontSize = 13.sp)
                         } else {
                             Text("🔑 Save Provider Config", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
-            if (availableModels.isNotEmpty()) {
-                Text(
-                    text = "Available Models (${availableModels.size})",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Lipi.Ink
-                )
-
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 200.dp)
-                ) {
-                    items(availableModels) { model ->
-                        val isSelected = model == selectedModel
-                        Surface(
-                            onClick = {
-                                dismissWithAnimation {
-                                    onModelSelected(model)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (isSelected) activeProviderObj.brandColor.copy(alpha = 0.12f) else Lipi.Background,
-                            border = BorderStroke(
-                                width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) activeProviderObj.brandColor else Lipi.Outline
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .background(if (isSelected) activeProviderObj.brandColor else Lipi.Muted, CircleShape)
-                                    )
-                                    Text(
-                                        text = model,
-                                        fontSize = 14.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                        color = if (isSelected) activeProviderObj.brandColor else Lipi.Ink
-                                    )
-                                }
-
-                                if (isSelected) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = activeProviderObj.brandColor
-                                    ) {
-                                        Text(
-                                            text = " ✓ ",
-                                            color = Color.White,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }

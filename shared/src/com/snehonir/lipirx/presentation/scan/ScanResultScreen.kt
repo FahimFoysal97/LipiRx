@@ -99,6 +99,14 @@ fun ScanResultScreen(
                             customUrl = uiState.customUrl,
                             apiKeyError = uiState.apiKeyError,
                             isTestingApiKey = uiState.isTestingApiKey,
+                            agentConfigs = uiState.agentConfigs,
+                            providerModelsMap = uiState.providerModelsMap,
+                            onAgentProviderSelected = { agent, prov ->
+                                viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
+                            },
+                            onAgentModelSelected = { agent, model ->
+                                viewModel.onAgentModelSelected(agent, model, flow = "$flow -> ScanResultScreen.onAgentModelSelected")
+                            },
                             onProviderTabSelected = { type ->
                                 viewModel.onProviderTabSelected(type, flow = "$flow -> ScanResultScreen.onProviderTabSelected")
                             },
@@ -128,6 +136,14 @@ fun ScanResultScreen(
                             apiKeyError = uiState.apiKeyError,
                             errorMessage = uiState.errorMessage,
                             isTestingApiKey = uiState.isTestingApiKey,
+                            agentConfigs = uiState.agentConfigs,
+                            providerModelsMap = uiState.providerModelsMap,
+                            onAgentProviderSelected = { agent, prov ->
+                                viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
+                            },
+                            onAgentModelSelected = { agent, model ->
+                                viewModel.onAgentModelSelected(agent, model, flow = "$flow -> ScanResultScreen.onAgentModelSelected")
+                            },
                             onProviderTabSelected = { type ->
                                 viewModel.onProviderTabSelected(type, flow = "$flow -> ScanResultScreen.onProviderTabSelected")
                             },

@@ -5,10 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.data.local.ProviderConfigEntity
 import com.snehonir.lipirx.data.remote.CompositeAiService
+import com.snehonir.lipirx.domain.agent.AgentConfig
+import com.snehonir.lipirx.domain.agent.MultiAgentRxOrchestrator
+import com.snehonir.lipirx.domain.agent.RxAgentType
+import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.model.AiProvider
 import io.github.aakira.napier.Napier
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +29,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class ScanViewModel(
     private val aiService: CompositeAiService,
+    private val orchestrator: MultiAgentRxOrchestrator,
     private val database: LipiRxLocalDatabase
 ) : ViewModel() {
 
@@ -44,6 +52,12 @@ class ScanViewModel(
         val providerObj = AiProvider.fromId(config.providerType)
         val cleanModel = config.modelName.removePrefix("models/").trim()
 
+        val loadedAgentConfigs = runCatching {
+            database.getAllAgentConfigs()
+        }.getOrDefault(emptyMap()).toImmutableMap()
+
+        val loadedProviderModelsMap = loadProviderModelsMap()
+
         _uiState.update {
             it.copy(
                 provider = providerObj,
@@ -52,7 +66,9 @@ class ScanViewModel(
                 groqApiKey = groqKey,
                 openaiApiKey = openaiKey,
                 customApiKey = customKey,
-                selectedModel = cleanModel
+                selectedModel = cleanModel,
+                agentConfigs = loadedAgentConfigs,
+                providerModelsMap = loadedProviderModelsMap
             )
         }
 
@@ -65,6 +81,139 @@ class ScanViewModel(
 
         if (activeKey.isNotBlank() || providerObj != AiProvider.Gemini) {
             fetchModels(flow = "App -> ScanViewModel.init")
+        }
+    }
+
+    private fun loadProviderModelsMap(): ImmutableMap<String, ImmutableList<String>> {
+        val rawMap = runCatching { database.getAllProviderModelsMap() }.getOrDefault(emptyMap())
+        val resultMap = mutableMapOf<String, ImmutableList<String>>()
+
+        AiProvider.ALL.forEach { prov ->
+            val savedList = rawMap[prov.id] ?: emptyList()
+            resultMap[prov.id] = savedList.toImmutableList()
+        }
+        return resultMap.toImmutableMap()
+    }
+
+    fun fetchModelsForProvider(
+        targetProvider: AiProvider,
+        flow: String = "App -> ScanViewModel.fetchModelsForProvider"
+    ) {
+        val apiKey = database.getApiKeyForProvider(targetProvider.id)
+        val customUrl = if (targetProvider == AiProvider.Custom) database.getProviderConfig().customUrl else ""
+
+        if (apiKey.isBlank() && targetProvider == AiProvider.Gemini) {
+            Napier.d("[$flow] Skipping fetch for ${targetProvider.id} because API key is blank", tag = TAG)
+            return
+        }
+
+        Napier.d("[$flow] Auto-fetching models for ${targetProvider.displayName}...", tag = TAG)
+
+        viewModelScope.launch {
+            val result = aiService.fetchAvailableModels(
+                providedApiKey = apiKey,
+                provider = targetProvider,
+                customUrl = customUrl,
+                flow = "$flow -> CompositeAiService.fetchAvailableModels"
+            )
+
+            result.fold(
+                onSuccess = { modelList ->
+                    val names = modelList.map { it.name.removePrefix("models/").trim() }.toImmutableList()
+                    if (names.isNotEmpty()) {
+                        runCatching {
+                            database.saveProviderModels(targetProvider.id, names, flow = flow)
+                        }
+
+                        _uiState.update { currentState ->
+                            val updatedMap = currentState.providerModelsMap.toMutableMap()
+                            updatedMap[targetProvider.id] = names
+                            currentState.copy(providerModelsMap = updatedMap.toImmutableMap())
+                        }
+                    }
+                },
+                onFailure = { ex ->
+                    Napier.w("[$flow -> Warning] Failed to fetch models for ${targetProvider.displayName}: ${ex.message}", throwable = ex, tag = TAG)
+                }
+            )
+        }
+    }
+
+    fun onAgentProviderSelected(
+        agentType: RxAgentType,
+        newProvider: AiProvider,
+        modelName: String = "",
+        flow: String = "App -> ScanViewModel.onAgentProviderSelected"
+    ) {
+        val savedDbModels = runCatching { database.getProviderModels(newProvider.id) }.getOrDefault(emptyList()).toImmutableList()
+        val currentModelsMap = _uiState.value.providerModelsMap.toMutableMap()
+        if (savedDbModels.isNotEmpty()) {
+            currentModelsMap[newProvider.id] = savedDbModels
+        }
+
+        val modelsForNewProvider = currentModelsMap[newProvider.id] ?: savedDbModels
+        val chosenModel = when {
+            modelName.isNotBlank() -> modelName
+            modelsForNewProvider.isNotEmpty() -> modelsForNewProvider.first()
+            else -> ""
+        }
+
+        Napier.d("[$flow] User assigned agent '${agentType.id}' to provider '${newProvider.id}' (model: $chosenModel, modelsCount=${modelsForNewProvider.size})", tag = TAG)
+
+        runCatching {
+            database.saveAgentConfig(
+                agentType = agentType,
+                provider = newProvider,
+                modelName = chosenModel,
+                flow = flow
+            )
+        }
+
+        _uiState.update { currentState ->
+            val updatedAgentMap = currentState.agentConfigs.toMutableMap()
+            updatedAgentMap[agentType] = AgentConfig(
+                agentType = agentType,
+                provider = newProvider,
+                selectedModel = chosenModel
+            )
+            currentState.copy(
+                agentConfigs = updatedAgentMap.toImmutableMap(),
+                providerModelsMap = currentModelsMap.toImmutableMap()
+            )
+        }
+
+        if (modelsForNewProvider.isEmpty()) {
+            fetchModelsForProvider(newProvider, flow = "$flow -> autoFetch")
+        }
+    }
+
+    fun onAgentModelSelected(
+        agentType: RxAgentType,
+        modelName: String,
+        flow: String = "App -> ScanViewModel.onAgentModelSelected"
+    ) {
+        val currentConfig = _uiState.value.agentConfigs[agentType]
+        val currentProvider = currentConfig?.provider ?: agentType.defaultProvider
+
+        Napier.d("[$flow] User selected model '$modelName' for agent '${agentType.id}' (${currentProvider.id})", tag = TAG)
+
+        runCatching {
+            database.saveAgentConfig(
+                agentType = agentType,
+                provider = currentProvider,
+                modelName = modelName,
+                flow = flow
+            )
+        }
+
+        _uiState.update { currentState ->
+            val updatedMap = currentState.agentConfigs.toMutableMap()
+            updatedMap[agentType] = AgentConfig(
+                agentType = agentType,
+                provider = currentProvider,
+                selectedModel = modelName
+            )
+            currentState.copy(agentConfigs = updatedMap.toImmutableMap())
         }
     }
 
@@ -133,6 +282,7 @@ class ScanViewModel(
                                 modelName = chosenModel,
                                 flow = "$flow -> LipiRxLocalDatabase.saveProviderConfig"
                             )
+                            database.saveProviderModels(providerObj.id, names, flow = "$flow -> LipiRxLocalDatabase.saveProviderModels")
                         }
 
                         _uiState.update { currentState ->
@@ -140,6 +290,9 @@ class ScanViewModel(
                             val newGroqKey = if (providerObj == AiProvider.Groq) cleanKey else currentState.groqApiKey
                             val newOpenAiKey = if (providerObj == AiProvider.OpenAi) cleanKey else currentState.openaiApiKey
                             val newCustomKey = if (providerObj == AiProvider.Custom) cleanKey else currentState.customApiKey
+
+                            val updatedProviderModels = currentState.providerModelsMap.toMutableMap()
+                            updatedProviderModels[providerObj.id] = names
 
                             currentState.copy(
                                 provider = providerObj,
@@ -151,7 +304,8 @@ class ScanViewModel(
                                 isTestingApiKey = false,
                                 apiKeyError = null,
                                 availableModels = names,
-                                selectedModel = chosenModel
+                                selectedModel = chosenModel,
+                                providerModelsMap = updatedProviderModels.toImmutableMap()
                             )
                         }
                     } else {
@@ -218,6 +372,10 @@ class ScanViewModel(
                     Napier.d("[$flow -> Success] Retrieved ${names.size} models directly from API: $names", tag = TAG)
 
                     if (names.isNotEmpty()) {
+                        runCatching {
+                            database.saveProviderModels(currentProvider.id, names, flow = "$flow -> LipiRxLocalDatabase.saveProviderModels")
+                        }
+
                         val savedModel = runCatching {
                             database.getLastSelectedModel(flow = "$flow -> LipiRxLocalDatabase.getLastSelectedModel")
                         }.getOrDefault("").removePrefix("models/").trim()
@@ -234,10 +392,14 @@ class ScanViewModel(
                                 else -> names.first()
                             }
 
+                            val updatedProviderModels = currentState.providerModelsMap.toMutableMap()
+                            updatedProviderModels[currentProvider.id] = names
+
                             currentState.copy(
                                 isFetchingModels = false,
                                 availableModels = names,
-                                selectedModel = chosenModel
+                                selectedModel = chosenModel,
+                                providerModelsMap = updatedProviderModels.toImmutableMap()
                             )
                         }
                     } else {
@@ -321,15 +483,14 @@ class ScanViewModel(
         Napier.d("[$flow] ScanUiState updated: isLoading=true, provider=${currentProvider.id}, selectedModel=$currentModel", tag = TAG)
 
         viewModelScope.launch {
-            val serviceFlow = "$flow -> CompositeAiService.processPrescriptionImage"
-            Napier.d("[$flow] Delegating to CompositeAiService with provider '${currentProvider.id}' & model '$currentModel'...", tag = TAG)
-            val result = aiService.processPrescriptionImage(
+            Napier.d("[$flow] Executing Multiagent Pipeline with provider '${currentProvider.id}' & model '$currentModel'...", tag = TAG)
+
+            val input = TranscriptionInput(
                 imageByteArray = imageByteArray,
                 selectedModel = currentModel,
-                providedApiKey = currentApiKey,
                 provider = currentProvider,
+                providedApiKey = currentApiKey,
                 customUrl = currentCustomUrl,
-                flow = serviceFlow,
                 onProgress = { step, statusText ->
                     Napier.d("[$flow -> Progress] Step $step: $statusText", tag = TAG)
                     _uiState.update {
@@ -341,9 +502,21 @@ class ScanViewModel(
                 }
             )
 
+            val result = orchestrator.executePipeline(
+                input = input,
+                agentConfigs = state.agentConfigs,
+                onProgress = { step ->
+                    _uiState.update {
+                        it.copy(
+                            loadingStep = step.stepIndex,
+                            loadingStatusText = step.statusText
+                        )
+                    }
+                }
+            )
+
             result.fold(
                 onSuccess = { items ->
-                    // Show all 4 steps checked off on LoadingView
                     _uiState.update {
                         it.copy(
                             loadingStep = 4,
@@ -351,11 +524,10 @@ class ScanViewModel(
                         )
                     }
 
-                    // Brief delay so user sees full completion on screen
                     delay(1000L.milliseconds)
 
                     val immutableList = items.toImmutableList()
-                    Napier.d("[$flow -> Success] Received ${items.size} medicine items from CompositeAiService", tag = TAG)
+                    Napier.d("[$flow -> Success] Received ${items.size} medicine items from MultiAgentRxOrchestrator", tag = TAG)
 
                     _uiState.update {
                         it.copy(
@@ -365,13 +537,11 @@ class ScanViewModel(
                         )
                     }
 
-                    // Save prescription summary to SQLDelight local database
                     runCatching {
                         val dbFlow = "$flow -> LipiRxLocalDatabase.saveSummary"
                         val summary = items.joinToString(separator = "; ") { item ->
                             "${item.formattedFullName} (${item.genericName}) [${item.schedule}] Qty: ${item.formattedQuantity}"
                         }
-                        Napier.d("[$flow] Persisting prescription summary into local database...", tag = TAG)
                         database.saveSummary(summary, flow = dbFlow)
                     }.onFailure { dbEx ->
                         Napier.w("[$flow -> Warning] Database save failed: ${dbEx.message}", throwable = dbEx, tag = TAG)

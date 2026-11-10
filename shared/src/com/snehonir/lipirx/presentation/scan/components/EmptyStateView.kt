@@ -26,6 +26,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.snehonir.lipirx.domain.agent.AgentConfig
+import com.snehonir.lipirx.domain.agent.RxAgentType
+import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.ui.theme.Lipi
 
 @Composable
@@ -41,6 +44,10 @@ fun EmptyStateView(
     customUrl: String = "",
     apiKeyError: String? = null,
     isTestingApiKey: Boolean = false,
+    agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
+    providerModelsMap: Map<String, List<String>> = emptyMap(),
+    onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
+    onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onModelSelected: (String) -> Unit,
@@ -58,7 +65,6 @@ fun EmptyStateView(
         AppHeader {
             ModelChip(
                 selectedModel = selectedModel,
-                availableModels = availableModels,
                 apiKey = apiKey,
                 geminiApiKey = geminiApiKey,
                 groqApiKey = groqApiKey,
@@ -68,9 +74,12 @@ fun EmptyStateView(
                 customUrl = customUrl,
                 apiKeyError = apiKeyError,
                 isTestingApiKey = isTestingApiKey,
+                agentConfigs = agentConfigs,
+                providerModelsMap = providerModelsMap,
+                onAgentProviderSelected = onAgentProviderSelected,
+                onAgentModelSelected = onAgentModelSelected,
                 onProviderTabSelected = onProviderTabSelected,
-                onSaveProviderConfig = onSaveProviderConfig,
-                onModelSelected = onModelSelected
+                onSaveProviderConfig = onSaveProviderConfig
             )
         }
 

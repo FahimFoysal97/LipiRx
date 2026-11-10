@@ -3,6 +3,8 @@ package com.snehonir.lipirx.data.local
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlSchema
+import com.snehonir.lipirx.domain.agent.AgentConfig
+import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.AppConfigKey
 import io.github.aakira.napier.Napier
@@ -228,6 +230,94 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         )
         Napier.d("[$flow -> Result] Provider Config retrieved: $config", tag = TAG)
         return config
+    }
+
+    fun saveAgentConfig(
+        agentType: RxAgentType,
+        provider: AiProvider,
+        modelName: String = "",
+        flow: String = "App -> LipiRxLocalDatabase.saveAgentConfig"
+    ) {
+        val providerKey = AppConfigKey.keyForAgentProvider(agentType)
+        val modelKey = AppConfigKey.keyForAgentModel(agentType)
+
+        Napier.d("[$flow] Saving agent config: agent=${agentType.id}, provider=${provider.id}, model=$modelName", tag = TAG)
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, providerKey)
+            bindString(1, provider.id)
+        }
+
+        if (modelName.isNotBlank()) {
+            driver.execute(
+                identifier = null,
+                sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                parameters = 2
+            ) {
+                bindString(0, modelKey)
+                bindString(1, modelName.trim())
+            }
+        }
+    }
+
+    fun getAgentConfig(agentType: RxAgentType): AgentConfig {
+        val providerKey = AppConfigKey.keyForAgentProvider(agentType)
+        val modelKey = AppConfigKey.keyForAgentModel(agentType)
+
+        val rawProviderId = getConfigValue(providerKey)
+        val provider = if (rawProviderId.isNotBlank()) AiProvider.fromId(rawProviderId) else agentType.defaultProvider
+        val modelName = getConfigValue(modelKey).ifBlank { agentType.defaultModel }
+
+        return AgentConfig(
+            agentType = agentType,
+            provider = provider,
+            selectedModel = modelName
+        )
+    }
+
+    fun getAllAgentConfigs(): Map<RxAgentType, AgentConfig> {
+        return RxAgentType.ALL.associateWith { agentType ->
+            getAgentConfig(agentType)
+        }
+    }
+
+    fun saveProviderModels(
+        providerType: String,
+        models: List<String>,
+        flow: String = "App -> LipiRxLocalDatabase.saveProviderModels"
+    ) {
+        val configKey = "models_list_${providerType.trim().lowercase()}"
+        val serializedModels = models.joinToString(separator = "||")
+        Napier.d("[$flow] Saving ${models.size} live models for provider '$providerType' into SQLite", tag = TAG)
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, configKey)
+            bindString(1, serializedModels)
+        }
+    }
+
+    fun getProviderModels(providerType: String): List<String> {
+        val configKey = "models_list_${providerType.trim().lowercase()}"
+        val rawValue = getConfigValue(configKey)
+        if (rawValue.isBlank()) return emptyList()
+        return rawValue.split("||").map { it.trim() }.filter { it.isNotBlank() }
+    }
+
+    fun getAllProviderModelsMap(): Map<String, List<String>> {
+        return mapOf(
+            "gemini" to getProviderModels("gemini"),
+            "groq" to getProviderModels("groq"),
+            "openai" to getProviderModels("openai"),
+            "custom" to getProviderModels("custom")
+        )
     }
 
     private fun getConfigValue(key: String): String {
