@@ -3,6 +3,7 @@ package com.snehonir.lipirx.data.local
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlSchema
+import com.snehonir.lipirx.data.remote.ModelInfoDto
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -12,6 +13,7 @@ import io.github.aakira.napier.Napier
 
 expect fun getPlatformEpochMillis(): Long
 expect fun formatEpochMillisToDateTime(epochMillis: Long): String
+expect fun scanInstalledOnDeviceModels(): List<ModelInfoDto>
 
 val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
     override val version: Long = 1
@@ -256,6 +258,26 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
+    fun saveOnDeviceStrategy(
+        strategy: com.snehonir.lipirx.domain.model.OnDeviceStrategy,
+        flow: String = "App -> LipiRxLocalDatabase.saveOnDeviceStrategy"
+    ) {
+        Napier.d("[$flow] Saving On-Device strategy '${strategy.id}' into SQLite", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.ON_DEVICE_STRATEGY.key)
+            bindString(1, strategy.id)
+        }
+    }
+
+    fun getOnDeviceStrategy(): com.snehonir.lipirx.domain.model.OnDeviceStrategy {
+        val raw = getConfigValue(AppConfigKey.ON_DEVICE_STRATEGY.key)
+        return if (raw.isNotBlank()) com.snehonir.lipirx.domain.model.OnDeviceStrategy.fromId(raw) else com.snehonir.lipirx.domain.model.OnDeviceStrategy.HYBRID_FALLBACK
+    }
+
     fun saveSelectedModel(
         modelName: String,
         provider: AiProvider = AiProvider.Gemini,
@@ -474,7 +496,8 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
             "gemini" to getProviderModels("gemini"),
             "groq" to getProviderModels("groq"),
             "openai" to getProviderModels("openai"),
-            "custom" to getProviderModels("custom")
+            "custom" to getProviderModels("custom"),
+            "on_device" to getProviderModels("on_device")
         )
     }
 

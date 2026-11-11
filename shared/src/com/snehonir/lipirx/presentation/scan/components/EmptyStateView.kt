@@ -54,6 +54,7 @@ fun EmptyStateView(
     apiKeyError: String? = null,
     apiKeySuccess: String? = null,
     isTestingApiKey: Boolean = false,
+    onDeviceStrategy: com.snehonir.lipirx.domain.model.OnDeviceStrategy = com.snehonir.lipirx.domain.model.OnDeviceStrategy.HYBRID_FALLBACK,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
     historyList: List<PrescriptionHistoryEntity> = emptyList(),
@@ -61,6 +62,7 @@ fun EmptyStateView(
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
+    onSelectOnDeviceStrategy: (com.snehonir.lipirx.domain.model.OnDeviceStrategy) -> Unit = {},
     onModelSelected: (String) -> Unit,
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
@@ -244,12 +246,14 @@ fun EmptyStateView(
             apiKeyError = apiKeyError,
             apiKeySuccess = apiKeySuccess,
             isTestingApiKey = isTestingApiKey,
+            onDeviceStrategy = onDeviceStrategy,
             agentConfigs = agentConfigs,
             providerModelsMap = providerModelsMap,
             onAgentProviderSelected = onAgentProviderSelected,
             onAgentModelSelected = onAgentModelSelected,
             onProviderTabSelected = onProviderTabSelected,
             onSaveProviderConfig = onSaveProviderConfig,
+            onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
             onDismiss = { showModelBottomSheet = false }
         )
     }

@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import com.snehonir.lipirx.ui.theme.Lipi
 
 val SparkleVectorIcon = ImageVector.Builder(
     name = "GeminiSparkle",
@@ -133,6 +134,35 @@ val CustomUrlVectorIcon = ImageVector.Builder(
     }
 }.build()
 
+val OnDeviceVectorIcon = ImageVector.Builder(
+    name = "OnDevicePhone",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        fill = SolidColor(Lipi.Primary)
+    ) {
+        moveTo(17f, 1.01f)
+        lineTo(7f, 1f)
+        curveTo(5.9f, 1f, 5f, 1.9f, 5f, 3f)
+        lineTo(5f, 21f)
+        curveTo(5f, 22.1f, 5.9f, 23f, 7f, 23f)
+        lineTo(17f, 23f)
+        curveTo(18.1f, 23f, 19f, 22.1f, 19f, 21f)
+        lineTo(19f, 3f)
+        curveTo(19f, 1.9f, 18.1f, 1.01f, 17f, 1.01f)
+        close()
+        moveTo(17f, 19f)
+        lineTo(7f, 19f)
+        lineTo(7f, 5f)
+        lineTo(17f, 5f)
+        lineTo(17f, 19f)
+        close()
+    }
+}.build()
+
 sealed interface AiProvider {
     val id: String
     val displayName: String
@@ -187,13 +217,25 @@ sealed interface AiProvider {
         override val brandColor: Color = Color(0xFF546E7A)
     }
 
+    data object OnDevice : AiProvider {
+        override val id: String = "on_device"
+        override val displayName: String = "On-Device SLM"
+        override val defaultEndpoint: String = "local://on-device"
+        override val defaultModel: String = "gemini-nano-local"
+        override val requiresCustomUrl: Boolean = false
+        override val requiresApiKey: Boolean = false
+        override val icon: ImageVector = OnDeviceVectorIcon
+        override val brandColor: Color = Lipi.Primary
+    }
+
     companion object {
-        val ALL: List<AiProvider> = listOf(Gemini, Groq, OpenAi, Custom)
+        val ALL: List<AiProvider> = listOf(Gemini, Groq, OpenAi, Custom, OnDevice)
 
         fun fromId(id: String): AiProvider = when (id.trim().lowercase()) {
             Groq.id -> Groq
             OpenAi.id -> OpenAi
             Custom.id -> Custom
+            OnDevice.id -> OnDevice
             else -> Gemini
         }
     }

@@ -5,6 +5,9 @@ dependencies:
   - $libs.androidx.activity.compose
   - $libs.koin.core
   - $libs.koin.android
+  - $libs.litertlm.android
+  - $libs.litert.runtime
+  - $libs.litert.gpu
   - $compose.preview
   - $compose.uiTooling
 

@@ -36,6 +36,9 @@ dependencies@android:
   - $libs.ktor.client.okhttp
   - $libs.koin.android
   - $libs.sqldelight.android.driver
+  - $libs.litertlm.android
+  - $libs.litert.runtime
+  - $libs.litert.gpu
 
 dependencies@ios:
   - $libs.ktor.client.darwin

@@ -142,6 +142,7 @@ fun ScanResultScreen(
                             apiKeyError = uiState.apiKeyError,
                             apiKeySuccess = uiState.apiKeySuccess,
                             isTestingApiKey = uiState.isTestingApiKey,
+                            onDeviceStrategy = uiState.onDeviceStrategy,
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
                             historyList = uiState.historyList,
@@ -156,6 +157,9 @@ fun ScanResultScreen(
                             },
                             onSaveProviderConfig = { type, url, key, model ->
                                 viewModel.saveAndTestProviderConfig(type, url, key, model, flow = "$flow -> ScanResultScreen.saveAndTestProviderConfig")
+                            },
+                            onSelectOnDeviceStrategy = { strat ->
+                                viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
                             },
                             onModelSelected = { model ->
                                 viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")
@@ -185,6 +189,7 @@ fun ScanResultScreen(
                             apiKeySuccess = uiState.apiKeySuccess,
                             errorMessage = uiState.errorMessage,
                             isTestingApiKey = uiState.isTestingApiKey,
+                            onDeviceStrategy = uiState.onDeviceStrategy,
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
                             historyList = uiState.historyList,
@@ -199,6 +204,9 @@ fun ScanResultScreen(
                             },
                             onSaveProviderConfig = { type, url, key, model ->
                                 viewModel.saveAndTestProviderConfig(type, url, key, model, flow = "$flow -> ScanResultScreen.saveAndTestProviderConfig")
+                            },
+                            onSelectOnDeviceStrategy = { strat ->
+                                viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
                             },
                             onModelSelected = { model ->
                                 viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")

@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.model.OnDeviceVectorIcon
 import com.snehonir.lipirx.ui.theme.Lipi
 import kotlinx.coroutines.launch
 
@@ -350,12 +351,14 @@ fun ModelChip(
     apiKeyError: String? = null,
     apiKeySuccess: String? = null,
     isTestingApiKey: Boolean = false,
+    onDeviceStrategy: com.snehonir.lipirx.domain.model.OnDeviceStrategy = com.snehonir.lipirx.domain.model.OnDeviceStrategy.HYBRID_FALLBACK,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
-    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> }
+    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
+    onSelectOnDeviceStrategy: (com.snehonir.lipirx.domain.model.OnDeviceStrategy) -> Unit = {}
 ) {
     var showSheet by remember { mutableStateOf(false) }
     val agentCount = if (agentConfigs.isNotEmpty()) agentConfigs.size else RxAgentType.ALL.size
@@ -401,12 +404,14 @@ fun ModelChip(
             apiKeyError = apiKeyError,
             apiKeySuccess = apiKeySuccess,
             isTestingApiKey = isTestingApiKey,
+            onDeviceStrategy = onDeviceStrategy,
             agentConfigs = agentConfigs,
             providerModelsMap = providerModelsMap,
             onAgentProviderSelected = onAgentProviderSelected,
             onAgentModelSelected = onAgentModelSelected,
             onProviderTabSelected = onProviderTabSelected,
             onSaveProviderConfig = onSaveProviderConfig,
+            onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
             onDismiss = { showSheet = false }
         )
     }
@@ -426,12 +431,14 @@ fun ModelSelectionBottomSheet(
     apiKeyError: String? = null,
     apiKeySuccess: String? = null,
     isTestingApiKey: Boolean = false,
+    onDeviceStrategy: com.snehonir.lipirx.domain.model.OnDeviceStrategy = com.snehonir.lipirx.domain.model.OnDeviceStrategy.HYBRID_FALLBACK,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
+    onSelectOnDeviceStrategy: (com.snehonir.lipirx.domain.model.OnDeviceStrategy) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -511,7 +518,90 @@ fun ModelSelectionBottomSheet(
                 }
             }
 
-            // --- TOP SECTION: Per-Agent AI Assignments ---
+            // --- ON-DEVICE AI EXECUTION STRATEGY ---
+            Text(
+                text = "On-Device AI & Fallback Strategy",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Lipi.Ink
+            )
+
+            var showStrategyDropdown by remember { mutableStateOf(false) }
+
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    onClick = { showStrategyDropdown = !showStrategyDropdown },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Lipi.Background,
+                    border = BorderStroke(1.dp, Lipi.Outline)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = OnDeviceVectorIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Lipi.Primary
+                            )
+                            Text(
+                                text = onDeviceStrategy.displayName,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.Ink
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Select Strategy",
+                            modifier = Modifier.size(20.dp),
+                            tint = Lipi.Muted
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showStrategyDropdown,
+                    onDismissRequest = { showStrategyDropdown = false },
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .background(Color.White)
+                ) {
+                    com.snehonir.lipirx.domain.model.OnDeviceStrategy.ALL.forEach { strat ->
+                        val isSelected = onDeviceStrategy == strat
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(
+                                        text = strat.displayName,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Lipi.Primary else Lipi.Ink
+                                    )
+                                    Text(
+                                        text = strat.description,
+                                        fontSize = 11.sp,
+                                        color = Lipi.Muted
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onSelectOnDeviceStrategy(strat)
+                                showStrategyDropdown = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // --- PER-AGENT AI ASSIGNMENTS ---
             Text(
                 text = "Per-Agent AI & Model Assignments",
                 fontSize = 14.sp,
@@ -560,13 +650,29 @@ fun ModelSelectionBottomSheet(
                         ) {
                             AiProvider.ALL.forEach { prov ->
                                 val isSelected = currentAssignedProvider == prov
+                                val isProviderDisabled = (onDeviceStrategy == com.snehonir.lipirx.domain.model.OnDeviceStrategy.CLOUD_ONLY && prov == AiProvider.OnDevice) ||
+                                        (onDeviceStrategy == com.snehonir.lipirx.domain.model.OnDeviceStrategy.ON_DEVICE_ONLY && prov != AiProvider.OnDevice)
+
                                 Surface(
                                     onClick = {
-                                        onAgentProviderSelected(agentType, prov)
+                                        if (!isProviderDisabled) {
+                                            onAgentProviderSelected(agentType, prov)
+                                        }
                                     },
                                     shape = CircleShape,
-                                    color = if (isSelected) prov.brandColor else Color.White,
-                                    border = BorderStroke(1.dp, if (isSelected) prov.brandColor else Lipi.Outline)
+                                    color = when {
+                                        isSelected -> prov.brandColor
+                                        isProviderDisabled -> Color.LightGray.copy(alpha = 0.3f)
+                                        else -> Color.White
+                                    },
+                                    border = BorderStroke(
+                                        1.dp,
+                                        when {
+                                            isSelected -> prov.brandColor
+                                            isProviderDisabled -> Color.LightGray.copy(alpha = 0.5f)
+                                            else -> Lipi.Outline
+                                        }
+                                    )
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -577,13 +683,21 @@ fun ModelSelectionBottomSheet(
                                             imageVector = prov.icon,
                                             contentDescription = null,
                                             modifier = Modifier.size(12.dp),
-                                            tint = if (isSelected) Color.White else prov.brandColor
+                                            tint = when {
+                                                isSelected -> Color.White
+                                                isProviderDisabled -> Lipi.Muted.copy(alpha = 0.5f)
+                                                else -> prov.brandColor
+                                            }
                                         )
                                         Text(
                                             text = prov.displayName,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = if (isSelected) Color.White else Lipi.Ink
+                                            color = when {
+                                                isSelected -> Color.White
+                                                isProviderDisabled -> Lipi.Muted.copy(alpha = 0.5f)
+                                                else -> Lipi.Ink
+                                            }
                                         )
                                     }
                                 }
@@ -621,6 +735,7 @@ fun ModelSelectionBottomSheet(
                                             text = when {
                                                 currentAssignedModel.isNotBlank() -> currentAssignedModel
                                                 liveModelsForProvider.isNotEmpty() -> liveModelsForProvider.first()
+                                                currentAssignedProvider == AiProvider.OnDevice -> "No .litertlm model in device storage"
                                                 else -> "Configure API key to load models"
                                             },
                                             fontSize = 12.sp,
@@ -682,7 +797,11 @@ fun ModelSelectionBottomSheet(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                text = "No live models found for ${currentAssignedProvider.displayName}.\nTap '🔑 Save Provider Config' below to verify key & fetch models.",
+                                                text = if (currentAssignedProvider == AiProvider.OnDevice) {
+                                                    "No local models found on device storage.\nPush .litertlm file via adb to filesDir."
+                                                } else {
+                                                    "No live models found for ${currentAssignedProvider.displayName}.\nTap '🔑 Save Provider Config' below to verify key & fetch models."
+                                                },
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = Lipi.Error
@@ -781,109 +900,136 @@ fun ModelSelectionBottomSheet(
                         )
                     }
 
-                    Text("API Key", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = displayKeyText,
-                            onValueChange = {}, // Uneditable
-                            readOnly = true,
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("Tap 'Paste' to insert key...", fontSize = 12.sp) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
-                        Surface(
-                            onClick = {
-                                val text = clipboardManager.getText()?.text?.trim() ?: ""
-                                if (text.isNotBlank()) inputKey = text
-                            },
-                            modifier = Modifier.size(50.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = Lipi.PrimaryContainer,
-                            border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = PasteVectorIcon,
-                                    contentDescription = "Paste API Key from Clipboard",
-                                    modifier = Modifier.size(22.dp),
-                                    tint = Lipi.Primary
-                                )
-                            }
-                        }
-                    }
-
-                    if (!apiKeyError.isNullOrBlank()) {
-                        Text(
-                            text = apiKeyError,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Lipi.Error
-                        )
-                    }
-
-                    if (!apiKeySuccess.isNullOrBlank()) {
+                    if (selectedTabProvider == "on_device") {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = Lipi.PrimaryContainer
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.CheckCircle,
+                                    imageVector = OnDeviceVectorIcon,
                                     contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(20.dp),
                                     tint = Lipi.Primary
                                 )
                                 Text(
-                                    text = apiKeySuccess,
+                                    text = "On-Device SLM runs locally on your device hardware without requiring an API key.",
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = Lipi.OnPrimaryContainer
                                 )
                             }
                         }
-                    }
+                    } else {
+                        Text("API Key", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
 
-                    Button(
-                        onClick = {
-                            onSaveProviderConfig(
-                                providerType,
-                                inputUrl,
-                                inputKey,
-                                inputCustomModel
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = displayKeyText,
+                                onValueChange = {}, // Uneditable
+                                readOnly = true,
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("Tap 'Paste' to insert key...", fontSize = 12.sp) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
                             )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        enabled = !isTestingApiKey,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = activeProviderObj.brandColor,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        if (isTestingApiKey) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
+
+                            Surface(
+                                onClick = {
+                                    val text = clipboardManager.getText()?.text?.trim() ?: ""
+                                    if (text.isNotBlank()) inputKey = text
+                                },
+                                modifier = Modifier.size(50.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Lipi.PrimaryContainer,
+                                border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = PasteVectorIcon,
+                                        contentDescription = "Paste API Key from Clipboard",
+                                        modifier = Modifier.size(22.dp),
+                                        tint = Lipi.Primary
+                                    )
+                                }
+                            }
+                        }
+
+                        if (!apiKeyError.isNullOrBlank()) {
+                            Text(
+                                text = apiKeyError,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Lipi.Error
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Connecting & Saving...", fontSize = 13.sp)
-                        } else {
-                            Text("🔑 Save Provider Config", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        if (!apiKeySuccess.isNullOrBlank()) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                color = Lipi.PrimaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Lipi.Primary
+                                    )
+                                    Text(
+                                        text = apiKeySuccess,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Lipi.OnPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                onSaveProviderConfig(
+                                    selectedTabProvider,
+                                    inputUrl,
+                                    inputKey,
+                                    inputCustomModel
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            enabled = !isTestingApiKey,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = activeProviderObj.brandColor,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            if (isTestingApiKey) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Connecting & Saving...", fontSize = 13.sp)
+                            } else {
+                                Text("🔑 Save Provider Config", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

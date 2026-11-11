@@ -70,7 +70,8 @@ val sharedModule = module {
             AiProvider.Gemini to GeminiAiService(httpClient = client, jsonParser = json),
             AiProvider.Groq to GroqAiService(httpClient = client, jsonParser = json),
             AiProvider.OpenAi to OpenAiAiService(httpClient = client, jsonParser = json),
-            AiProvider.Custom to CustomAiService(httpClient = client, jsonParser = json)
+            AiProvider.Custom to CustomAiService(httpClient = client, jsonParser = json),
+            AiProvider.OnDevice to com.snehonir.lipirx.data.remote.OnDeviceAiService(jsonParser = json)
         )
 
         CompositeAiService(services)

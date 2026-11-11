@@ -9,7 +9,8 @@ enum class AppConfigKey(val key: String) {
     GEMINI_API_KEY("gemini_api_key"),
     GROQ_API_KEY("groq_api_key"),
     OPENAI_API_KEY("openai_api_key"),
-    CUSTOM_API_KEY("custom_api_key");
+    CUSTOM_API_KEY("custom_api_key"),
+    ON_DEVICE_STRATEGY("on_device_strategy");
 
     companion object {
         fun keyForProvider(provider: AiProvider): AppConfigKey = when (provider) {
@@ -17,6 +18,7 @@ enum class AppConfigKey(val key: String) {
             AiProvider.OpenAi -> OPENAI_API_KEY
             AiProvider.Custom -> CUSTOM_API_KEY
             AiProvider.Gemini -> GEMINI_API_KEY
+            AiProvider.OnDevice -> GEMINI_API_KEY
         }
 
         fun keyForAgentProvider(agentType: RxAgentType): String = "agent_provider_${agentType.id}"

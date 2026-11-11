@@ -5,6 +5,7 @@ import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
@@ -31,6 +32,7 @@ data class ScanUiState(
     val apiKeyError: String? = null,
     val apiKeySuccess: String? = null,
     val isTestingApiKey: Boolean = false,
+    val onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
     val agentConfigs: ImmutableMap<RxAgentType, AgentConfig> = persistentMapOf(),
     val providerModelsMap: ImmutableMap<String, ImmutableList<String>> = persistentMapOf(),
     val historyList: ImmutableList<PrescriptionHistoryEntity> = persistentListOf(),
@@ -42,6 +44,7 @@ data class ScanUiState(
             AiProvider.OpenAi -> openaiApiKey
             AiProvider.Custom -> customApiKey
             AiProvider.Gemini -> geminiApiKey
+            AiProvider.OnDevice -> geminiApiKey
         }
 
     val providerType: String
@@ -76,6 +79,7 @@ data class ScanUiState(
         if (apiKeyError != other.apiKeyError) return false
         if (apiKeySuccess != other.apiKeySuccess) return false
         if (isTestingApiKey != other.isTestingApiKey) return false
+        if (onDeviceStrategy != other.onDeviceStrategy) return false
         if (agentConfigs != other.agentConfigs) return false
         if (providerModelsMap != other.providerModelsMap) return false
         if (historyList != other.historyList) return false
@@ -105,6 +109,7 @@ data class ScanUiState(
         result = 31 * result + (apiKeyError?.hashCode() ?: 0)
         result = 31 * result + (apiKeySuccess?.hashCode() ?: 0)
         result = 31 * result + isTestingApiKey.hashCode()
+        result = 31 * result + onDeviceStrategy.hashCode()
         result = 31 * result + agentConfigs.hashCode()
         result = 31 * result + providerModelsMap.hashCode()
         result = 31 * result + historyList.hashCode()

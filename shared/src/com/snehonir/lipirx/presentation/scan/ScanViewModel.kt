@@ -83,11 +83,13 @@ class ScanViewModel(
             AiProvider.OpenAi -> openaiKey
             AiProvider.Custom -> customKey
             AiProvider.Gemini -> geminiKey
+            AiProvider.OnDevice -> ""
         }
 
         if (activeKey.isNotBlank() || providerObj != AiProvider.Gemini) {
             fetchModels(flow = "App -> ScanViewModel.init")
         }
+        fetchModelsForProvider(AiProvider.OnDevice, flow = "App -> ScanViewModel.init.OnDevice")
     }
 
     private fun loadProviderModelsMap(): ImmutableMap<String, ImmutableList<String>> {
@@ -224,6 +226,59 @@ class ScanViewModel(
                 selectedModel = modelName
             )
             currentState.copy(agentConfigs = updatedMap.toImmutableMap())
+        }
+    }
+
+    fun onSelectOnDeviceStrategy(strategy: com.snehonir.lipirx.domain.model.OnDeviceStrategy, flow: String = "App -> ScanViewModel.onSelectOnDeviceStrategy") {
+        Napier.d("[$flow] User selected On-Device strategy '${strategy.id}'", tag = TAG)
+        runCatching { database.saveOnDeviceStrategy(strategy, flow = flow) }
+
+        if (strategy == com.snehonir.lipirx.domain.model.OnDeviceStrategy.ON_DEVICE_ONLY) {
+            fetchModelsForProvider(AiProvider.OnDevice, flow = "$flow -> fetchModelsForProvider.OnDevice")
+        }
+
+        _uiState.update { currentState ->
+            val newAgentConfigs = currentState.agentConfigs.toMutableMap()
+
+            when (strategy) {
+                com.snehonir.lipirx.domain.model.OnDeviceStrategy.ON_DEVICE_ONLY -> {
+                    // Force ALL agents to AiProvider.OnDevice
+                    RxAgentType.ALL.forEach { agentType ->
+                        val onDeviceModels = currentState.providerModelsMap[AiProvider.OnDevice.id] ?: emptyList()
+                        val chosenModel = if (onDeviceModels.isNotEmpty()) onDeviceModels.first() else AiProvider.OnDevice.defaultModel
+
+                        runCatching {
+                            database.saveAgentConfig(agentType, AiProvider.OnDevice, chosenModel)
+                        }
+                        newAgentConfigs[agentType] = AgentConfig(agentType, AiProvider.OnDevice, chosenModel)
+                    }
+                }
+                com.snehonir.lipirx.domain.model.OnDeviceStrategy.CLOUD_ONLY -> {
+                    // Switch any agent using AiProvider.OnDevice to AiProvider.Gemini (or default cloud provider)
+                    RxAgentType.ALL.forEach { agentType ->
+                        val currentConfig = newAgentConfigs[agentType]
+                        val currentProv = currentConfig?.provider ?: agentType.defaultProvider
+                        if (currentProv == AiProvider.OnDevice) {
+                            val cloudProv = AiProvider.Gemini
+                            val cloudModels = currentState.providerModelsMap[cloudProv.id] ?: emptyList()
+                            val chosenModel = if (cloudModels.isNotEmpty()) cloudModels.first() else cloudProv.defaultModel
+
+                            runCatching {
+                                database.saveAgentConfig(agentType, cloudProv, chosenModel)
+                            }
+                            newAgentConfigs[agentType] = AgentConfig(agentType, cloudProv, chosenModel)
+                        }
+                    }
+                }
+                else -> {
+                    // Hybrid Fallback or On-Device First: Keep existing user choices intact
+                }
+            }
+
+            currentState.copy(
+                onDeviceStrategy = strategy,
+                agentConfigs = newAgentConfigs.toImmutableMap()
+            )
         }
     }
 

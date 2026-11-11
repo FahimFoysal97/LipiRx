@@ -363,6 +363,7 @@ abstract class OpenAiCompatibleAiService(
             }
 
             AiProvider.Custom -> true
+            AiProvider.OnDevice -> true
         }
     }
 

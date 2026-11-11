@@ -43,6 +43,7 @@ import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.ui.theme.Lipi
 
 @Composable
@@ -61,6 +62,7 @@ fun ImagePreviewAndProcessView(
     apiKeySuccess: String? = null,
     errorMessage: String? = null,
     isTestingApiKey: Boolean = false,
+    onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
     historyList: List<PrescriptionHistoryEntity> = emptyList(),
@@ -68,6 +70,7 @@ fun ImagePreviewAndProcessView(
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
+    onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
     onModelSelected: (String) -> Unit,
     onZoom: () -> Unit,
     onAnalyze: () -> Unit,
@@ -209,12 +212,14 @@ fun ImagePreviewAndProcessView(
             apiKeyError = apiKeyError,
             apiKeySuccess = apiKeySuccess,
             isTestingApiKey = isTestingApiKey,
+            onDeviceStrategy = onDeviceStrategy,
             agentConfigs = agentConfigs,
             providerModelsMap = providerModelsMap,
             onAgentProviderSelected = onAgentProviderSelected,
             onAgentModelSelected = onAgentModelSelected,
             onProviderTabSelected = onProviderTabSelected,
             onSaveProviderConfig = onSaveProviderConfig,
+            onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
             onDismiss = { showModelBottomSheet = false }
         )
     }
