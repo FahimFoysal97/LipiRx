@@ -126,7 +126,11 @@ fun MedicineListView(
                     }
                 }
             } else {
-                AppHeader {
+                AppHeader(
+                    onBack = onRescan,
+                    backContentDescription = "Back",
+                    title = "Prescription Results"
+                ) {
                     if (onHistoryClick != null) {
                         HistoryChip(
                             onClick = onHistoryClick
