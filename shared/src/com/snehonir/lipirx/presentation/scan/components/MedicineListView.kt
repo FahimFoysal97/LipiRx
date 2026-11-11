@@ -146,12 +146,11 @@ fun MedicineListView(
                     modifier = Modifier.weight(1f),
                     height = 52.dp
                 )
-                SecondaryButton(
-                    text = "Rescan",
-                    icon = Icons.Default.Refresh,
+                PrimaryButton(
+                    text = "Done",
+                    icon = Icons.Default.Check,
                     onClick = onRescan,
-                    modifier = Modifier.weight(1f),
-                    height = 52.dp
+                    modifier = Modifier.weight(1f)
                 )
             }
         }

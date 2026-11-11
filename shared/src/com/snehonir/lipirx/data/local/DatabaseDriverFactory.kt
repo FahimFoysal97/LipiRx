@@ -7,13 +7,14 @@ import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.AppConfigKey
+import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
 
 val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
     override val version: Long = 1
 
     override fun create(driver: SqlDriver): QueryResult.Value<Unit> {
-        Napier.d("Creating PrescriptionHistory and AppConfig tables in SQLite database", tag = "LipiRxSchema")
+        Napier.d("Creating PrescriptionHistory, AppConfig, and DispensedHistory tables in SQLite database", tag = "LipiRxSchema")
         driver.execute(
             identifier = null,
             sql = """
@@ -31,6 +32,19 @@ val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
                 CREATE TABLE IF NOT EXISTS AppConfig (
                     configKey TEXT PRIMARY KEY,
                     configValue TEXT NOT NULL
+                );
+            """.trimIndent(),
+            parameters = 0
+        )
+        driver.execute(
+            identifier = null,
+            sql = """
+                CREATE TABLE IF NOT EXISTS DispensedHistory (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    dispensedAt INTEGER NOT NULL,
+                    medicineName TEXT NOT NULL,
+                    genericName TEXT NOT NULL,
+                    dispensedBrand TEXT NOT NULL
                 );
             """.trimIndent(),
             parameters = 0
@@ -79,9 +93,22 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
                 """.trimIndent(),
                 parameters = 0
             )
-            Napier.d("Guaranteed AppConfig table exists in SQLite database", tag = TAG)
+            driver.execute(
+                identifier = null,
+                sql = """
+                    CREATE TABLE IF NOT EXISTS DispensedHistory (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        dispensedAt INTEGER NOT NULL,
+                        medicineName TEXT NOT NULL,
+                        genericName TEXT NOT NULL,
+                        dispensedBrand TEXT NOT NULL
+                    );
+                """.trimIndent(),
+                parameters = 0
+            )
+            Napier.d("Guaranteed AppConfig and DispensedHistory tables exist in SQLite database", tag = TAG)
         }.onFailure { ex ->
-            Napier.w("Failed to ensure AppConfig table exists: ${ex.message}", throwable = ex, tag = TAG)
+            Napier.w("Failed to ensure tables exist in SQLite database: ${ex.message}", throwable = ex, tag = TAG)
         }
     }
 
@@ -97,6 +124,73 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
             bindString(1, summaryText)
         }
         Napier.d("[$flow -> Success] Saved prescription summary into SQLite database successfully", tag = TAG)
+    }
+
+    fun saveDispensedHistory(
+        medicines: List<MedicineItem>,
+        flow: String = "App -> LipiRxLocalDatabase.saveDispensedHistory"
+    ) {
+        val currentTime = 1700000000000L
+        Napier.d("[$flow] Saving ${medicines.size} items to DispensedHistory episodic memory table", tag = TAG)
+        medicines.forEach { item ->
+            val brand = item.formattedFullName
+            val generic = item.genericName
+            if (generic.isNotBlank() && brand.isNotBlank()) {
+                runCatching {
+                    driver.execute(
+                        identifier = null,
+                        sql = "INSERT INTO DispensedHistory (dispensedAt, medicineName, genericName, dispensedBrand) VALUES (?, ?, ?, ?)",
+                        parameters = 4
+                    ) {
+                        bindLong(0, currentTime)
+                        bindString(1, item.medicineName)
+                        bindString(2, generic)
+                        bindString(3, brand)
+                    }
+                }
+            }
+        }
+    }
+
+    fun getEpisodicMemoryContext(
+        generics: List<String>,
+        flow: String = "App -> LipiRxLocalDatabase.getEpisodicMemoryContext"
+    ): String {
+        if (generics.isEmpty()) return ""
+        val historyList = mutableListOf<String>()
+
+        generics.filter { it.isNotBlank() }.distinct().forEach { generic ->
+            runCatching {
+                val queryResult = driver.executeQuery(
+                    identifier = null,
+                    sql = "SELECT dispensedBrand, dispensedAt FROM DispensedHistory WHERE genericName LIKE ? ORDER BY id DESC LIMIT 3",
+                    mapper = { cursor ->
+                        val brands = mutableListOf<String>()
+                        while (cursor.next().value) {
+                            val brand = cursor.getString(0) ?: ""
+                            if (brand.isNotBlank() && !brands.contains(brand)) {
+                                brands.add(brand)
+                            }
+                        }
+                        QueryResult.Value(brands)
+                    },
+                    parameters = 1
+                ) {
+                    bindString(0, "%$generic%")
+                }
+                val matchedBrands = queryResult.value
+                if (matchedBrands.isNotEmpty()) {
+                    historyList.add("Generic '$generic': Previously dispensed ${matchedBrands.joinToString(", ")}")
+                }
+            }
+        }
+
+        if (historyList.isEmpty()) return ""
+        Napier.d("[$flow -> Episodic Memory] Found ${historyList.size} past episodic memory records for generics", tag = TAG)
+        return buildString {
+            appendLine("CROSS-SESSION EPISODIC MEMORY (PAST PATIENT REFILL & DISPENSING HISTORY):")
+            historyList.forEach { appendLine("- $it") }
+        }
     }
 
     fun getHistory(flow: String = "App -> LipiRxLocalDatabase.getHistory"): List<PrescriptionHistoryEntity> {

@@ -26,7 +26,7 @@ class SafetyAuditorAgent(
     override val description: String = "Audits dosage safety, confidence levels, and sets review flags for pharmacist verification"
 
     override suspend fun execute(input: List<MedicineItem>): Result<List<MedicineItem>> {
-        return execute(input, AiProvider.OpenAi, "", "", "", "")
+        return execute(input, AiProvider.OpenAi, "", "", "", "", "")
     }
 
     suspend fun execute(
@@ -35,7 +35,8 @@ class SafetyAuditorAgent(
         selectedModel: String = "",
         apiKey: String = "",
         customUrl: String = "",
-        feedbackPrompt: String = ""
+        feedbackPrompt: String = "",
+        episodicMemory: String = ""
     ): Result<List<MedicineItem>> {
         Napier.d("[$agentName] Auditing ${input.size} medicine items for safety via ${provider.displayName} ($selectedModel, keyLength=${apiKey.length})...", tag = TAG)
 
@@ -49,6 +50,10 @@ class SafetyAuditorAgent(
                 appendLine("You are a clinical patient safety auditor.")
                 if (feedbackPrompt.isNotBlank()) {
                     appendLine("SUPERVISOR INSTRUCTIONS: $feedbackPrompt")
+                }
+                if (episodicMemory.isNotBlank()) {
+                    appendLine(episodicMemory)
+                    appendLine("NOTE: Check for dosage anomalies or drug conflicts compared to patient past dispensing history.")
                 }
                 appendLine("Audit the following prescription medicines for dosage safety, interaction risks, unreadable/misread brand names, and high quantity anomalies.")
                 appendLine("""Return ONLY a JSON array: [{"id": 1, "needsReview": true, "possibleMisreading": "Unclear spelling, confirm 20mg vs 40mg", "confidence": "medium", "enrichmentConfidence": "medium"}]""")

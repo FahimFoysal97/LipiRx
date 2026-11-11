@@ -577,6 +577,7 @@ class ScanViewModel(
                             "${item.formattedFullName} (${item.genericName}) [${item.schedule}] Qty: ${item.formattedQuantity}"
                         }
                         database.saveSummary(summary, flow = dbFlow)
+                        database.saveDispensedHistory(orchResult.items, flow = dbFlow)
                     }.onFailure { dbEx ->
                         Napier.w("[$flow -> Warning] Database save failed: ${dbEx.message}", throwable = dbEx, tag = TAG)
                     }
@@ -612,11 +613,15 @@ class ScanViewModel(
 
     fun approveAndResumeAnalysis(flow: String = "App -> ScanViewModel.approveAndResumeAnalysis") {
         Napier.d("[$flow] Pharmacist signed off and approved prescription summary.", tag = TAG)
+        val currentMedicines = _uiState.value.medicines
         _uiState.update {
             it.copy(
                 isSuspendedForApproval = false,
                 approvalReason = null
             )
+        }
+        runCatching {
+            database.saveDispensedHistory(currentMedicines, flow = "$flow -> LipiRxLocalDatabase.saveDispensedHistory")
         }
         viewModelScope.launch {
             _uiEvent.send(ScanUiEvent.ShowToast("Pharmacist sign-off complete. Dispensing verified."))

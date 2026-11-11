@@ -18,6 +18,7 @@ data class SupervisorState(
     val input: TranscriptionInput,
     val items: List<MedicineItem> = emptyList(),
     val history: List<AgentExecutionRecord> = emptyList(),
+    val episodicMemory: String = "",
     val turnCount: Int = 0,
     val isFinished: Boolean = false,
     val isSuspendedForApproval: Boolean = false,
@@ -56,7 +57,7 @@ class RxSupervisorAgent(
         apiKey: String = "",
         customUrl: String = ""
     ): SupervisorDecision {
-        Napier.d("[$agentName] Turn ${state.turnCount + 1}: Evaluating state (items=${state.items.size}, historySize=${state.history.size})...", tag = TAG)
+        Napier.d("[$agentName] Turn ${state.turnCount + 1}: Evaluating state (items=${state.items.size}, historySize=${state.history.size}, memoryLength=${state.episodicMemory.length})...", tag = TAG)
 
         val service = aiService
         if (service != null && (apiKey.isNotBlank() || provider == AiProvider.Custom && customUrl.isNotBlank())) {
@@ -71,6 +72,10 @@ class RxSupervisorAgent(
                 appendLine("4. SAFETY_AUDITOR: Audit dosage safety, interaction risks, unreadable items, and set pharmacist review flags.")
                 appendLine("5. FINISH: Mark execution COMPLETE when all necessary steps have been performed satisfactorily.")
                 appendLine()
+                if (state.episodicMemory.isNotBlank()) {
+                    appendLine(state.episodicMemory)
+                    appendLine()
+                }
                 appendLine("CURRENT WORKSPACE STATE:")
                 appendLine("- Turn: ${state.turnCount + 1}")
                 appendLine("- Items in Memory: ${state.items.size}")

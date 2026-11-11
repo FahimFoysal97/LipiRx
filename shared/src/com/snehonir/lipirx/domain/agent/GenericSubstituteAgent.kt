@@ -23,7 +23,7 @@ class GenericSubstituteAgent(
     override val description: String = "Cross-references DGDA generic compositions and matches alternative Bangladeshi brand substitutes"
 
     override suspend fun execute(input: List<MedicineItem>): Result<List<MedicineItem>> {
-        return execute(input, AiProvider.Groq, "", "", "", "")
+        return execute(input, AiProvider.Groq, "", "", "", "", "")
     }
 
     suspend fun execute(
@@ -32,7 +32,8 @@ class GenericSubstituteAgent(
         selectedModel: String = "",
         apiKey: String = "",
         customUrl: String = "",
-        feedbackPrompt: String = ""
+        feedbackPrompt: String = "",
+        episodicMemory: String = ""
     ): Result<List<MedicineItem>> {
         Napier.d("[$agentName] Matching generic substitutes for ${input.size} items via ${provider.displayName} ($selectedModel, keyLength=${apiKey.length})...", tag = TAG)
 
@@ -46,6 +47,10 @@ class GenericSubstituteAgent(
                 appendLine("You are a pharmaceutical substitute finder for Bangladeshi (DGDA) pharmaceutical brands.")
                 if (feedbackPrompt.isNotBlank()) {
                     appendLine("SUPERVISOR INSTRUCTIONS: $feedbackPrompt")
+                }
+                if (episodicMemory.isNotBlank()) {
+                    appendLine(episodicMemory)
+                    appendLine("NOTE: Prioritize previously dispensed Bangladeshi brand substitutes if matching generics.")
                 }
                 appendLine("For each of the following medicine generics/brands, identify its active generic composition (genericName) and suggest 3 to 5 popular Bangladeshi alternative brand substitutes with manufacturer (similarBrands).")
                 appendLine("""Return ONLY a JSON array: [{"id": 1, "genericName": "Esomeprazole", "similarBrands": ["Seclo (Square)", "Maxpro (Renata)", "Nexum (Incepta)"]}]""")

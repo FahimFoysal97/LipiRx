@@ -79,6 +79,14 @@ class MultiAgentRxOrchestrator(
             }
             onProgress(stepEnum)
 
+            if (state.items.isNotEmpty()) {
+                val generics = state.items.map { it.genericName }.filter { it.isNotBlank() }
+                val memoryContext = database.getEpisodicMemoryContext(generics)
+                if (memoryContext.isNotBlank()) {
+                    state = state.copy(episodicMemory = memoryContext)
+                }
+            }
+
             val newItemsResult = when (targetAgentType) {
                 RxAgentType.TRANSCRIPTION -> {
                     val stage1Input = input.copy(
@@ -106,7 +114,8 @@ class MultiAgentRxOrchestrator(
                         selectedModel = agentModel,
                         apiKey = agentApiKey,
                         customUrl = agentCustomUrl,
-                        feedbackPrompt = decision.feedbackPrompt
+                        feedbackPrompt = decision.feedbackPrompt,
+                        episodicMemory = state.episodicMemory
                     )
                 }
                 RxAgentType.SAFETY_AUDITOR -> {
@@ -116,7 +125,8 @@ class MultiAgentRxOrchestrator(
                         selectedModel = agentModel,
                         apiKey = agentApiKey,
                         customUrl = agentCustomUrl,
-                        feedbackPrompt = decision.feedbackPrompt
+                        feedbackPrompt = decision.feedbackPrompt,
+                        episodicMemory = state.episodicMemory
                     )
                 }
                 RxAgentType.SUPERVISOR -> Result.success(state.items)
