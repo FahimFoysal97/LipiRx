@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
@@ -272,28 +273,75 @@ val PasteVectorIcon = ImageVector.Builder(
 @Composable
 fun AppHeader(
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    backContentDescription: String = "Back",
+    title: String = "LipiRx",
+    subtitle: String? = null,
     trailing: @Composable () -> Unit = {}
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(Lipi.Primary, RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Rx", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+            if (onBack != null) {
+                Surface(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onBack),
+                    shape = CircleShape,
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Lipi.CardBorder)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                            contentDescription = backContentDescription,
+                            modifier = Modifier.size(20.dp),
+                            tint = Lipi.Ink
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(Lipi.Primary, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Rx", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                }
             }
-            Text("LipiRx", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+
+            if (subtitle != null) {
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Lipi.Ink
+                    )
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        color = Lipi.Muted
+                    )
+                }
+            } else {
+                Text(
+                    text = title,
+                    fontSize = if (onBack != null) 20.sp else 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Lipi.Ink
+                )
+            }
         }
 
         Row(

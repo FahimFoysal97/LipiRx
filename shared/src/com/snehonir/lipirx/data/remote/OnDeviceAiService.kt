@@ -106,12 +106,11 @@ class OnDeviceAiService(
         }
     }
 
-    private fun cleanJson(rawText: String): String {
-        var trimmed = rawText.trim()
-        if (trimmed.startsWith("```")) {
-            trimmed = trimmed.substringAfter("\n").substringBeforeLast("```").trim()
-        }
-        return trimmed
+    private fun cleanJson(raw: String): String {
+        val s = raw.replace(Regex("```(?:json)?", RegexOption.IGNORE_CASE), "").trim()
+        val start = s.indexOfFirst { it == '[' || it == '{' }
+        val end = s.indexOfLast { it == ']' || it == '}' }
+        return if (start in 0 until end) s.substring(start, end + 1) else s
     }
 
     companion object {

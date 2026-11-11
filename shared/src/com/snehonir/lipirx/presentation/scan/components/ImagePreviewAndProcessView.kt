@@ -93,24 +93,11 @@ fun ImagePreviewAndProcessView(
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
     ) {
-        AppHeader {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (onHistoryClick != null) {
-                    HistoryChip(
-                        onClick = onHistoryClick
-                    )
-                }
-                InfoChip("$imageSizeKb KB")
-            }
-        }
-
-        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-            Text("Prescription ready", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
-            Text("Check the photo is sharp, then analyze.", fontSize = 14.sp, color = Lipi.Muted)
-        }
+        AppHeader(
+            onBack = onClear,
+            backContentDescription = "Back",
+            title = "Prescription Preview"
+        )
 
         if (!errorMessage.isNullOrBlank()) {
             var isErrorExpanded by remember { mutableStateOf(false) }
