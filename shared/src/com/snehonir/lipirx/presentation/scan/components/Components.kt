@@ -215,6 +215,59 @@ val CopyVectorIcon = ImageVector.Builder(
     }
 }.build()
 
+val PasteVectorIcon = ImageVector.Builder(
+    name = "ContentPaste",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    // Clipboard Board Frame
+    path(
+        stroke = SolidColor(Lipi.Primary),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(19f, 2f)
+        lineTo(16f, 2f)
+        arcTo(2f, 2f, 0f, false, false, 12f, 0.5f)
+        arcTo(2f, 2f, 0f, false, false, 8f, 2f)
+        lineTo(5f, 2f)
+        arcTo(2f, 2f, 0f, false, false, 3f, 4f)
+        lineTo(3f, 20f)
+        arcTo(2f, 2f, 0f, false, false, 5f, 22f)
+        lineTo(19f, 22f)
+        arcTo(2f, 2f, 0f, false, false, 21f, 20f)
+        lineTo(21f, 4f)
+        arcTo(2f, 2f, 0f, false, false, 19f, 2f)
+        close()
+    }
+    // Clipboard Top Clip
+    path(
+        fill = SolidColor(Lipi.Primary)
+    ) {
+        moveTo(9f, 1.8f)
+        lineTo(15f, 1.8f)
+        lineTo(15f, 5f)
+        lineTo(9f, 5f)
+        close()
+    }
+    // Clipboard Document Lines
+    path(
+        stroke = SolidColor(Lipi.Primary),
+        strokeLineWidth = 1.8f,
+        strokeLineCap = StrokeCap.Round
+    ) {
+        moveTo(7.5f, 9.5f)
+        lineTo(16.5f, 9.5f)
+        moveTo(7.5f, 13.5f)
+        lineTo(16.5f, 13.5f)
+        moveTo(7.5f, 17.5f)
+        lineTo(13f, 17.5f)
+    }
+}.build()
+
 @Composable
 fun AppHeader(
     modifier: Modifier = Modifier,
@@ -388,16 +441,18 @@ fun ModelSelectionBottomSheet(
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
 
-    val keyForSelectedProvider = when (providerType) {
+    var selectedTabProvider by remember(providerType) { mutableStateOf(providerType) }
+
+    val keyForSelectedProvider = when (selectedTabProvider) {
         "groq" -> groqApiKey.ifBlank { apiKey }
         "openai" -> openaiApiKey.ifBlank { apiKey }
         "custom" -> customApiKey.ifBlank { apiKey }
         else -> geminiApiKey.ifBlank { apiKey }
     }
 
-    var inputKey by remember(providerType, keyForSelectedProvider) { mutableStateOf(keyForSelectedProvider) }
+    var inputKey by remember(selectedTabProvider, keyForSelectedProvider) { mutableStateOf(keyForSelectedProvider) }
     var inputUrl by remember(customUrl) { mutableStateOf(customUrl) }
-    var inputCustomModel by remember(selectedModel) { mutableStateOf(if (providerType == "custom") selectedModel else "") }
+    var inputCustomModel by remember(selectedModel) { mutableStateOf(if (selectedTabProvider == "custom") selectedModel else "") }
 
     val displayKeyText = remember(inputKey) { formatMaskedApiKey(inputKey) }
 
@@ -662,9 +717,12 @@ fun ModelSelectionBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 AiProvider.ALL.forEach { providerItem ->
-                    val isSelected = providerType == providerItem.id
+                    val isSelected = selectedTabProvider == providerItem.id
                     Surface(
-                        onClick = { onProviderTabSelected(providerItem.id) },
+                        onClick = {
+                            selectedTabProvider = providerItem.id
+                            onProviderTabSelected(providerItem.id)
+                        },
                         shape = CircleShape,
                         color = if (isSelected) providerItem.brandColor else Lipi.Background,
                         border = BorderStroke(1.dp, if (isSelected) providerItem.brandColor else Lipi.Outline)
@@ -702,7 +760,7 @@ fun ModelSelectionBottomSheet(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    if (providerType == "custom") {
+                    if (selectedTabProvider == "custom") {
                         Text("Custom Endpoint URL", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
                         OutlinedTextField(
                             value = inputUrl,
@@ -741,16 +799,25 @@ fun ModelSelectionBottomSheet(
                             shape = RoundedCornerShape(12.dp)
                         )
 
-                        SecondaryButton(
-                            text = "Paste",
-                            icon = null,
+                        Surface(
                             onClick = {
                                 val text = clipboardManager.getText()?.text?.trim() ?: ""
                                 if (text.isNotBlank()) inputKey = text
                             },
-                            height = 50.dp,
-                            fontSize = 13
-                        )
+                            modifier = Modifier.size(50.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Lipi.PrimaryContainer,
+                            border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = PasteVectorIcon,
+                                    contentDescription = "Paste API Key from Clipboard",
+                                    modifier = Modifier.size(22.dp),
+                                    tint = Lipi.Primary
+                                )
+                            }
+                        }
                     }
 
                     if (!apiKeyError.isNullOrBlank()) {
