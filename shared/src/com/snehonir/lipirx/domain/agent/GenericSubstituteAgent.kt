@@ -42,52 +42,73 @@ class GenericSubstituteAgent(
 
         val service = aiService
         if (service != null && (apiKey.isNotBlank() || provider == AiProvider.Custom && customUrl.isNotBlank())) {
-            runCatching {
-                val prompt = buildString {
-                    appendLine("You are a pharmaceutical substitute finder for Bangladeshi (DGDA) pharmaceutical brands.")
-                    if (feedbackPrompt.isNotBlank()) {
-                        appendLine("SUPERVISOR INSTRUCTIONS: $feedbackPrompt")
-                    }
-                    appendLine("For each of the following medicine generics/brands, identify its active generic composition (genericName) and suggest 3 to 5 popular Bangladeshi alternative brand substitutes with manufacturer (similarBrands).")
-                    appendLine("""Return ONLY a JSON array: [{"id": 1, "genericName": "Esomeprazole", "similarBrands": ["Seclo (Square)", "Maxpro (Renata)", "Nexum (Incepta)"]}]""")
-                    appendLine("Input items:")
-                    input.forEachIndexed { i, item ->
-                        appendLine("ID: ${i + 1}, Medicine: '${item.medicineName}', Written Generic: '${item.genericName}'")
-                    }
+            val initialPrompt = buildString {
+                appendLine("You are a pharmaceutical substitute finder for Bangladeshi (DGDA) pharmaceutical brands.")
+                if (feedbackPrompt.isNotBlank()) {
+                    appendLine("SUPERVISOR INSTRUCTIONS: $feedbackPrompt")
                 }
+                appendLine("For each of the following medicine generics/brands, identify its active generic composition (genericName) and suggest 3 to 5 popular Bangladeshi alternative brand substitutes with manufacturer (similarBrands).")
+                appendLine("""Return ONLY a JSON array: [{"id": 1, "genericName": "Esomeprazole", "similarBrands": ["Seclo (Square)", "Maxpro (Renata)", "Nexum (Incepta)"]}]""")
+                appendLine("Input items:")
+                input.forEachIndexed { i, item ->
+                    appendLine("ID: ${i + 1}, Medicine: '${item.medicineName}', Written Generic: '${item.genericName}'")
+                }
+            }
 
+            // P0: Self-Correction Loop
+            var currentPrompt = initialPrompt
+            var attempts = 0
+            val maxAttempts = 2
+            var parseSuccess = false
+
+            while (!parseSuccess && attempts < maxAttempts) {
                 val aiResult = service.processTextPrompt(
-                    promptText = prompt,
+                    promptText = currentPrompt,
                     selectedModel = selectedModel,
                     providedApiKey = apiKey,
                     provider = provider,
                     customUrl = customUrl,
-                    flow = "Agent -> $agentName"
+                    flow = "Agent -> $agentName (Attempt ${attempts + 1})"
                 )
 
                 if (aiResult.isSuccess) {
                     val rawText = aiResult.getOrThrow()
                     val cleanedJson = cleanJson(rawText)
-                    val dtos = jsonParser.decodeFromString<List<GenericSubstituteDto>>(cleanedJson)
-                    val dtoMap = dtos.associateBy { it.id ?: -1 }
+                    val decodedResult = runCatching { jsonParser.decodeFromString<List<GenericSubstituteDto>>(cleanedJson) }
 
-                    currentItems = input.mapIndexed { index, item ->
-                        val dto = dtoMap[index + 1]
-                        if (dto != null) {
-                            val newGeneric = dto.genericName?.takeIf { it.isNotBlank() } ?: item.genericName
-                            val newSubstitutes = dto.similarBrands?.filter { it.isNotBlank() }?.ifEmpty { item.similarBrands } ?: item.similarBrands
-                            item.copy(
-                                genericName = newGeneric,
-                                similarBrands = newSubstitutes
-                            )
-                        } else {
-                            item
+                    if (decodedResult.isSuccess) {
+                        val dtos = decodedResult.getOrThrow()
+                        val dtoMap = dtos.associateBy { it.id ?: -1 }
+
+                        currentItems = input.mapIndexed { index, item ->
+                            val dto = dtoMap[index + 1]
+                            if (dto != null) {
+                                val newGeneric = dto.genericName?.takeIf { it.isNotBlank() } ?: item.genericName
+                                val newSubstitutes = dto.similarBrands?.filter { it.isNotBlank() }?.ifEmpty { item.similarBrands } ?: item.similarBrands
+                                item.copy(
+                                    genericName = newGeneric,
+                                    similarBrands = newSubstitutes
+                                )
+                            } else {
+                                item
+                            }
+                        }
+                        parseSuccess = true
+                        Napier.d("[$agentName -> AI Success] Received LLM generic substitute enrichment on attempt ${attempts + 1}", tag = TAG)
+                    } else {
+                        attempts++
+                        val parseError = decodedResult.exceptionOrNull()?.message ?: "JSON parse error"
+                        Napier.w("[$agentName -> Self-Correction Attempt $attempts] JSON validation error: $parseError. Triggering correction loop...", tag = TAG)
+                        currentPrompt = buildString {
+                            appendLine(initialPrompt)
+                            appendLine()
+                            appendLine("CRITICAL FIX REQUIRED: Your previous response failed JSON schema validation with error: '$parseError'.")
+                            appendLine("Fix the JSON syntax and return ONLY strictly valid JSON matching the exact required schema.")
                         }
                     }
-                    Napier.d("[$agentName -> AI Success] Received LLM generic substitute enrichment from ${provider.displayName}", tag = TAG)
+                } else {
+                    break
                 }
-            }.onFailure { ex ->
-                Napier.w("[$agentName -> AI Fallback] Remote AI prompt failed: ${ex.message}. Falling back to local rules.", tag = TAG)
             }
         }
 

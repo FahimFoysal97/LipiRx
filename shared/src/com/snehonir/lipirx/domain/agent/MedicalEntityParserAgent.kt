@@ -48,58 +48,79 @@ class MedicalEntityParserAgent(
 
         val service = aiService
         if (service != null && (apiKey.isNotBlank() || provider == AiProvider.Custom && customUrl.isNotBlank())) {
-            runCatching {
-                val prompt = buildString {
-                    appendLine("You are an expert medical entity parser.")
-                    if (feedbackPrompt.isNotBlank()) {
-                        appendLine("SUPERVISOR INSTRUCTIONS: $feedbackPrompt")
-                    }
-                    appendLine("Analyze the following medicine items extracted from a prescription and return a JSON array containing normalized values.")
-                    appendLine("Format for each item in the JSON array:")
-                    appendLine("""[{"id": 1, "medicineName": "clean brand name without Tab/Cap prefix", "dosageForm": "tablet", "strengthValue": "500", "strengthUnit": "mg", "strengthNote": "500 mg", "schedule": "1 + 0 + 1 (pc)", "units": 14, "unitType": "tablets"}]""")
-                    appendLine("Return ONLY a JSON array of objects without markdown formatting.")
-                    appendLine("Input items:")
-                    input.forEachIndexed { i, item ->
-                        appendLine("ID: ${i + 1}, Name: '${item.medicineName}', Form: '${item.dosageForm}', StrengthValue: '${item.strengthValue}', StrengthUnit: '${item.strengthUnit}', Schedule: '${item.schedule}', Units: ${item.units}")
-                    }
+            val initialPrompt = buildString {
+                appendLine("You are an expert medical entity parser.")
+                if (feedbackPrompt.isNotBlank()) {
+                    appendLine("SUPERVISOR INSTRUCTIONS: $feedbackPrompt")
                 }
+                appendLine("Analyze the following medicine items extracted from a prescription and return a JSON array containing normalized values.")
+                appendLine("Format for each item in the JSON array:")
+                appendLine("""[{"id": 1, "medicineName": "clean brand name without Tab/Cap prefix", "dosageForm": "tablet", "strengthValue": "500", "strengthUnit": "mg", "strengthNote": "500 mg", "schedule": "1 + 0 + 1 (pc)", "units": 14, "unitType": "tablets"}]""")
+                appendLine("Return ONLY a JSON array of objects without markdown formatting.")
+                appendLine("Input items:")
+                input.forEachIndexed { i, item ->
+                    appendLine("ID: ${i + 1}, Name: '${item.medicineName}', Form: '${item.dosageForm}', StrengthValue: '${item.strengthValue}', StrengthUnit: '${item.strengthUnit}', Schedule: '${item.schedule}', Units: ${item.units}")
+                }
+            }
 
+            // P0: Self-Correction Loop
+            var currentPrompt = initialPrompt
+            var attempts = 0
+            val maxAttempts = 2
+            var parseSuccess = false
+
+            while (!parseSuccess && attempts < maxAttempts) {
                 val aiResult = service.processTextPrompt(
-                    promptText = prompt,
+                    promptText = currentPrompt,
                     selectedModel = selectedModel,
                     providedApiKey = apiKey,
                     provider = provider,
                     customUrl = customUrl,
-                    flow = "Agent -> $agentName"
+                    flow = "Agent -> $agentName (Attempt ${attempts + 1})"
                 )
 
                 if (aiResult.isSuccess) {
                     val rawText = aiResult.getOrThrow()
                     val cleanedJson = cleanJson(rawText)
-                    val parsedDtos = jsonParser.decodeFromString<List<ParsedEntityDto>>(cleanedJson)
-                    val dtoMap = parsedDtos.associateBy { it.id ?: -1 }
+                    val decodedResult = runCatching { jsonParser.decodeFromString<List<ParsedEntityDto>>(cleanedJson) }
 
-                    currentItems = input.mapIndexed { index, item ->
-                        val dto = dtoMap[index + 1]
-                        if (dto != null) {
-                            item.copy(
-                                medicineName = dto.medicineName?.takeIf { it.isNotBlank() } ?: item.medicineName,
-                                dosageForm = dto.dosageForm?.takeIf { it.isNotBlank() } ?: item.dosageForm,
-                                strengthValue = dto.strengthValue?.takeIf { it.isNotBlank() } ?: item.strengthValue,
-                                strengthUnit = dto.strengthUnit?.takeIf { it.isNotBlank() } ?: item.strengthUnit,
-                                strengthNote = dto.strengthNote?.takeIf { it.isNotBlank() } ?: item.strengthNote,
-                                schedule = dto.schedule?.takeIf { it.isNotBlank() } ?: item.schedule,
-                                units = dto.units?.takeIf { it > 0 } ?: item.units,
-                                unitType = dto.unitType?.takeIf { it.isNotBlank() } ?: item.unitType
-                            )
-                        } else {
-                            item
+                    if (decodedResult.isSuccess) {
+                        val parsedDtos = decodedResult.getOrThrow()
+                        val dtoMap = parsedDtos.associateBy { it.id ?: -1 }
+
+                        currentItems = input.mapIndexed { index, item ->
+                            val dto = dtoMap[index + 1]
+                            if (dto != null) {
+                                item.copy(
+                                    medicineName = dto.medicineName?.takeIf { it.isNotBlank() } ?: item.medicineName,
+                                    dosageForm = dto.dosageForm?.takeIf { it.isNotBlank() } ?: item.dosageForm,
+                                    strengthValue = dto.strengthValue?.takeIf { it.isNotBlank() } ?: item.strengthValue,
+                                    strengthUnit = dto.strengthUnit?.takeIf { it.isNotBlank() } ?: item.strengthUnit,
+                                    strengthNote = dto.strengthNote?.takeIf { it.isNotBlank() } ?: item.strengthNote,
+                                    schedule = dto.schedule?.takeIf { it.isNotBlank() } ?: item.schedule,
+                                    units = dto.units?.takeIf { it > 0 } ?: item.units,
+                                    unitType = dto.unitType?.takeIf { it.isNotBlank() } ?: item.unitType
+                                )
+                            } else {
+                                item
+                            }
+                        }
+                        parseSuccess = true
+                        Napier.d("[$agentName -> AI Success] Successfully parsed and updated ${currentItems.size} medicine entities on attempt ${attempts + 1}", tag = TAG)
+                    } else {
+                        attempts++
+                        val parseError = decodedResult.exceptionOrNull()?.message ?: "JSON parse error"
+                        Napier.w("[$agentName -> Self-Correction Attempt $attempts] JSON validation error: $parseError. Triggering correction loop...", tag = TAG)
+                        currentPrompt = buildString {
+                            appendLine(initialPrompt)
+                            appendLine()
+                            appendLine("CRITICAL FIX REQUIRED: Your previous response failed JSON schema validation with error: '$parseError'.")
+                            appendLine("Fix the JSON syntax and return ONLY strictly valid JSON matching the exact required schema.")
                         }
                     }
-                    Napier.d("[$agentName -> AI Success] Successfully parsed and updated ${currentItems.size} medicine entities from ${provider.displayName}", tag = TAG)
+                } else {
+                    break
                 }
-            }.onFailure { ex ->
-                Napier.w("[$agentName -> AI Fallback] Remote AI prompt failed: ${ex.message}. Falling back to local rules.", tag = TAG)
             }
         }
 

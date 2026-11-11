@@ -11,18 +11,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
@@ -55,9 +60,12 @@ data class Alternative(val brand: String, val company: String)
 fun MedicineListView(
     imageByteArray: ByteArray?,
     medicines: List<MedicineItem>,
+    isSuspendedForApproval: Boolean = false,
+    approvalReason: String? = null,
     onZoom: () -> Unit,
     onCopySummary: () -> Unit,
     onRescan: () -> Unit,
+    onApproveAndConfirm: () -> Unit = {}
 ) {
     val reviewCount = remember(medicines) { medicines.count { it.needsReview } }
 
@@ -77,6 +85,16 @@ fun MedicineListView(
                 contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 130.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                if (isSuspendedForApproval || reviewCount > 0) {
+                    item {
+                        PharmacistApprovalBanner(
+                            reason = approvalReason ?: "$reviewCount item(s) flagged for pharmacist verification",
+                            isApproved = !isSuspendedForApproval,
+                            onApprove = onApproveAndConfirm
+                        )
+                    }
+                }
+
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         InfoChip("${medicines.size} medicines")
@@ -135,6 +153,80 @@ fun MedicineListView(
                     modifier = Modifier.weight(1f),
                     height = 52.dp
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PharmacistApprovalBanner(
+    reason: String,
+    isApproved: Boolean,
+    onApprove: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = if (isApproved) Lipi.PrimaryContainer else Lipi.AmberContainer,
+        border = BorderStroke(1.dp, if (isApproved) Lipi.Primary else Lipi.OnAmber.copy(alpha = 0.4f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = if (isApproved) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = if (isApproved) Lipi.Primary else Lipi.OnAmber,
+                    modifier = Modifier.size(22.dp)
+                )
+                Text(
+                    text = if (isApproved) "Pharmacist Verified" else "Human-in-the-Loop Sign-Off Required",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isApproved) Lipi.OnPrimaryContainer else Lipi.OnAmber
+                )
+            }
+
+            Text(
+                text = reason,
+                fontSize = 13.sp,
+                color = Lipi.Ink
+            )
+
+            if (!isApproved) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onApprove),
+                    color = Lipi.Primary,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Sign Off & Confirm Dispensing",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
         }
     }

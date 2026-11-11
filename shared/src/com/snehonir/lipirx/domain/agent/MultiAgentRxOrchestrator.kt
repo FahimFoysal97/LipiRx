@@ -6,6 +6,12 @@ import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.ProcessingStep
 import io.github.aakira.napier.Napier
 
+data class OrchestrationResult(
+    val items: List<MedicineItem>,
+    val isSuspendedForApproval: Boolean = false,
+    val approvalReason: String = ""
+)
+
 class MultiAgentRxOrchestrator(
     private val rxSupervisorAgent: RxSupervisorAgent,
     private val visionTranscriptionAgent: VisionTranscriptionAgent,
@@ -18,7 +24,7 @@ class MultiAgentRxOrchestrator(
         input: TranscriptionInput,
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
         onProgress: (step: ProcessingStep) -> Unit = {}
-    ): Result<List<MedicineItem>> {
+    ): Result<OrchestrationResult> {
         Napier.d("[$TAG] Initiating Manager/Supervisor-Driven Multiagent Orchestration Pipeline...", tag = TAG)
 
         // Retrieve Supervisor configuration (default to Gemini if not explicitly assigned)
@@ -39,6 +45,15 @@ class MultiAgentRxOrchestrator(
                 apiKey = supervisorApiKey,
                 customUrl = supervisorCustomUrl
             )
+
+            if (decision.isSuspendedForApproval) {
+                Napier.d("[$TAG -> Suspended] Supervisor suspended pipeline for Pharmacist Approval Gate. Reason: ${decision.approvalReason}", tag = TAG)
+                state = state.copy(
+                    isSuspendedForApproval = true,
+                    approvalReason = decision.approvalReason
+                )
+                break
+            }
 
             if (decision.isFinished || decision.nextAgent == null) {
                 Napier.d("[$TAG -> Finished] Supervisor marked orchestration complete at Turn ${state.turnCount}. Reasoning: ${decision.reasoning}", tag = TAG)
@@ -129,8 +144,14 @@ class MultiAgentRxOrchestrator(
         }
 
         onProgress(ProcessingStep.COMPLETE)
-        Napier.d("[$TAG -> Success] Supervisor-Driven Pipeline finished with ${state.items.size} medicines.", tag = TAG)
-        return Result.success(state.items)
+        Napier.d("[$TAG -> Success] Pipeline completed with ${state.items.size} medicines. SuspendedForApproval=${state.isSuspendedForApproval}", tag = TAG)
+        return Result.success(
+            OrchestrationResult(
+                items = state.items,
+                isSuspendedForApproval = state.isSuspendedForApproval,
+                approvalReason = state.approvalReason
+            )
+        )
     }
 
     companion object {

@@ -181,6 +181,8 @@ fun ScanResultScreen(
                         MedicineListView(
                             imageByteArray = uiState.capturedImageByteArray,
                             medicines = uiState.medicines,
+                            isSuspendedForApproval = uiState.isSuspendedForApproval,
+                            approvalReason = uiState.approvalReason,
                             onZoom = { showViewer = true },
                             onCopySummary = {
                                 val textSummary = viewModel.copyToClipboard(flow = "$flow -> ScanResultScreen.onCopyClick")
@@ -190,6 +192,9 @@ fun ScanResultScreen(
                             },
                             onRescan = {
                                 viewModel.clearResults(flow = "$flow -> ScanResultScreen.onRescanClick")
+                            },
+                            onApproveAndConfirm = {
+                                viewModel.approveAndResumeAnalysis(flow = "$flow -> ScanResultScreen.onApproveAndConfirm")
                             }
                         )
                     }

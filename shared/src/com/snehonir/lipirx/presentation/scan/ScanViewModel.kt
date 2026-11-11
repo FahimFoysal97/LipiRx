@@ -548,30 +548,32 @@ class ScanViewModel(
             )
 
             result.fold(
-                onSuccess = { items ->
+                onSuccess = { orchResult ->
                     _uiState.update {
                         it.copy(
                             loadingStep = 4,
-                            loadingStatusText = "✓ Analysis Complete! Extracting medicines..."
+                            loadingStatusText = if (orchResult.isSuspendedForApproval) "⚠️ Pharmacist Sign-Off Required" else "✓ Analysis Complete! Extracting medicines..."
                         )
                     }
 
                     delay(1000L.milliseconds)
 
-                    val immutableList = items.toImmutableList()
-                    Napier.d("[$flow -> Success] Received ${items.size} medicine items from MultiAgentRxOrchestrator", tag = TAG)
+                    val immutableList = orchResult.items.toImmutableList()
+                    Napier.d("[$flow -> Success] Received ${orchResult.items.size} medicine items (SuspendedForApproval=${orchResult.isSuspendedForApproval})", tag = TAG)
 
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             medicines = immutableList,
+                            isSuspendedForApproval = orchResult.isSuspendedForApproval,
+                            approvalReason = orchResult.approvalReason.ifBlank { null },
                             errorMessage = null
                         )
                     }
 
                     runCatching {
                         val dbFlow = "$flow -> LipiRxLocalDatabase.saveSummary"
-                        val summary = items.joinToString(separator = "; ") { item ->
+                        val summary = orchResult.items.joinToString(separator = "; ") { item ->
                             "${item.formattedFullName} (${item.genericName}) [${item.schedule}] Qty: ${item.formattedQuantity}"
                         }
                         database.saveSummary(summary, flow = dbFlow)
@@ -601,8 +603,23 @@ class ScanViewModel(
                 isLoading = false,
                 capturedImageByteArray = null,
                 medicines = persistentListOf(),
+                isSuspendedForApproval = false,
+                approvalReason = null,
                 errorMessage = null
             )
+        }
+    }
+
+    fun approveAndResumeAnalysis(flow: String = "App -> ScanViewModel.approveAndResumeAnalysis") {
+        Napier.d("[$flow] Pharmacist signed off and approved prescription summary.", tag = TAG)
+        _uiState.update {
+            it.copy(
+                isSuspendedForApproval = false,
+                approvalReason = null
+            )
+        }
+        viewModelScope.launch {
+            _uiEvent.send(ScanUiEvent.ShowToast("Pharmacist sign-off complete. Dispensing verified."))
         }
     }
 

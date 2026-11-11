@@ -19,19 +19,25 @@ data class SupervisorState(
     val items: List<MedicineItem> = emptyList(),
     val history: List<AgentExecutionRecord> = emptyList(),
     val turnCount: Int = 0,
-    val isFinished: Boolean = false
+    val isFinished: Boolean = false,
+    val isSuspendedForApproval: Boolean = false,
+    val approvalReason: String = ""
 )
 
 @Serializable
 internal data class SupervisorDecisionDto(
     val nextAgent: String? = null,
     val reasoning: String? = null,
-    val feedbackPrompt: String? = null
+    val feedbackPrompt: String? = null,
+    val isSuspendedForApproval: Boolean? = null,
+    val approvalReason: String? = null
 )
 
 data class SupervisorDecision(
     val nextAgent: RxAgentType?,
     val isFinished: Boolean,
+    val isSuspendedForApproval: Boolean = false,
+    val approvalReason: String = "",
     val reasoning: String,
     val feedbackPrompt: String
 )
@@ -54,75 +60,106 @@ class RxSupervisorAgent(
 
         val service = aiService
         if (service != null && (apiKey.isNotBlank() || provider == AiProvider.Custom && customUrl.isNotBlank())) {
-            val result = runCatching {
-                val prompt = buildString {
-                    appendLine("You are the master Manager/Supervisor AI Agent for a retail pharmacy prescription processing system.")
-                    appendLine("Your role is to evaluate the current workspace state and decide which specialized worker agent should execute next, or if processing is COMPLETE.")
-                    appendLine()
-                    appendLine("AVAILABLE WORKER AGENTS:")
-                    appendLine("1. TRANSCRIPTION: Run Vision handwriting OCR on the prescription image.")
-                    appendLine("2. ENTITY_PARSER: Clean, normalize, and format medicine brand names, dosage forms, strengths, and schedules.")
-                    appendLine("3. GENERIC_SUBSTITUTE: Find active generic compositions and 3-5 Bangladeshi brand substitutes.")
-                    appendLine("4. SAFETY_AUDITOR: Audit dosage safety, interaction risks, unreadable items, and set pharmacist review flags.")
-                    appendLine("5. FINISH: Mark execution COMPLETE when all necessary steps have been performed satisfactorily.")
-                    appendLine()
-                    appendLine("CURRENT WORKSPACE STATE:")
-                    appendLine("- Turn: ${state.turnCount + 1}")
-                    appendLine("- Items in Memory: ${state.items.size}")
-                    if (state.items.isNotEmpty()) {
-                        appendLine("- Medicines in workspace:")
-                        state.items.forEachIndexed { i, item ->
-                            appendLine("  $i: '${item.medicineName}', Strength='${item.formattedStrength}', Generic='${item.genericName}', SubstitutesCount=${item.similarBrands.size}, NeedsReview=${item.needsReview}")
-                        }
+            val initialPrompt = buildString {
+                appendLine("You are the master Manager/Supervisor AI Agent for a retail pharmacy prescription processing system.")
+                appendLine("Your role is to evaluate the current workspace state and decide which specialized worker agent should execute next, if processing is COMPLETE, or if Human-in-the-Loop approval is required.")
+                appendLine()
+                appendLine("AVAILABLE WORKER AGENTS:")
+                appendLine("1. TRANSCRIPTION: Run Vision handwriting OCR on the prescription image.")
+                appendLine("2. ENTITY_PARSER: Clean, normalize, and format medicine brand names, dosage forms, strengths, and schedules.")
+                appendLine("3. GENERIC_SUBSTITUTE: Find active generic compositions and 3-5 Bangladeshi brand substitutes.")
+                appendLine("4. SAFETY_AUDITOR: Audit dosage safety, interaction risks, unreadable items, and set pharmacist review flags.")
+                appendLine("5. FINISH: Mark execution COMPLETE when all necessary steps have been performed satisfactorily.")
+                appendLine()
+                appendLine("CURRENT WORKSPACE STATE:")
+                appendLine("- Turn: ${state.turnCount + 1}")
+                appendLine("- Items in Memory: ${state.items.size}")
+                if (state.items.isNotEmpty()) {
+                    appendLine("- Medicines in workspace:")
+                    state.items.forEachIndexed { i, item ->
+                        appendLine("  $i: '${item.medicineName}', Strength='${item.formattedStrength}', Generic='${item.genericName}', SubstitutesCount=${item.similarBrands.size}, NeedsReview=${item.needsReview}")
                     }
-                    if (state.history.isNotEmpty()) {
-                        appendLine("- Execution History:")
-                        state.history.forEach { record ->
-                            appendLine("  * Agent ${record.agentType.displayName}: Reason='${record.reasoning}', OutputItems=${record.itemCount}")
-                        }
-                    }
-                    appendLine()
-                    appendLine("""Return ONLY a JSON object with this structure:""")
-                    appendLine("""{"nextAgent": "TRANSCRIPTION"|"ENTITY_PARSER"|"GENERIC_SUBSTITUTE"|"SAFETY_AUDITOR"|"FINISH", "reasoning": "Explanation of your decision", "feedbackPrompt": "Specific guidance or instructions for the next agent"}""")
                 }
+                if (state.history.isNotEmpty()) {
+                    appendLine("- Execution History:")
+                    state.history.forEach { record ->
+                        appendLine("  * Agent ${record.agentType.displayName}: Reason='${record.reasoning}', OutputItems=${record.itemCount}")
+                    }
+                }
+                appendLine()
+                appendLine("""Return ONLY a JSON object with this structure:""")
+                appendLine("""{"nextAgent": "TRANSCRIPTION"|"ENTITY_PARSER"|"GENERIC_SUBSTITUTE"|"SAFETY_AUDITOR"|"FINISH", "reasoning": "Explanation", "feedbackPrompt": "Instructions", "isSuspendedForApproval": false, "approvalReason": ""}""")
+            }
 
+            // P0: Automated Self-Correction Loop for Supervisor LLM
+            var currentPrompt = initialPrompt
+            var attempts = 0
+            val maxAttempts = 2
+            var decisionResult: SupervisorDecision? = null
+
+            while (decisionResult == null && attempts < maxAttempts) {
                 val aiResult = service.processTextPrompt(
-                    promptText = prompt,
+                    promptText = currentPrompt,
                     selectedModel = selectedModel,
                     providedApiKey = apiKey,
                     provider = provider,
                     customUrl = customUrl,
-                    flow = "Supervisor -> $agentName"
+                    flow = "Supervisor -> $agentName (Attempt ${attempts + 1})"
                 )
 
                 if (aiResult.isSuccess) {
                     val rawText = aiResult.getOrThrow()
                     val cleanedJson = cleanJson(rawText)
-                    val dto = jsonParser.decodeFromString<SupervisorDecisionDto>(cleanedJson)
-                    val nextAgentStr = dto.nextAgent?.uppercase()?.trim() ?: ""
+                    val decodedResult = runCatching { jsonParser.decodeFromString<SupervisorDecisionDto>(cleanedJson) }
 
-                    if (nextAgentStr == "FINISH") {
-                        SupervisorDecision(
-                            nextAgent = null,
-                            isFinished = true,
-                            reasoning = dto.reasoning ?: "Supervisor completed all orchestration steps.",
-                            feedbackPrompt = dto.feedbackPrompt ?: ""
-                        )
+                    if (decodedResult.isSuccess) {
+                        val dto = decodedResult.getOrThrow()
+                        val nextAgentStr = dto.nextAgent?.uppercase()?.trim() ?: ""
+
+                        decisionResult = if (dto.isSuspendedForApproval == true) {
+                            SupervisorDecision(
+                                nextAgent = null,
+                                isFinished = false,
+                                isSuspendedForApproval = true,
+                                approvalReason = dto.approvalReason ?: "Pharmacist sign-off required for flagged items",
+                                reasoning = dto.reasoning ?: "Supervisor requested human approval.",
+                                feedbackPrompt = ""
+                            )
+                        } else if (nextAgentStr == "FINISH") {
+                            SupervisorDecision(
+                                nextAgent = null,
+                                isFinished = true,
+                                reasoning = dto.reasoning ?: "Supervisor completed all orchestration steps.",
+                                feedbackPrompt = dto.feedbackPrompt ?: ""
+                            )
+                        } else {
+                            val targetAgent = parseAgentType(nextAgentStr)
+                            SupervisorDecision(
+                                nextAgent = targetAgent,
+                                isFinished = false,
+                                reasoning = dto.reasoning ?: "Supervisor assigned task to ${targetAgent.displayName}.",
+                                feedbackPrompt = dto.feedbackPrompt ?: ""
+                            )
+                        }
                     } else {
-                        val targetAgent = parseAgentType(nextAgentStr)
-                        SupervisorDecision(
-                            nextAgent = targetAgent,
-                            isFinished = false,
-                            reasoning = dto.reasoning ?: "Supervisor assigned task to ${targetAgent.displayName}.",
-                            feedbackPrompt = dto.feedbackPrompt ?: ""
-                        )
+                        attempts++
+                        val parseError = decodedResult.exceptionOrNull()?.message ?: "JSON parse failure"
+                        Napier.w("[$agentName -> Self-Correction Attempt $attempts] JSON error: $parseError. Triggering correction loop...", tag = TAG)
+                        currentPrompt = buildString {
+                            appendLine(initialPrompt)
+                            appendLine()
+                            appendLine("CRITICAL FIX REQUIRED: Your previous response failed JSON schema validation with error: '$parseError'.")
+                            appendLine("Fix the JSON syntax and return ONLY strictly valid JSON matching the exact required schema.")
+                        }
                     }
-                } else null
-            }.getOrNull()
+                } else {
+                    break
+                }
+            }
 
-            if (result != null) {
-                Napier.d("[$agentName -> LLM Decision] Next: ${result.nextAgent?.displayName ?: "FINISH"}, Reason: ${result.reasoning}", tag = TAG)
-                return result
+            if (decisionResult != null) {
+                Napier.d("[$agentName -> LLM Decision] Next: ${decisionResult.nextAgent?.displayName ?: "FINISH"}, Reason: ${decisionResult.reasoning}", tag = TAG)
+                return decisionResult
             }
         }
 
@@ -178,12 +215,24 @@ class RxSupervisorAgent(
                 )
             }
             else -> {
-                SupervisorDecision(
-                    nextAgent = null,
-                    isFinished = true,
-                    reasoning = "All pipeline capabilities executed successfully.",
-                    feedbackPrompt = ""
-                )
+                val hasFlaggedItems = state.items.any { it.needsReview || it.confidenceEnum.isLow }
+                if (hasFlaggedItems && !state.isSuspendedForApproval) {
+                    SupervisorDecision(
+                        nextAgent = null,
+                        isFinished = false,
+                        isSuspendedForApproval = true,
+                        approvalReason = "Flagged items require pharmacist verification",
+                        reasoning = "Flagged low confidence or dosage review items requiring human sign-off.",
+                        feedbackPrompt = ""
+                    )
+                } else {
+                    SupervisorDecision(
+                        nextAgent = null,
+                        isFinished = true,
+                        reasoning = "All pipeline capabilities executed successfully.",
+                        feedbackPrompt = ""
+                    )
+                }
             }
         }
     }

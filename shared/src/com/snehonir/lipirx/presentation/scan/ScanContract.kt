@@ -15,6 +15,8 @@ data class ScanUiState(
     val loadingStatusText: String = "",
     val capturedImageByteArray: ByteArray? = null,
     val medicines: ImmutableList<MedicineItem> = persistentListOf(),
+    val isSuspendedForApproval: Boolean = false,
+    val approvalReason: String? = null,
     val errorMessage: String? = null,
     val availableModels: ImmutableList<String> = persistentListOf(),
     val selectedModel: String = "",
@@ -55,6 +57,8 @@ data class ScanUiState(
             if (!capturedImageByteArray.contentEquals(other.capturedImageByteArray)) return false
         } else if (other.capturedImageByteArray != null) return false
         if (medicines != other.medicines) return false
+        if (isSuspendedForApproval != other.isSuspendedForApproval) return false
+        if (approvalReason != other.approvalReason) return false
         if (errorMessage != other.errorMessage) return false
         if (availableModels != other.availableModels) return false
         if (selectedModel != other.selectedModel) return false
@@ -79,6 +83,8 @@ data class ScanUiState(
         result = 31 * result + loadingStatusText.hashCode()
         result = 31 * result + (capturedImageByteArray?.contentHashCode() ?: 0)
         result = 31 * result + medicines.hashCode()
+        result = 31 * result + isSuspendedForApproval.hashCode()
+        result = 31 * result + (approvalReason?.hashCode() ?: 0)
         result = 31 * result + (errorMessage?.hashCode() ?: 0)
         result = 31 * result + availableModels.hashCode()
         result = 31 * result + selectedModel.hashCode()
