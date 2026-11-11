@@ -92,7 +92,6 @@ fun ImagePreviewAndProcessView(
             ) {
                 if (onHistoryClick != null) {
                     HistoryChip(
-                        historyCount = historyList.size,
                         onClick = onHistoryClick
                     )
                 }

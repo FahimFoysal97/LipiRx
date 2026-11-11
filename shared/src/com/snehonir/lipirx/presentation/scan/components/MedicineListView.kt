@@ -129,7 +129,6 @@ fun MedicineListView(
                 AppHeader {
                     if (onHistoryClick != null) {
                         HistoryChip(
-                            historyCount = 0,
                             onClick = onHistoryClick
                         )
                     }

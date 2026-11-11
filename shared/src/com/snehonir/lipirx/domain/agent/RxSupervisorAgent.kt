@@ -11,7 +11,8 @@ data class AgentExecutionRecord(
     val agentType: RxAgentType,
     val reasoning: String,
     val feedbackPrompt: String,
-    val itemCount: Int
+    val itemCount: Int,
+    val executionTimeMs: Long = 0L
 )
 
 data class SupervisorState(

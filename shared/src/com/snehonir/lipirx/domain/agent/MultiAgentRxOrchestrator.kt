@@ -1,6 +1,7 @@
 package com.snehonir.lipirx.domain.agent
 
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
+import com.snehonir.lipirx.data.local.getPlatformEpochMillis
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.ProcessingStep
@@ -25,6 +26,7 @@ class MultiAgentRxOrchestrator(
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
         onProgress: (step: ProcessingStep) -> Unit = {}
     ): Result<OrchestrationResult> {
+        val pipelineStartTime = getPlatformEpochMillis()
         Napier.d("[$TAG] Initiating Manager/Supervisor-Driven Multiagent Orchestration Pipeline...", tag = TAG)
 
         // Retrieve Supervisor configuration (default to Gemini if not explicitly assigned)
@@ -38,6 +40,7 @@ class MultiAgentRxOrchestrator(
         val maxTurns = 6
 
         while (!state.isFinished && state.turnCount < maxTurns) {
+            val supervisorStartTime = getPlatformEpochMillis()
             val decision = rxSupervisorAgent.decideNextStep(
                 state = state,
                 provider = supervisorProvider,
@@ -45,6 +48,7 @@ class MultiAgentRxOrchestrator(
                 apiKey = supervisorApiKey,
                 customUrl = supervisorCustomUrl
             )
+            val supervisorTimeMs = getPlatformEpochMillis() - supervisorStartTime
 
             if (decision.isSuspendedForApproval) {
                 Napier.d("[$TAG -> Suspended] Supervisor suspended pipeline for Pharmacist Approval Gate. Reason: ${decision.approvalReason}", tag = TAG)
@@ -62,6 +66,15 @@ class MultiAgentRxOrchestrator(
 
             val targetAgentType = decision.nextAgent
             Napier.d("[$TAG -> Turn ${state.turnCount + 1}] Supervisor dispatches to ${targetAgentType.displayName}. Reason: ${decision.reasoning}", tag = TAG)
+
+            // Record Supervisor decision timing
+            val supervisorRecord = AgentExecutionRecord(
+                agentType = RxAgentType.SUPERVISOR,
+                reasoning = decision.reasoning,
+                feedbackPrompt = decision.feedbackPrompt,
+                itemCount = state.items.size,
+                executionTimeMs = supervisorTimeMs
+            )
 
             // Resolve target agent's configured provider and model
             val agentConfig = agentConfigs[targetAgentType]
@@ -87,6 +100,7 @@ class MultiAgentRxOrchestrator(
                 }
             }
 
+            val agentStartTime = getPlatformEpochMillis()
             val newItemsResult = when (targetAgentType) {
                 RxAgentType.TRANSCRIPTION -> {
                     val stage1Input = input.copy(
@@ -132,6 +146,8 @@ class MultiAgentRxOrchestrator(
                 RxAgentType.SUPERVISOR -> Result.success(state.items)
             }
 
+            val agentTimeMs = getPlatformEpochMillis() - agentStartTime
+
             if (newItemsResult.isFailure && targetAgentType == RxAgentType.TRANSCRIPTION) {
                 val ex = newItemsResult.exceptionOrNull() ?: IllegalStateException("Vision transcription agent failed")
                 Napier.e("[$TAG -> Failure] Primary Vision Transcription Agent failed: ${ex.message}", throwable = ex, tag = TAG)
@@ -139,22 +155,37 @@ class MultiAgentRxOrchestrator(
             }
 
             val updatedItems = newItemsResult.getOrDefault(state.items)
-            val record = AgentExecutionRecord(
+            val workerRecord = AgentExecutionRecord(
                 agentType = targetAgentType,
                 reasoning = decision.reasoning,
                 feedbackPrompt = decision.feedbackPrompt,
-                itemCount = updatedItems.size
+                itemCount = updatedItems.size,
+                executionTimeMs = agentTimeMs
             )
 
             state = state.copy(
                 items = updatedItems,
-                history = state.history + record,
+                history = state.history + supervisorRecord + workerRecord,
                 turnCount = state.turnCount + 1
             )
         }
 
         onProgress(ProcessingStep.COMPLETE)
-        Napier.d("[$TAG -> Success] Pipeline completed with ${state.items.size} medicines. SuspendedForApproval=${state.isSuspendedForApproval}", tag = TAG)
+
+        // Log detailed per-agent timing report to Napier logcat before returning result
+        val totalPipelineTimeMs = getPlatformEpochMillis() - pipelineStartTime
+        val timingReport = buildString {
+            appendLine()
+            appendLine("==========================================================================")
+            appendLine("⏱️ MULTI-AGENT EXECUTION TIMING REPORT (Total: ${totalPipelineTimeMs}ms)")
+            appendLine("==========================================================================")
+            state.history.forEachIndexed { index, record ->
+                appendLine("  Step ${index + 1}: ${record.agentType.displayName.padEnd(30)} -> ${record.executionTimeMs}ms (${record.itemCount} items in memory)")
+            }
+            appendLine("==========================================================================")
+        }
+        Napier.i("[$TAG -> Performance] $timingReport", tag = TAG)
+
         return Result.success(
             OrchestrationResult(
                 items = state.items,

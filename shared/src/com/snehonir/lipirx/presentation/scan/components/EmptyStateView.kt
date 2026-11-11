@@ -211,7 +211,7 @@ fun EmptyStateView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 SecondaryButton(
-                    text = if (historyList.isNotEmpty()) "History (${historyList.size})" else "Scan History",
+                    text = "Scan History",
                     icon = Icons.Default.DateRange,
                     onClick = { onHistoryClick?.invoke() },
                     modifier = Modifier.weight(1f),

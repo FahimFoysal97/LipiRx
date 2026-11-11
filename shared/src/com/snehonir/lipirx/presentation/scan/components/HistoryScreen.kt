@@ -56,6 +56,7 @@ fun HistoryScreen(
     onClearAllHistory: () -> Unit = {}
 ) {
     var showClearAllConfirm by remember { mutableStateOf(false) }
+    var itemToDelete by remember { mutableStateOf<PrescriptionHistoryEntity?>(null) }
 
     Column(
         modifier = Modifier
@@ -179,13 +180,44 @@ fun HistoryScreen(
                     HistoryItemCard(
                         record = record,
                         onClick = { onSelectRecord(record) },
-                        onDelete = { onDeleteRecord(record.id) }
+                        onDelete = { itemToDelete = record }
                     )
                 }
             }
         }
     }
 
+    // Confirmation Dialog for Single Item Delete
+    if (itemToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { itemToDelete = null },
+            title = {
+                Text("Delete History Record?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Lipi.Ink)
+            },
+            text = {
+                Text("Are you sure you want to delete the scan record for '${itemToDelete?.formattedDateTime}'?", fontSize = 13.sp, color = Lipi.Muted)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        itemToDelete?.let { onDeleteRecord(it.id) }
+                        itemToDelete = null
+                    }
+                ) {
+                    Text("Delete", color = Lipi.Error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToDelete = null }) {
+                    Text("Cancel", color = Lipi.Ink)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
+    // Confirmation Dialog for Clear All History
     if (showClearAllConfirm) {
         AlertDialog(
             onDismissRequest = { showClearAllConfirm = false },

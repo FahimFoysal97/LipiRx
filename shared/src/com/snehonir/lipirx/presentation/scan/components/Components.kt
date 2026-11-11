@@ -306,7 +306,6 @@ fun AppHeader(
 
 @Composable
 fun HistoryChip(
-    historyCount: Int,
     onClick: () -> Unit
 ) {
     Surface(
@@ -329,7 +328,7 @@ fun HistoryChip(
                 tint = Lipi.Primary
             )
             Text(
-                text = if (historyCount > 0) "History ($historyCount)" else "History",
+                text = "Scan History",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = Lipi.Ink
