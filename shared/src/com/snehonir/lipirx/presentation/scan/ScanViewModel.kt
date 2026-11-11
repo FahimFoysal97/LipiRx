@@ -461,6 +461,22 @@ class ScanViewModel(
         }
     }
 
+    private var processingJob: kotlinx.coroutines.Job? = null
+
+    fun stopAnalysis(flow: String = "App -> ScanViewModel.stopAnalysis") {
+        Napier.d("[$flow] User requested analysis cancellation. Cancelling processing job...", tag = TAG)
+        processingJob?.cancel()
+        processingJob = null
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                loadingStep = 0,
+                loadingStatusText = "",
+                errorMessage = "Analysis stopped by user."
+            )
+        }
+    }
+
     fun processPrescriptionImage(
         imageByteArray: ByteArray,
         flow: String = "App -> ScanViewModel.processPrescriptionImage"
@@ -497,7 +513,8 @@ class ScanViewModel(
         }
         Napier.d("[$flow] ScanUiState updated: isLoading=true, visionProvider=${visionProvider.id}, visionModel=$visionModel", tag = TAG)
 
-        viewModelScope.launch {
+        processingJob?.cancel()
+        processingJob = viewModelScope.launch {
             Napier.d("[$flow] Executing Multiagent Pipeline with Stage 1 Vision provider '${visionProvider.id}' & model '$visionModel'...", tag = TAG)
 
             val input = TranscriptionInput(

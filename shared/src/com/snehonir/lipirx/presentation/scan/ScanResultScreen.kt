@@ -170,7 +170,10 @@ fun ScanResultScreen(
                             selectedModel = uiState.selectedModel,
                             imageByteArray = uiState.capturedImageByteArray,
                             activeStep = uiState.loadingStep,
-                            statusText = uiState.loadingStatusText
+                            statusText = uiState.loadingStatusText,
+                            onStopAnalysis = {
+                                viewModel.stopAnalysis(flow = "$flow -> ScanResultScreen.onStopAnalysis")
+                            }
                         )
                     }
 
