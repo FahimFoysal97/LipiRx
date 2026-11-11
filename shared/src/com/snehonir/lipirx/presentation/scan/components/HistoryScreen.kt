@@ -308,7 +308,7 @@ private fun HistoryItemCard(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete record",
                     modifier = Modifier.size(18.dp),
-                    tint = Lipi.Muted
+                    tint = Lipi.Error
                 )
             }
 
