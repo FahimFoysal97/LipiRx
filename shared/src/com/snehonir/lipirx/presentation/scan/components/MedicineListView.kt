@@ -162,6 +162,38 @@ fun MedicineListView(
                     item { PrescriptionThumbnail(imageByteArray, onZoom) }
                 }
 
+                if (medicines.isEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Lipi.CardBorder)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "No medicines recorded in this scan.",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Lipi.Ink
+                                )
+                                Text(
+                                    text = "This prescription analysis record did not contain active medicine items.",
+                                    fontSize = 12.5.sp,
+                                    color = Lipi.Muted,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+
                 itemsIndexed(medicines) { index, item -> MedicineItemCard(index + 1, item) }
 
                 item {

@@ -643,8 +643,10 @@ class ScanViewModel(
                         val summary = orchResult.items.joinToString(separator = "; ") { item ->
                             "${item.formattedFullName} (${item.genericName}) [${item.schedule}] Qty: ${item.formattedQuantity}"
                         }
-                        database.saveSummary(summary, timestampMillis = analyzeStartTime, flow = dbFlow)
-                        database.saveDispensedHistory(orchResult.items, flow = dbFlow)
+                        if (summary.isNotBlank() && orchResult.items.isNotEmpty()) {
+                            database.saveSummary(summary, timestampMillis = analyzeStartTime, flow = dbFlow)
+                            database.saveDispensedHistory(orchResult.items, flow = dbFlow)
+                        }
                     }.onFailure { dbEx ->
                         Napier.w("[$flow -> Warning] Database save failed: ${dbEx.message}", throwable = dbEx, tag = TAG)
                     }

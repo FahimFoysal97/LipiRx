@@ -91,7 +91,7 @@ fun ScanResultScreen(
     val currentScreenMode: ScanScreenMode = when {
         showHistoryScreen -> ScanScreenMode.History
         uiState.isLoading -> ScanScreenMode.Loading
-        uiState.medicines.isNotEmpty() -> ScanScreenMode.Results
+        uiState.selectedHistoryItem != null || uiState.medicines.isNotEmpty() -> ScanScreenMode.Results
         uiState.capturedImageByteArray != null -> ScanScreenMode.ImageSelected(uiState.capturedImageByteArray!!)
         else -> ScanScreenMode.Empty
     }
