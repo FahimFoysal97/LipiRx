@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import com.snehonir.lipirx.presentation.scan.components.EmptyStateView
 import com.snehonir.lipirx.presentation.scan.components.FullScreenImagePreviewDialog
+import com.snehonir.lipirx.presentation.scan.components.HistoryScreen
 import com.snehonir.lipirx.presentation.scan.components.ImagePreviewAndProcessView
 import com.snehonir.lipirx.presentation.scan.components.LoadingView
 import com.snehonir.lipirx.presentation.scan.components.MedicineListView
@@ -42,6 +43,7 @@ private sealed interface ScanScreenMode {
     }
     data object Loading : ScanScreenMode
     data object Results : ScanScreenMode
+    data object History : ScanScreenMode
 }
 
 @Composable
@@ -63,8 +65,10 @@ fun ScanResultScreen(
     }
 
     var showViewer by remember { mutableStateOf(false) }
+    var showHistoryScreen by remember { mutableStateOf(false) }
 
     val currentScreenMode: ScanScreenMode = when {
+        showHistoryScreen -> ScanScreenMode.History
         uiState.isLoading -> ScanScreenMode.Loading
         uiState.medicines.isNotEmpty() -> ScanScreenMode.Results
         uiState.capturedImageByteArray != null -> ScanScreenMode.ImageSelected(uiState.capturedImageByteArray!!)
@@ -86,6 +90,17 @@ fun ScanResultScreen(
                 label = "scanState",
             ) { mode ->
                 when (mode) {
+                    is ScanScreenMode.History -> {
+                        HistoryScreen(
+                            historyList = uiState.historyList,
+                            onClose = { showHistoryScreen = false },
+                            onSelectRecord = { record ->
+                                viewModel.openHistoryRecord(record, flow = "$flow -> ScanResultScreen.openHistoryRecord")
+                                showHistoryScreen = false
+                            }
+                        )
+                    }
+
                     is ScanScreenMode.Empty -> {
                         EmptyStateView(
                             selectedModel = uiState.selectedModel,
@@ -98,6 +113,7 @@ fun ScanResultScreen(
                             providerType = uiState.providerType,
                             customUrl = uiState.customUrl,
                             apiKeyError = uiState.apiKeyError,
+                            apiKeySuccess = uiState.apiKeySuccess,
                             isTestingApiKey = uiState.isTestingApiKey,
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
@@ -117,7 +133,11 @@ fun ScanResultScreen(
                                 viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")
                             },
                             onTakePhoto = { imagePicker.launchCamera() },
-                            onChooseGallery = { imagePicker.launchGallery() }
+                            onChooseGallery = { imagePicker.launchGallery() },
+                            onHistoryClick = {
+                                viewModel.loadHistoryList(flow = "$flow -> ScanResultScreen.onHistoryClick")
+                                showHistoryScreen = true
+                            }
                         )
                     }
 
@@ -134,6 +154,7 @@ fun ScanResultScreen(
                             providerType = uiState.providerType,
                             customUrl = uiState.customUrl,
                             apiKeyError = uiState.apiKeyError,
+                            apiKeySuccess = uiState.apiKeySuccess,
                             errorMessage = uiState.errorMessage,
                             isTestingApiKey = uiState.isTestingApiKey,
                             agentConfigs = uiState.agentConfigs,
@@ -161,6 +182,10 @@ fun ScanResultScreen(
                             onChange = { imagePicker.launchGallery() },
                             onClear = {
                                 viewModel.clearSelectedImage(flow = "$flow -> ScanResultScreen.onClearClick")
+                            },
+                            onHistoryClick = {
+                                viewModel.loadHistoryList(flow = "$flow -> ScanResultScreen.onHistoryClick")
+                                showHistoryScreen = true
                             }
                         )
                     }
@@ -183,6 +208,7 @@ fun ScanResultScreen(
                             medicines = uiState.medicines,
                             isSuspendedForApproval = uiState.isSuspendedForApproval,
                             approvalReason = uiState.approvalReason,
+                            selectedHistoryItem = uiState.selectedHistoryItem,
                             onZoom = { showViewer = true },
                             onCopySummary = {
                                 val textSummary = viewModel.copyToClipboard(flow = "$flow -> ScanResultScreen.onCopyClick")
@@ -195,6 +221,14 @@ fun ScanResultScreen(
                             },
                             onApproveAndConfirm = {
                                 viewModel.approveAndResumeAnalysis(flow = "$flow -> ScanResultScreen.onApproveAndConfirm")
+                            },
+                            onHistoryClick = {
+                                viewModel.loadHistoryList(flow = "$flow -> ScanResultScreen.onHistoryClick")
+                                showHistoryScreen = true
+                            },
+                            onBackFromHistory = {
+                                viewModel.clearSelectedHistoryRecord(flow = "$flow -> ScanResultScreen.onBackFromHistory")
+                                showHistoryScreen = true
                             }
                         )
                     }

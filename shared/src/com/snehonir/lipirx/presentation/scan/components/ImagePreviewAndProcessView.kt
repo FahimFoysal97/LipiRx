@@ -57,6 +57,7 @@ fun ImagePreviewAndProcessView(
     providerType: String = "gemini",
     customUrl: String = "",
     apiKeyError: String? = null,
+    apiKeySuccess: String? = null,
     errorMessage: String? = null,
     isTestingApiKey: Boolean = false,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
@@ -71,6 +72,7 @@ fun ImagePreviewAndProcessView(
     onRetake: () -> Unit,
     onChange: () -> Unit,
     onClear: () -> Unit,
+    onHistoryClick: (() -> Unit)? = null,
 ) {
     val imageSizeKb = imageByteArray.size / 1024
     var showModelBottomSheet by remember { mutableStateOf(false) }
@@ -81,7 +83,7 @@ fun ImagePreviewAndProcessView(
             .background(Lipi.Background)
             .statusBarsPadding()
     ) {
-        AppHeader { InfoChip("$imageSizeKb KB") }
+        AppHeader(onHistoryClick = onHistoryClick) { InfoChip("$imageSizeKb KB") }
 
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
             Text("Prescription ready", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)

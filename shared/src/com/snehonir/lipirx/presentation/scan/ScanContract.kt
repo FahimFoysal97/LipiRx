@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.presentation.scan
 
+import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -28,9 +29,12 @@ data class ScanUiState(
     val openaiApiKey: String = "",
     val customApiKey: String = "",
     val apiKeyError: String? = null,
+    val apiKeySuccess: String? = null,
     val isTestingApiKey: Boolean = false,
     val agentConfigs: ImmutableMap<RxAgentType, AgentConfig> = persistentMapOf(),
-    val providerModelsMap: ImmutableMap<String, ImmutableList<String>> = persistentMapOf()
+    val providerModelsMap: ImmutableMap<String, ImmutableList<String>> = persistentMapOf(),
+    val historyList: ImmutableList<PrescriptionHistoryEntity> = persistentListOf(),
+    val selectedHistoryItem: PrescriptionHistoryEntity? = null
 ) {
     val apiKey: String
         get() = when (provider) {
@@ -70,9 +74,12 @@ data class ScanUiState(
         if (openaiApiKey != other.openaiApiKey) return false
         if (customApiKey != other.customApiKey) return false
         if (apiKeyError != other.apiKeyError) return false
+        if (apiKeySuccess != other.apiKeySuccess) return false
         if (isTestingApiKey != other.isTestingApiKey) return false
         if (agentConfigs != other.agentConfigs) return false
         if (providerModelsMap != other.providerModelsMap) return false
+        if (historyList != other.historyList) return false
+        if (selectedHistoryItem != other.selectedHistoryItem) return false
 
         return true
     }
@@ -96,9 +103,12 @@ data class ScanUiState(
         result = 31 * result + openaiApiKey.hashCode()
         result = 31 * result + customApiKey.hashCode()
         result = 31 * result + (apiKeyError?.hashCode() ?: 0)
+        result = 31 * result + (apiKeySuccess?.hashCode() ?: 0)
         result = 31 * result + isTestingApiKey.hashCode()
         result = 31 * result + agentConfigs.hashCode()
         result = 31 * result + providerModelsMap.hashCode()
+        result = 31 * result + historyList.hashCode()
+        result = 31 * result + (selectedHistoryItem?.hashCode() ?: 0)
         return result
     }
 }

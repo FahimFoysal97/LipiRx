@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.data.local.ProviderConfigEntity
 import com.snehonir.lipirx.data.remote.CompositeAiService
+import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.MultiAgentRxOrchestrator
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -237,7 +239,8 @@ class ScanViewModel(
             it.copy(
                 provider = providerObj,
                 selectedModel = savedModelForProvider,
-                apiKeyError = null
+                apiKeyError = null,
+                apiKeySuccess = null
             )
         }
 
@@ -257,17 +260,17 @@ class ScanViewModel(
         val cleanModelInput = modelName.trim()
 
         if (providerObj == AiProvider.Gemini && cleanKey.isBlank()) {
-            _uiState.update { it.copy(apiKeyError = "Please enter a valid Gemini API Key.") }
+            _uiState.update { it.copy(apiKeyError = "Please enter a valid Gemini API Key.", apiKeySuccess = null) }
             return
         }
         if (providerObj == AiProvider.Custom && cleanUrl.isBlank()) {
-            _uiState.update { it.copy(apiKeyError = "Please enter a valid Endpoint URL.") }
+            _uiState.update { it.copy(apiKeyError = "Please enter a valid Endpoint URL.", apiKeySuccess = null) }
             return
         }
 
         Napier.d("[$flow] Testing Provider Config: provider=${providerObj.id}, url=$cleanUrl, model=$cleanModelInput", tag = TAG)
         viewModelScope.launch {
-            _uiState.update { it.copy(isTestingApiKey = true, apiKeyError = null) }
+            _uiState.update { it.copy(isTestingApiKey = true, apiKeyError = null, apiKeySuccess = null) }
             val result = aiService.fetchAvailableModels(
                 providedApiKey = cleanKey,
                 provider = providerObj,
@@ -298,6 +301,8 @@ class ScanViewModel(
                             database.saveProviderModels(providerObj.id, names, flow = "$flow -> LipiRxLocalDatabase.saveProviderModels")
                         }
 
+                        val successMsg = "✓ ${providerObj.displayName} verified & saved! (${names.size} models loaded)"
+
                         _uiState.update { currentState ->
                             val newGeminiKey = if (providerObj == AiProvider.Gemini) cleanKey else currentState.geminiApiKey
                             val newGroqKey = if (providerObj == AiProvider.Groq) cleanKey else currentState.groqApiKey
@@ -316,16 +321,20 @@ class ScanViewModel(
                                 customApiKey = newCustomKey,
                                 isTestingApiKey = false,
                                 apiKeyError = null,
+                                apiKeySuccess = successMsg,
                                 availableModels = names,
                                 selectedModel = chosenModel,
                                 providerModelsMap = updatedProviderModels.toImmutableMap()
                             )
                         }
+
+                        _uiEvent.send(ScanUiEvent.ShowToast(successMsg))
                     } else {
                         _uiState.update {
                             it.copy(
                                 isTestingApiKey = false,
-                                apiKeyError = "No supported models found for this endpoint."
+                                apiKeyError = "No supported models found for this endpoint.",
+                                apiKeySuccess = null
                             )
                         }
                     }
@@ -336,7 +345,8 @@ class ScanViewModel(
                     _uiState.update {
                         it.copy(
                             isTestingApiKey = false,
-                            apiKeyError = errorMsg
+                            apiKeyError = errorMsg,
+                            apiKeySuccess = null
                         )
                     }
                 }
@@ -502,6 +512,8 @@ class ScanViewModel(
             return
         }
 
+        val analyzeStartTime = com.snehonir.lipirx.data.local.getPlatformEpochMillis()
+
         _uiState.update {
             it.copy(
                 isLoading = true,
@@ -576,7 +588,7 @@ class ScanViewModel(
                         val summary = orchResult.items.joinToString(separator = "; ") { item ->
                             "${item.formattedFullName} (${item.genericName}) [${item.schedule}] Qty: ${item.formattedQuantity}"
                         }
-                        database.saveSummary(summary, flow = dbFlow)
+                        database.saveSummary(summary, timestampMillis = analyzeStartTime, flow = dbFlow)
                         database.saveDispensedHistory(orchResult.items, flow = dbFlow)
                     }.onFailure { dbEx ->
                         Napier.w("[$flow -> Warning] Database save failed: ${dbEx.message}", throwable = dbEx, tag = TAG)
@@ -604,9 +616,20 @@ class ScanViewModel(
                 isLoading = false,
                 capturedImageByteArray = null,
                 medicines = persistentListOf(),
+                selectedHistoryItem = null,
                 isSuspendedForApproval = false,
                 approvalReason = null,
                 errorMessage = null
+            )
+        }
+    }
+
+    fun clearSelectedHistoryRecord(flow: String = "App -> ScanViewModel.clearSelectedHistoryRecord") {
+        Napier.d("[$flow] Clearing selected history record", tag = TAG)
+        _uiState.update { state ->
+            state.copy(
+                selectedHistoryItem = null,
+                medicines = persistentListOf()
             )
         }
     }
@@ -660,6 +683,57 @@ class ScanViewModel(
         val count = runCatching { database.getHistory(flow = dbFlow).size }.getOrDefault(0)
         Napier.d("[$flow -> Result] Local prescription history count: $count", tag = TAG)
         return count
+    }
+
+    fun loadHistoryList(flow: String = "App -> ScanViewModel.loadHistoryList") {
+        Napier.d("[$flow] Querying SQLite for prescription scan history records...", tag = TAG)
+        val historyRecords = runCatching {
+            database.getHistory(flow = "$flow -> LipiRxLocalDatabase.getHistory")
+        }.getOrDefault(emptyList()).toImmutableList()
+
+        _uiState.update { it.copy(historyList = historyRecords) }
+    }
+
+    fun openHistoryRecord(
+        record: PrescriptionHistoryEntity,
+        flow: String = "App -> ScanViewModel.openHistoryRecord"
+    ) {
+        Napier.d("[$flow] Opening history record ID=${record.id}, scannedAt=${record.formattedDateTime}", tag = TAG)
+        val items = parseSummaryToMedicineItems(record.medicineSummary)
+        _uiState.update {
+            it.copy(
+                medicines = items.toImmutableList(),
+                selectedHistoryItem = record,
+                capturedImageByteArray = null,
+                isLoading = false,
+                isSuspendedForApproval = false,
+                approvalReason = null,
+                errorMessage = null
+            )
+        }
+    }
+
+    private fun parseSummaryToMedicineItems(summaryText: String): List<MedicineItem> {
+        if (summaryText.isBlank()) return emptyList()
+        return summaryText.split("; ").mapIndexed { _, part ->
+            val clean = part.trim()
+            val namePart = clean.substringBefore(" (").trim().ifBlank { clean.substringBefore(" [").trim() }
+            val genericPart = if (clean.contains("(") && clean.contains(")")) clean.substringAfter("(").substringBefore(")").trim() else ""
+            val schedulePart = if (clean.contains("[") && clean.contains("]")) clean.substringAfter("[").substringBefore("]").trim() else ""
+            val qtyPart = if (clean.contains("Qty: ")) clean.substringAfter("Qty: ").trim() else "1 pcs"
+            val units = qtyPart.substringBefore(" ").toIntOrNull() ?: 1
+            val unitType = qtyPart.substringAfter(" ", "pcs").trim()
+
+            MedicineItem(
+                medicineName = namePart,
+                genericName = genericPart,
+                schedule = schedulePart,
+                units = units,
+                unitType = unitType,
+                confidence = "high",
+                brandRecognized = true
+            )
+        }
     }
 
     companion object {

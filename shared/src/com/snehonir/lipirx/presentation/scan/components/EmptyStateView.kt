@@ -43,6 +43,7 @@ fun EmptyStateView(
     providerType: String = "gemini",
     customUrl: String = "",
     apiKeyError: String? = null,
+    apiKeySuccess: String? = null,
     isTestingApiKey: Boolean = false,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
@@ -53,6 +54,7 @@ fun EmptyStateView(
     onModelSelected: (String) -> Unit,
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
+    onHistoryClick: (() -> Unit)? = null,
 ) {
     val isModelAvailable = selectedModel.isNotBlank() || apiKey.isNotBlank() || agentConfigs.isNotEmpty() || availableModels.isNotEmpty()
 
@@ -62,7 +64,7 @@ fun EmptyStateView(
             .background(Lipi.Background)
             .statusBarsPadding()
     ) {
-        AppHeader {
+        AppHeader(onHistoryClick = onHistoryClick) {
             ModelChip(
                 selectedModel = selectedModel,
                 apiKey = apiKey,
@@ -73,6 +75,7 @@ fun EmptyStateView(
                 providerType = providerType,
                 customUrl = customUrl,
                 apiKeyError = apiKeyError,
+                apiKeySuccess = apiKeySuccess,
                 isTestingApiKey = isTestingApiKey,
                 agentConfigs = agentConfigs,
                 providerModelsMap = providerModelsMap,

@@ -10,6 +10,9 @@ import com.snehonir.lipirx.domain.model.AppConfigKey
 import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
 
+expect fun getPlatformEpochMillis(): Long
+expect fun formatEpochMillisToDateTime(epochMillis: Long): String
+
 val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
     override val version: Long = 1
 
@@ -70,7 +73,10 @@ data class PrescriptionHistoryEntity(
     val id: Long,
     val scannedAt: Long,
     val medicineSummary: String
-)
+) {
+    val formattedDateTime: String
+        get() = formatEpochMillisToDateTime(scannedAt)
+}
 
 data class ProviderConfigEntity(
     val providerType: String = "gemini", // "gemini", "groq", "openai", "custom"
@@ -112,9 +118,13 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun saveSummary(summaryText: String, flow: String = "App -> LipiRxLocalDatabase.saveSummary") {
-        val currentTime = 1700000000000L
-        Napier.d("[$flow] Executing SQL INSERT into PrescriptionHistory: summaryLength=${summaryText.length}", tag = TAG)
+    fun saveSummary(
+        summaryText: String,
+        timestampMillis: Long = getPlatformEpochMillis(),
+        flow: String = "App -> LipiRxLocalDatabase.saveSummary"
+    ) {
+        val currentTime = if (timestampMillis > 0) timestampMillis else getPlatformEpochMillis()
+        Napier.d("[$flow] Executing SQL INSERT into PrescriptionHistory: summaryLength=${summaryText.length}, timestamp=$currentTime", tag = TAG)
         driver.execute(
             identifier = null,
             sql = "INSERT INTO PrescriptionHistory (scannedAt, medicineSummary) VALUES (?, ?)",
@@ -130,7 +140,7 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         medicines: List<MedicineItem>,
         flow: String = "App -> LipiRxLocalDatabase.saveDispensedHistory"
     ) {
-        val currentTime = 1700000000000L
+        val currentTime = getPlatformEpochMillis()
         Napier.d("[$flow] Saving ${medicines.size} items to DispensedHistory episodic memory table", tag = TAG)
         medicines.forEach { item ->
             val brand = item.formattedFullName

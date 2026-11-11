@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -216,6 +218,7 @@ val CopyVectorIcon = ImageVector.Builder(
 @Composable
 fun AppHeader(
     modifier: Modifier = Modifier,
+    onHistoryClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = {}
 ) {
     Row(
@@ -238,6 +241,36 @@ fun AppHeader(
                 Text("Rx", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
             }
             Text("LipiRx", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+
+            if (onHistoryClick != null) {
+                Surface(
+                    modifier = Modifier
+                        .padding(start = 2.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onHistoryClick),
+                    shape = CircleShape,
+                    color = Lipi.PrimaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Scan History",
+                            modifier = Modifier.size(14.dp),
+                            tint = Lipi.Primary
+                        )
+                        Text(
+                            text = "History",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Primary
+                        )
+                    }
+                }
+            }
         }
         trailing()
     }
@@ -254,6 +287,7 @@ fun ModelChip(
     providerType: String = "gemini",
     customUrl: String = "",
     apiKeyError: String? = null,
+    apiKeySuccess: String? = null,
     isTestingApiKey: Boolean = false,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
@@ -303,6 +337,7 @@ fun ModelChip(
             providerType = providerType,
             customUrl = customUrl,
             apiKeyError = apiKeyError,
+            apiKeySuccess = apiKeySuccess,
             isTestingApiKey = isTestingApiKey,
             agentConfigs = agentConfigs,
             providerModelsMap = providerModelsMap,
@@ -327,6 +362,7 @@ fun ModelSelectionBottomSheet(
     providerType: String = "gemini",
     customUrl: String = "",
     apiKeyError: String? = null,
+    apiKeySuccess: String? = null,
     isTestingApiKey: Boolean = false,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
@@ -714,6 +750,33 @@ fun ModelSelectionBottomSheet(
                             fontWeight = FontWeight.SemiBold,
                             color = Lipi.Error
                         )
+                    }
+
+                    if (!apiKeySuccess.isNullOrBlank()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = Lipi.PrimaryContainer
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Lipi.Primary
+                                )
+                                Text(
+                                    text = apiKeySuccess,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Lipi.OnPrimaryContainer
+                                )
+                            }
+                        }
                     }
 
                     Button(

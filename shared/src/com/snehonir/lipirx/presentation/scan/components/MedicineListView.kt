@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.ui.theme.Lipi
 
@@ -62,10 +64,13 @@ fun MedicineListView(
     medicines: List<MedicineItem>,
     isSuspendedForApproval: Boolean = false,
     approvalReason: String? = null,
+    selectedHistoryItem: PrescriptionHistoryEntity? = null,
     onZoom: () -> Unit,
     onCopySummary: () -> Unit,
     onRescan: () -> Unit,
-    onApproveAndConfirm: () -> Unit = {}
+    onApproveAndConfirm: () -> Unit = {},
+    onHistoryClick: (() -> Unit)? = null,
+    onBackFromHistory: (() -> Unit)? = null
 ) {
     val reviewCount = remember(medicines) { medicines.count { it.needsReview } }
 
@@ -79,7 +84,50 @@ fun MedicineListView(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            AppHeader()
+            if (selectedHistoryItem != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = { onBackFromHistory?.invoke() }),
+                        shape = CircleShape,
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Lipi.CardBorder)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                                contentDescription = "Back to History",
+                                modifier = Modifier.size(20.dp),
+                                tint = Lipi.Ink
+                            )
+                        }
+                    }
+
+                    Column {
+                        Text(
+                            text = selectedHistoryItem.formattedDateTime,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Lipi.Ink
+                        )
+                        Text(
+                            text = "Saved Prescription Record",
+                            fontSize = 12.sp,
+                            color = Lipi.Muted
+                        )
+                    }
+                }
+            } else {
+                AppHeader(onHistoryClick = onHistoryClick)
+            }
 
             LazyColumn(
                 contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 130.dp),
