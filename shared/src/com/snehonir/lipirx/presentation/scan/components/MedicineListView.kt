@@ -126,7 +126,14 @@ fun MedicineListView(
                     }
                 }
             } else {
-                AppHeader(onHistoryClick = onHistoryClick)
+                AppHeader {
+                    if (onHistoryClick != null) {
+                        HistoryChip(
+                            historyCount = 0,
+                            onClick = onHistoryClick
+                        )
+                    }
+                }
             }
 
             LazyColumn(

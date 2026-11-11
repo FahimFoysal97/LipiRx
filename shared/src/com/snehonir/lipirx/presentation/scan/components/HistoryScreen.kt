@@ -24,10 +24,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,8 +51,12 @@ import com.snehonir.lipirx.ui.theme.Lipi
 fun HistoryScreen(
     historyList: List<PrescriptionHistoryEntity>,
     onClose: () -> Unit,
-    onSelectRecord: (PrescriptionHistoryEntity) -> Unit
+    onSelectRecord: (PrescriptionHistoryEntity) -> Unit,
+    onDeleteRecord: (id: Long) -> Unit = {},
+    onClearAllHistory: () -> Unit = {}
 ) {
+    var showClearAllConfirm by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -91,7 +103,41 @@ fun HistoryScreen(
                 )
             }
 
-            InfoChip("${historyList.size} scans")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                InfoChip("${historyList.size} scans")
+
+                if (historyList.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { showClearAllConfirm = true },
+                        shape = CircleShape,
+                        color = Lipi.AmberContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Clear All",
+                                modifier = Modifier.size(13.dp),
+                                tint = Lipi.Error
+                            )
+                            Text(
+                                text = "Clear All",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.Error
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         if (historyList.isEmpty()) {
@@ -130,17 +176,51 @@ fun HistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(historyList, key = { it.id }) { record ->
-                    HistoryItemCard(record = record, onClick = { onSelectRecord(record) })
+                    HistoryItemCard(
+                        record = record,
+                        onClick = { onSelectRecord(record) },
+                        onDelete = { onDeleteRecord(record.id) }
+                    )
                 }
             }
         }
+    }
+
+    if (showClearAllConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearAllConfirm = false },
+            title = {
+                Text("Clear Scan History?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Lipi.Ink)
+            },
+            text = {
+                Text("This will delete all saved prescription history records from local storage. This action cannot be undone.", fontSize = 13.sp, color = Lipi.Muted)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onClearAllHistory()
+                        showClearAllConfirm = false
+                    }
+                ) {
+                    Text("Clear All", color = Lipi.Error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearAllConfirm = false }) {
+                    Text("Cancel", color = Lipi.Ink)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(20.dp)
+        )
     }
 }
 
 @Composable
 private fun HistoryItemCard(
     record: PrescriptionHistoryEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Surface(
         modifier = Modifier
@@ -154,7 +234,7 @@ private fun HistoryItemCard(
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -185,6 +265,18 @@ private fun HistoryItemCard(
                     color = Lipi.Muted,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete record",
+                    modifier = Modifier.size(18.dp),
+                    tint = Lipi.Muted
                 )
             }
 

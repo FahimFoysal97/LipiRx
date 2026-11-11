@@ -228,6 +228,34 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         return records
     }
 
+    fun deleteHistoryRecord(id: Long, flow: String = "App -> LipiRxLocalDatabase.deleteHistoryRecord") {
+        Napier.d("[$flow] Deleting history record ID=$id from SQLite", tag = TAG)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "DELETE FROM PrescriptionHistory WHERE id = ?",
+                parameters = 1
+            ) {
+                bindLong(0, id)
+            }
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to delete history record $id: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    fun clearAllHistory(flow: String = "App -> LipiRxLocalDatabase.clearAllHistory") {
+        Napier.d("[$flow] Deleting all records from PrescriptionHistory table in SQLite", tag = TAG)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "DELETE FROM PrescriptionHistory",
+                parameters = 0
+            )
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to clear all history: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
     fun saveSelectedModel(
         modelName: String,
         provider: AiProvider = AiProvider.Gemini,

@@ -218,13 +218,12 @@ val CopyVectorIcon = ImageVector.Builder(
 @Composable
 fun AppHeader(
     modifier: Modifier = Modifier,
-    onHistoryClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = {}
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -241,38 +240,48 @@ fun AppHeader(
                 Text("Rx", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
             }
             Text("LipiRx", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
-
-            if (onHistoryClick != null) {
-                Surface(
-                    modifier = Modifier
-                        .padding(start = 2.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = onHistoryClick),
-                    shape = CircleShape,
-                    color = Lipi.PrimaryContainer
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = "Scan History",
-                            modifier = Modifier.size(14.dp),
-                            tint = Lipi.Primary
-                        )
-                        Text(
-                            text = "History",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Lipi.Primary
-                        )
-                    }
-                }
-            }
         }
-        trailing()
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            trailing()
+        }
+    }
+}
+
+@Composable
+fun HistoryChip(
+    historyCount: Int,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = Color.White,
+        border = BorderStroke(1.dp, Lipi.Outline)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.DateRange,
+                contentDescription = "Scan History",
+                modifier = Modifier.size(15.dp),
+                tint = Lipi.Primary
+            )
+            Text(
+                text = if (historyCount > 0) "History ($historyCount)" else "History",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Lipi.Ink
+            )
+        }
     }
 }
 
@@ -297,6 +306,7 @@ fun ModelChip(
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> }
 ) {
     var showSheet by remember { mutableStateOf(false) }
+    val agentCount = if (agentConfigs.isNotEmpty()) agentConfigs.size else RxAgentType.ALL.size
 
     Surface(
         modifier = Modifier
@@ -307,17 +317,17 @@ fun ModelChip(
         border = BorderStroke(1.dp, Lipi.Outline)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .size(8.dp)
+                    .size(7.dp)
                     .background(Lipi.Success, CircleShape)
             )
             Text(
-                text = "⚡ AI Pipeline (4)",
+                text = "⚡ AI Pipeline ($agentCount)",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = Lipi.Ink,

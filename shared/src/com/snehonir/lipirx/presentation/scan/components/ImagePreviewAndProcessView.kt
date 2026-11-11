@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -62,6 +63,7 @@ fun ImagePreviewAndProcessView(
     isTestingApiKey: Boolean = false,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
+    historyList: List<PrescriptionHistoryEntity> = emptyList(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
@@ -83,7 +85,20 @@ fun ImagePreviewAndProcessView(
             .background(Lipi.Background)
             .statusBarsPadding()
     ) {
-        AppHeader(onHistoryClick = onHistoryClick) { InfoChip("$imageSizeKb KB") }
+        AppHeader {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (onHistoryClick != null) {
+                    HistoryChip(
+                        historyCount = historyList.size,
+                        onClick = onHistoryClick
+                    )
+                }
+                InfoChip("$imageSizeKb KB")
+            }
+        }
 
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
             Text("Prescription ready", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
@@ -193,6 +208,7 @@ fun ImagePreviewAndProcessView(
             providerType = providerType,
             customUrl = customUrl,
             apiKeyError = apiKeyError,
+            apiKeySuccess = apiKeySuccess,
             isTestingApiKey = isTestingApiKey,
             agentConfigs = agentConfigs,
             providerModelsMap = providerModelsMap,

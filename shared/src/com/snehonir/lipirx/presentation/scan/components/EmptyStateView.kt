@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,9 +14,14 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Surface
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,12 +30,15 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.ui.theme.Lipi
+import com.snehonir.lipirx.ui.theme.LipiRxTheme
 
 @Composable
 fun EmptyStateView(
@@ -47,6 +56,7 @@ fun EmptyStateView(
     isTestingApiKey: Boolean = false,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
+    historyList: List<PrescriptionHistoryEntity> = emptyList(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
@@ -56,7 +66,7 @@ fun EmptyStateView(
     onChooseGallery: () -> Unit,
     onHistoryClick: (() -> Unit)? = null,
 ) {
-    val isModelAvailable = selectedModel.isNotBlank() || apiKey.isNotBlank() || agentConfigs.isNotEmpty() || availableModels.isNotEmpty()
+    var showModelBottomSheet by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -64,27 +74,8 @@ fun EmptyStateView(
             .background(Lipi.Background)
             .statusBarsPadding()
     ) {
-        AppHeader(onHistoryClick = onHistoryClick) {
-            ModelChip(
-                selectedModel = selectedModel,
-                apiKey = apiKey,
-                geminiApiKey = geminiApiKey,
-                groqApiKey = groqApiKey,
-                openaiApiKey = openaiApiKey,
-                customApiKey = customApiKey,
-                providerType = providerType,
-                customUrl = customUrl,
-                apiKeyError = apiKeyError,
-                apiKeySuccess = apiKeySuccess,
-                isTestingApiKey = isTestingApiKey,
-                agentConfigs = agentConfigs,
-                providerModelsMap = providerModelsMap,
-                onAgentProviderSelected = onAgentProviderSelected,
-                onAgentModelSelected = onAgentModelSelected,
-                onProviderTabSelected = onProviderTabSelected,
-                onSaveProviderConfig = onSaveProviderConfig
-            )
-        }
+        // Clean Top Bar Header
+        AppHeader()
 
         // Viewfinder hero
         Box(
@@ -150,10 +141,23 @@ fun EmptyStateView(
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
             }
-            PaperIllustration(190.dp, 250.dp, rotation = -5f)
+
+            // Central illustration
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                PaperIllustration(190.dp, 250.dp)
+                //Text("Place prescription inside frame", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Lipi.OnPrimaryContainer)
+            }
         }
 
-        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 26.dp)) {
+        // Headline & Description Text Block
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp, vertical = 26.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Text(
                 text = "Read any prescription,\ninstantly.",
                 fontSize = 30.sp,
@@ -172,43 +176,96 @@ fun EmptyStateView(
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // Action Control Dashboard (Row 1: Camera + Gallery | Row 2: Scan History + AI Pipeline)
         Column(
             modifier = Modifier
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 24.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (!isModelAvailable) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    color = Lipi.AmberContainer
-                ) {
-                    Text(
-                        text = "🔑 Please tap the model button on top right to configure your AI Provider.",
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Lipi.OnAmber
-                    )
-                }
+            // Row 1: Primary Capture Controls (Both full 50% equal width)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PrimaryButton(
+                    text = "Take Photo",
+                    icon = CameraVectorIcon,
+                    onClick = onTakePhoto,
+                    modifier = Modifier.weight(1f)
+                )
+
+                SecondaryButton(
+                    text = "Choose Gallery",
+                    icon = GalleryVectorIcon,
+                    onClick = onChooseGallery,
+                    modifier = Modifier.weight(1f)
+                )
             }
 
-            PrimaryButton(
-                text = "Take Prescription Photo",
-                icon = CameraVectorIcon,
-                onClick = onTakePhoto,
-                enabled = isModelAvailable
-            )
-            SecondaryButton(
-                text = "Choose from Gallery",
-                icon = GalleryVectorIcon,
-                onClick = onChooseGallery,
+            // Row 2: System Tools & Settings (Both full 50% equal width)
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = isModelAvailable,
-                height = 58.dp,
-                fontSize = 16,
-            )
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SecondaryButton(
+                    text = if (historyList.isNotEmpty()) "History (${historyList.size})" else "Scan History",
+                    icon = Icons.Default.DateRange,
+                    onClick = { onHistoryClick?.invoke() },
+                    modifier = Modifier.weight(1f),
+                    contentColor = Lipi.Primary
+                )
+
+                SecondaryButton(
+                    text = "AI Pipeline (${if (agentConfigs.isNotEmpty()) agentConfigs.size else 5})",
+                    icon = MultiAgentPipelineIcon,
+                    onClick = { showModelBottomSheet = true },
+                    modifier = Modifier.weight(1f),
+                    contentColor = Lipi.Ink
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    if (showModelBottomSheet) {
+        ModelSelectionBottomSheet(
+            selectedModel = selectedModel,
+            apiKey = apiKey,
+            geminiApiKey = geminiApiKey,
+            groqApiKey = groqApiKey,
+            openaiApiKey = openaiApiKey,
+            customApiKey = customApiKey,
+            providerType = providerType,
+            customUrl = customUrl,
+            apiKeyError = apiKeyError,
+            apiKeySuccess = apiKeySuccess,
+            isTestingApiKey = isTestingApiKey,
+            agentConfigs = agentConfigs,
+            providerModelsMap = providerModelsMap,
+            onAgentProviderSelected = onAgentProviderSelected,
+            onAgentModelSelected = onAgentModelSelected,
+            onProviderTabSelected = onProviderTabSelected,
+            onSaveProviderConfig = onSaveProviderConfig,
+            onDismiss = { showModelBottomSheet = false }
+        )
+    }
+}
+
+@Preview
+@Composable
+fun EmptyStateViewPreview() {
+    LipiRxTheme {
+        EmptyStateView(
+            selectedModel = "gemini-2.0-flash",
+            availableModels = listOf("gemini-2.0-flash", "gemini-1.5-pro"),
+            providerType = "gemini",
+            onModelSelected = {},
+            onTakePhoto = {},
+            onChooseGallery = {}
+        )
     }
 }

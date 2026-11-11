@@ -24,6 +24,7 @@ import com.snehonir.lipirx.presentation.scan.components.HistoryScreen
 import com.snehonir.lipirx.presentation.scan.components.ImagePreviewAndProcessView
 import com.snehonir.lipirx.presentation.scan.components.LoadingView
 import com.snehonir.lipirx.presentation.scan.components.MedicineListView
+import com.snehonir.lipirx.ui.BackHandler
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import io.github.aakira.napier.Napier
@@ -67,6 +68,26 @@ fun ScanResultScreen(
     var showViewer by remember { mutableStateOf(false) }
     var showHistoryScreen by remember { mutableStateOf(false) }
 
+    val isBackHandlerEnabled = showHistoryScreen || uiState.selectedHistoryItem != null || uiState.medicines.isNotEmpty() || uiState.capturedImageByteArray != null
+
+    BackHandler(enabled = isBackHandlerEnabled) {
+        when {
+            uiState.selectedHistoryItem != null -> {
+                viewModel.clearSelectedHistoryRecord(flow = "$flow -> BackHandler.clearSelectedHistoryRecord")
+                showHistoryScreen = true
+            }
+            showHistoryScreen -> {
+                showHistoryScreen = false
+            }
+            uiState.medicines.isNotEmpty() -> {
+                viewModel.clearResults(flow = "$flow -> BackHandler.clearResults")
+            }
+            uiState.capturedImageByteArray != null -> {
+                viewModel.clearSelectedImage(flow = "$flow -> BackHandler.clearSelectedImage")
+            }
+        }
+    }
+
     val currentScreenMode: ScanScreenMode = when {
         showHistoryScreen -> ScanScreenMode.History
         uiState.isLoading -> ScanScreenMode.Loading
@@ -97,6 +118,12 @@ fun ScanResultScreen(
                             onSelectRecord = { record ->
                                 viewModel.openHistoryRecord(record, flow = "$flow -> ScanResultScreen.openHistoryRecord")
                                 showHistoryScreen = false
+                            },
+                            onDeleteRecord = { id ->
+                                viewModel.deleteHistoryRecord(id, flow = "$flow -> ScanResultScreen.onDeleteRecord")
+                            },
+                            onClearAllHistory = {
+                                viewModel.clearAllHistory(flow = "$flow -> ScanResultScreen.onClearAllHistory")
                             }
                         )
                     }
@@ -117,6 +144,7 @@ fun ScanResultScreen(
                             isTestingApiKey = uiState.isTestingApiKey,
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
+                            historyList = uiState.historyList,
                             onAgentProviderSelected = { agent, prov ->
                                 viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
                             },
@@ -159,6 +187,7 @@ fun ScanResultScreen(
                             isTestingApiKey = uiState.isTestingApiKey,
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
+                            historyList = uiState.historyList,
                             onAgentProviderSelected = { agent, prov ->
                                 viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
                             },

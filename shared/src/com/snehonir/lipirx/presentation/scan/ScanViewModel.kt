@@ -694,6 +694,24 @@ class ScanViewModel(
         _uiState.update { it.copy(historyList = historyRecords) }
     }
 
+    fun deleteHistoryRecord(id: Long, flow: String = "App -> ScanViewModel.deleteHistoryRecord") {
+        Napier.d("[$flow] Deleting single history record ID=$id", tag = TAG)
+        database.deleteHistoryRecord(id, flow = flow)
+        loadHistoryList(flow = "$flow -> loadHistoryList")
+        viewModelScope.launch {
+            _uiEvent.send(ScanUiEvent.ShowToast("History item deleted."))
+        }
+    }
+
+    fun clearAllHistory(flow: String = "App -> ScanViewModel.clearAllHistory") {
+        Napier.d("[$flow] Clearing all prescription history records", tag = TAG)
+        database.clearAllHistory(flow = flow)
+        loadHistoryList(flow = "$flow -> loadHistoryList")
+        viewModelScope.launch {
+            _uiEvent.send(ScanUiEvent.ShowToast("Scan history cleared."))
+        }
+    }
+
     fun openHistoryRecord(
         record: PrescriptionHistoryEntity,
         flow: String = "App -> ScanViewModel.openHistoryRecord"
