@@ -59,10 +59,13 @@ actual class OnDeviceLlmEngine actual constructor() {
 
             if (currentEngine == null) {
                 val context = androidContextRef
+                val cachePath = context?.cacheDir?.path ?: ""
+                Napier.d("[OnDeviceLlmEngine] Loading model weights into memory with cacheDir: $cachePath", tag = "OnDeviceLlmEngine")
+
                 val config = EngineConfig(
                     modelPath = modelPath,
                     backend = Backend.CPU(),
-                    cacheDir = context?.cacheDir?.path ?: ""
+                    cacheDir = cachePath
                 )
                 val engine = Engine(config)
                 engine.initialize()

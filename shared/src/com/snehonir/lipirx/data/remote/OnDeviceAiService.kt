@@ -35,40 +35,30 @@ class OnDeviceAiService(
         Napier.d("[$flow -> OnDevice] Executing local On-Device SLM OCR processing (${imageByteArray.size} bytes)...", tag = TAG)
         onProgress(1, "📱 On-Device SLM executing locally on device...")
 
-        if (onDeviceEngine.isModelInstalled()) {
-            val localResult = onDeviceEngine.runVisionOcr(imageByteArray, selectedModel)
-            if (localResult.isSuccess) {
-                val rawText = localResult.getOrThrow()
-                val decoded = runCatching { jsonParser.decodeFromString<List<MedicineItem>>(rawText) }
-                if (decoded.isSuccess) {
-                    val items = decoded.getOrThrow()
-                    Napier.d("[$flow -> OnDevice Success] Real local SLM model extracted ${items.size} items.", tag = TAG)
-                    return Result.success(items)
-                }
-            }
+        if (!onDeviceEngine.isModelInstalled()) {
+            val errorMsg = "No local .litertlm or .tflite model file found on device storage. Push model file via adb to filesDir."
+            Napier.w("[$flow -> OnDevice Error] $errorMsg", tag = TAG)
+            return Result.failure(IllegalStateException(errorMsg))
         }
 
-        // Local model inspection log & fallback rule execution
-        Napier.d("[$flow -> OnDevice Info] To push local model weights on Android targetSdk 37, use:\n  adb push Qwen3-0.6B.litertlm /sdcard/Android/data/com.snehonir.lipirx/files/model.litertlm", tag = TAG)
+        val localResult = onDeviceEngine.runVisionOcr(imageByteArray, selectedModel)
+        if (localResult.isFailure) {
+            val ex = localResult.exceptionOrNull() ?: IllegalStateException("On-Device SLM vision OCR failed.")
+            Napier.e("[$flow -> OnDevice Error] Vision OCR failed: ${ex.message}", throwable = ex, tag = TAG)
+            return Result.failure(ex)
+        }
 
-        val localExtracted = listOf(
-            MedicineItem(
-                medicineName = "Napa",
-                genericName = "Paracetamol",
-                dosageForm = "tablet",
-                strengthValue = "500",
-                strengthUnit = "mg",
-                schedule = "1 + 0 + 1 (pc)",
-                units = 14,
-                unitType = "pcs",
-                confidence = "high",
-                brandRecognized = true,
-                similarBrands = listOf("Ace (Square)", "Pyrex (Incepta)")
-            )
-        )
-
-        Napier.d("[$flow -> OnDevice Success] Local On-Device SLM rule runner extracted ${localExtracted.size} items.", tag = TAG)
-        return Result.success(localExtracted)
+        val rawText = localResult.getOrThrow()
+        val decoded = runCatching { jsonParser.decodeFromString<List<MedicineItem>>(rawText) }
+        return if (decoded.isSuccess) {
+            val items = decoded.getOrThrow()
+            Napier.d("[$flow -> OnDevice Success] Real local SLM model extracted ${items.size} items.", tag = TAG)
+            Result.success(items)
+        } else {
+            val parseEx = decoded.exceptionOrNull() ?: IllegalStateException("On-Device SLM output failed JSON schema validation.")
+            Napier.e("[$flow -> OnDevice Error] JSON parsing failed for response: '$rawText'", throwable = parseEx, tag = TAG)
+            Result.failure(parseEx)
+        }
     }
 
     override suspend fun processTextPrompt(
@@ -80,17 +70,22 @@ class OnDeviceAiService(
     ): Result<String> {
         Napier.d("[$flow -> OnDevice] Executing local On-Device SLM text prompt (${promptText.length} chars)...", tag = TAG)
 
-        if (onDeviceEngine.isModelInstalled()) {
-            val localResult = onDeviceEngine.runTextPrompt(promptText, selectedModel)
-            if (localResult.isSuccess) {
-                val responseText = localResult.getOrThrow()
-                Napier.d("[$flow -> OnDevice Success] Real local LiteRT-LM model generated ${responseText.length} chars.", tag = TAG)
-                return Result.success(responseText)
-            }
+        if (!onDeviceEngine.isModelInstalled()) {
+            val errorMsg = "No local .litertlm or .tflite model file found on device storage. Push model file via adb to filesDir."
+            Napier.w("[$flow -> OnDevice Error] $errorMsg", tag = TAG)
+            return Result.failure(IllegalStateException(errorMsg))
         }
 
-        val localJsonResponse = """[{"id": 1, "medicineName": "Napa", "genericName": "Paracetamol", "similarBrands": ["Ace (Square)", "Pyrex (Incepta)"]}]"""
-        return Result.success(localJsonResponse)
+        val localResult = onDeviceEngine.runTextPrompt(promptText, selectedModel)
+        return if (localResult.isSuccess) {
+            val responseText = localResult.getOrThrow()
+            Napier.d("[$flow -> OnDevice Success] Real local LiteRT-LM model generated ${responseText.length} chars.", tag = TAG)
+            Result.success(responseText)
+        } else {
+            val ex = localResult.exceptionOrNull() ?: IllegalStateException("On-Device SLM text inference failed.")
+            Napier.e("[$flow -> OnDevice Error] Local SLM text inference failed: ${ex.message}", throwable = ex, tag = TAG)
+            Result.failure(ex)
+        }
     }
 
     companion object {
