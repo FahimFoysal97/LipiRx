@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Clear
@@ -36,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -87,6 +91,7 @@ fun ImagePreviewAndProcessView(
             .fillMaxSize()
             .background(Lipi.Background)
             .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
         AppHeader {
             Row(
@@ -108,29 +113,54 @@ fun ImagePreviewAndProcessView(
         }
 
         if (!errorMessage.isNullOrBlank()) {
+            var isErrorExpanded by remember { mutableStateOf(false) }
+            val isLongError = errorMessage.length > 120 || errorMessage.count { it == '\n' } >= 3
+
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 4.dp),
+                    .padding(horizontal = 24.dp, vertical = 4.dp)
+                    .clickable(enabled = isLongError) { isErrorExpanded = !isErrorExpanded },
                 shape = RoundedCornerShape(14.dp),
                 color = Lipi.AmberContainer
             ) {
-                Row(
+                Column(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = Lipi.OnAmber
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = Lipi.OnAmber
+                        )
+                        Text(
+                            text = "Analysis Notice / Error",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.OnAmber,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (isLongError) {
+                            Text(
+                                text = if (isErrorExpanded) "Show less" else "Show more",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Lipi.OnAmber
+                            )
+                        }
+                    }
                     Text(
                         text = errorMessage,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Lipi.OnAmber
+                        fontWeight = FontWeight.Medium,
+                        color = Lipi.OnAmber,
+                        maxLines = if (isErrorExpanded) Int.MAX_VALUE else 3,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -140,8 +170,8 @@ fun ImagePreviewAndProcessView(
         Box(
             modifier = Modifier
                 .padding(horizontal = 24.dp, vertical = 10.dp)
-                .weight(1f)
                 .fillMaxWidth()
+                .heightIn(min = 280.dp, max = 380.dp)
                 .clip(RoundedCornerShape(28.dp))
                 .background(Lipi.ImageWell)
                 .clickable(onClick = onZoom),
@@ -287,7 +317,6 @@ private fun PipelineSummaryCard(
                 }
             }
 
-            // Agents Summary Row Badges
             RxAgentType.ALL.forEach { agentType ->
                 val config = agentConfigs[agentType]
                 val provider = config?.provider ?: agentType.defaultProvider

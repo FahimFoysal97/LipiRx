@@ -131,13 +131,23 @@ class RxSupervisorAgent(
                                 reasoning = dto.reasoning ?: "Supervisor requested human approval.",
                                 feedbackPrompt = ""
                             )
-                        } else if (nextAgentStr == "FINISH") {
-                            SupervisorDecision(
-                                nextAgent = null,
-                                isFinished = true,
-                                reasoning = dto.reasoning ?: "Supervisor completed all orchestration steps.",
-                                feedbackPrompt = dto.feedbackPrompt ?: ""
-                            )
+                        } else if (nextAgentStr == "FINISH" || nextAgentStr.isBlank()) {
+                            if (state.items.isEmpty()) {
+                                Napier.w("[$agentName] Supervisor prematurely returned FINISH/blank while workspace items is empty. Forcing TRANSCRIPTION step.", tag = TAG)
+                                SupervisorDecision(
+                                    nextAgent = RxAgentType.TRANSCRIPTION,
+                                    isFinished = false,
+                                    reasoning = "Forced transcription because workspace has no items yet.",
+                                    feedbackPrompt = "Transcribe prescription."
+                                )
+                            } else {
+                                SupervisorDecision(
+                                    nextAgent = null,
+                                    isFinished = true,
+                                    reasoning = dto.reasoning ?: "Supervisor completed all orchestration steps.",
+                                    feedbackPrompt = dto.feedbackPrompt ?: ""
+                                )
+                            }
                         } else {
                             val targetAgent = parseAgentType(nextAgentStr)
                             SupervisorDecision(

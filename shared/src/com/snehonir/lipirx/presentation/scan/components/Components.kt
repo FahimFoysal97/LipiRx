@@ -617,8 +617,6 @@ fun ModelSelectionBottomSheet(
                 // Strictly live models for THIS agent's assigned provider from providerModelsMap
                 val liveModelsForProvider = providerModelsMap[currentAssignedProvider.id] ?: emptyList()
 
-                var showModelDropdown by remember { mutableStateOf(false) }
-
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -642,61 +640,117 @@ fun ModelSelectionBottomSheet(
                             color = Lipi.Muted
                         )
 
-                        // 2. Provider Selector Chips Row
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            AiProvider.ALL.forEach { prov ->
-                                val isSelected = currentAssignedProvider == prov
-                                val isProviderDisabled = (onDeviceStrategy == com.snehonir.lipirx.domain.model.OnDeviceStrategy.CLOUD_ONLY && prov == AiProvider.OnDevice) ||
-                                        (onDeviceStrategy == com.snehonir.lipirx.domain.model.OnDeviceStrategy.ON_DEVICE_ONLY && prov != AiProvider.OnDevice)
+                        var showProviderDropdown by remember { mutableStateOf(false) }
+                        var showModelDropdown by remember { mutableStateOf(false) }
 
-                                Surface(
-                                    onClick = {
-                                        if (!isProviderDisabled) {
-                                            onAgentProviderSelected(agentType, prov)
-                                        }
-                                    },
-                                    shape = CircleShape,
-                                    color = when {
-                                        isSelected -> prov.brandColor
-                                        isProviderDisabled -> Color.LightGray.copy(alpha = 0.3f)
-                                        else -> Color.White
-                                    },
-                                    border = BorderStroke(
-                                        1.dp,
-                                        when {
-                                            isSelected -> prov.brandColor
-                                            isProviderDisabled -> Color.LightGray.copy(alpha = 0.5f)
-                                            else -> Lipi.Outline
-                                        }
-                                    )
+                        // 2. Provider Selector Dropdown Bar
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Surface(
+                                onClick = { showProviderDropdown = !showProviderDropdown },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color.White,
+                                border = BorderStroke(1.dp, currentAssignedProvider.brandColor.copy(alpha = 0.5f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = prov.icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(12.dp),
-                                            tint = when {
-                                                isSelected -> Color.White
-                                                isProviderDisabled -> Lipi.Muted.copy(alpha = 0.5f)
-                                                else -> prov.brandColor
-                                            }
-                                        )
                                         Text(
-                                            text = prov.displayName,
+                                            text = "Provider:",
                                             fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = when {
-                                                isSelected -> Color.White
-                                                isProviderDisabled -> Lipi.Muted.copy(alpha = 0.5f)
-                                                else -> Lipi.Ink
+                                            fontWeight = FontWeight.Bold,
+                                            color = Lipi.Muted
+                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = currentAssignedProvider.icon,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = currentAssignedProvider.brandColor
+                                            )
+                                            Text(
+                                                text = currentAssignedProvider.displayName,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = currentAssignedProvider.brandColor
+                                            )
+                                        }
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select Provider",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = currentAssignedProvider.brandColor
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = showProviderDropdown,
+                                onDismissRequest = { showProviderDropdown = false },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .background(Color.White)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 220.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    AiProvider.ALL.forEach { prov ->
+                                        val isSelected = currentAssignedProvider == prov
+                                        val isProviderDisabled = (onDeviceStrategy == com.snehonir.lipirx.domain.model.OnDeviceStrategy.CLOUD_ONLY && prov == AiProvider.OnDevice) ||
+                                                (onDeviceStrategy == com.snehonir.lipirx.domain.model.OnDeviceStrategy.ON_DEVICE_ONLY && prov != AiProvider.OnDevice)
+
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = prov.icon,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(16.dp),
+                                                            tint = if (isProviderDisabled) Lipi.Muted.copy(alpha = 0.4f) else prov.brandColor
+                                                        )
+                                                        Text(
+                                                            text = if (isProviderDisabled) "${prov.displayName} (Locked by Strategy)" else prov.displayName,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isProviderDisabled) Lipi.Muted.copy(alpha = 0.4f) else if (isSelected) prov.brandColor else Lipi.Ink
+                                                        )
+                                                    }
+                                                    if (isSelected) {
+                                                        Text(
+                                                            text = "✓",
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            color = prov.brandColor
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                if (!isProviderDisabled) {
+                                                    onAgentProviderSelected(agentType, prov)
+                                                    showProviderDropdown = false
+                                                }
                                             }
                                         )
                                     }
@@ -758,59 +812,65 @@ fun ModelSelectionBottomSheet(
                                 onDismissRequest = { showModelDropdown = false },
                                 modifier = Modifier
                                     .fillMaxWidth(0.85f)
-                                    .heightIn(max = 220.dp)
                                     .background(Color.White)
                             ) {
-                                if (liveModelsForProvider.isNotEmpty()) {
-                                    liveModelsForProvider.forEach { mName ->
-                                        val isModelSelected = currentAssignedModel == mName
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 220.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    if (liveModelsForProvider.isNotEmpty()) {
+                                        liveModelsForProvider.forEach { mName ->
+                                            val isModelSelected = currentAssignedModel == mName
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = mName,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = if (isModelSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isModelSelected) currentAssignedProvider.brandColor else Lipi.Ink
+                                                        )
+                                                        if (isModelSelected) {
+                                                            Text(
+                                                                text = "✓",
+                                                                fontSize = 12.sp,
+                                                                fontWeight = FontWeight.ExtraBold,
+                                                                color = currentAssignedProvider.brandColor
+                                                            )
+                                                        }
+                                                    }
+                                                },
+                                                onClick = {
+                                                    onAgentModelSelected(agentType, mName)
+                                                    showModelDropdown = false
+                                                }
+                                            )
+                                        }
+                                    } else {
                                         DropdownMenuItem(
                                             text = {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(
-                                                        text = mName,
-                                                        fontSize = 12.sp,
-                                                        fontWeight = if (isModelSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        color = if (isModelSelected) currentAssignedProvider.brandColor else Lipi.Ink
-                                                    )
-                                                    if (isModelSelected) {
-                                                        Text(
-                                                            text = "✓",
-                                                            fontSize = 12.sp,
-                                                            fontWeight = FontWeight.ExtraBold,
-                                                            color = currentAssignedProvider.brandColor
-                                                        )
-                                                    }
-                                                }
+                                                Text(
+                                                    text = if (currentAssignedProvider == AiProvider.OnDevice) {
+                                                        "No local models found on device storage.\nPush .litertlm file via adb to filesDir."
+                                                    } else {
+                                                        "No live models found for ${currentAssignedProvider.displayName}.\nTap '🔑 Save Provider Config' below to verify key & fetch models."
+                                                    },
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = Lipi.Error
+                                                )
                                             },
                                             onClick = {
-                                                onAgentModelSelected(agentType, mName)
                                                 showModelDropdown = false
                                             }
                                         )
                                     }
-                                } else {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = if (currentAssignedProvider == AiProvider.OnDevice) {
-                                                    "No local models found on device storage.\nPush .litertlm file via adb to filesDir."
-                                                } else {
-                                                    "No live models found for ${currentAssignedProvider.displayName}.\nTap '🔑 Save Provider Config' below to verify key & fetch models."
-                                                },
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = Lipi.Error
-                                            )
-                                        },
-                                        onClick = {
-                                            showModelDropdown = false
-                                        }
-                                    )
                                 }
                             }
                         }
