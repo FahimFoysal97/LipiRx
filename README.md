@@ -164,9 +164,10 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 
 ### 🔑 Setting Up AI Providers & On-Device Strategy
 1. Launch **LipiRx** on your Android device.
-2. Tap the **`⚡ AI Pipeline`** pill chip at the top right of the home screen.
+2. Tap the **AI Pipeline & Engine Studio** configuration card on the home or preview screen.
 3. Configure your API keys for your preferred cloud providers (**`🤖 Gemini`**, **`⚡ Groq`**, **`🌐 OpenAI`**, or **`🛠️ Custom URL`**) or select your **On-Device AI & Fallback Strategy** (**`Hybrid Fallback`**, **`On-Device First`**, **`On-Device Only`**, or **`Cloud Only`**).
 4. Customize agent assignments and models in the **Per-Agent AI Assignments** matrix.
+5. Easily navigate back using the topbar back button on both the prescription preview and results screens.
 
 ### 📱 Installing Local SLM Weights (Optional for Offline Mode)
 To run local models offline:
