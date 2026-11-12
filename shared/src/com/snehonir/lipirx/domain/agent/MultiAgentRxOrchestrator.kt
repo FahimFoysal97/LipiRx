@@ -9,8 +9,11 @@ import io.github.aakira.napier.Napier
 
 data class OrchestrationResult(
     val items: List<MedicineItem>,
+    val safetyAudited: Boolean = true,
+    val entityParsed: Boolean = true,
     val isSuspendedForApproval: Boolean = false,
-    val approvalReason: String = ""
+    val approvalReason: String = "",
+    val executionHistory: List<AgentExecutionRecord> = emptyList()
 )
 
 private data class AgentRuntimeConfig(
@@ -108,13 +111,60 @@ class MultiAgentRxOrchestrator(
             )
             val agentTimeMs = getPlatformEpochMillis() - agentStartTime
 
-            if (newItemsResult.isFailure && targetAgentType == RxAgentType.TRANSCRIPTION) {
-                val ex = newItemsResult.exceptionOrNull() ?: IllegalStateException("Vision transcription agent failed")
-                Napier.e("[$TAG -> Failure] Primary Vision Transcription Agent failed: ${ex.message}", throwable = ex, tag = TAG)
-                return Result.failure(ex)
+            if (newItemsResult.isFailure) {
+                val ex = newItemsResult.exceptionOrNull() ?: IllegalStateException("${targetAgentType.displayName} execution failed.")
+                val failureReason = PipelineFailureReason.fromThrowable(ex)
+
+                Napier.w("[$TAG -> Agent Failure] ${targetAgentType.displayName} failed (${failureReason.displayName}, retryable=${failureReason.isRetryable}): ${ex.message}", tag = TAG)
+
+                val failedRecord = AgentExecutionRecord(
+                    agentType = targetAgentType,
+                    reasoning = decision.reasoning,
+                    feedbackPrompt = decision.feedbackPrompt,
+                    itemCount = state.items.size,
+                    executionTimeMs = agentTimeMs,
+                    failureReason = failureReason
+                )
+
+                when (targetAgentType) {
+                    RxAgentType.TRANSCRIPTION -> {
+                        Napier.e("[$TAG -> Fatal] Primary Vision Transcription Agent failed. Aborting pipeline execution.", throwable = ex, tag = TAG)
+                        return Result.failure(ex)
+                    }
+                    RxAgentType.ENTITY_PARSER -> {
+                        Napier.e("[$TAG -> Fatal] Medical Entity Parser Agent failed. Cannot guarantee entity normalization. Aborting pipeline.", throwable = ex, tag = TAG)
+                        return Result.failure(ex)
+                    }
+                    RxAgentType.SAFETY_AUDITOR -> {
+                        Napier.w("[$TAG -> Safety Gate] Safety Auditor Agent failed. Marking safetyAudited=false and suspending for Pharmacist Sign-off.", tag = TAG)
+                        state = state.copy(
+                            history = state.history + supervisorRecord + failedRecord,
+                            safetyAudited = false,
+                            isSuspendedForApproval = true,
+                            approvalReason = "Safety Audit Agent failed (${failureReason.displayName}). Mandatory pharmacist sign-off required.",
+                            turnCount = state.turnCount + 1
+                        )
+                        break
+                    }
+                    RxAgentType.GENERIC_SUBSTITUTE -> {
+                        Napier.w("[$TAG -> Degradable Failure] Generic & Substitute Agent failed (${failureReason.displayName}). Continuing pipeline with items un-enriched.", tag = TAG)
+                        state = state.copy(
+                            history = state.history + supervisorRecord + failedRecord,
+                            turnCount = state.turnCount + 1
+                        )
+                        continue
+                    }
+                    RxAgentType.SUPERVISOR -> {
+                        state = state.copy(
+                            history = state.history + supervisorRecord + failedRecord,
+                            turnCount = state.turnCount + 1
+                        )
+                        continue
+                    }
+                }
             }
 
-            val updatedItems = newItemsResult.getOrDefault(state.items)
+            val updatedItems = newItemsResult.getOrThrow()
             val workerRecord = AgentExecutionRecord(
                 agentType = targetAgentType,
                 reasoning = decision.reasoning,
@@ -123,7 +173,13 @@ class MultiAgentRxOrchestrator(
                 executionTimeMs = agentTimeMs
             )
 
-            state = state.copy(
+            val updatedState = when (targetAgentType) {
+                RxAgentType.SAFETY_AUDITOR -> state.copy(safetyAudited = true)
+                RxAgentType.ENTITY_PARSER -> state.copy(entityParsed = true)
+                else -> state
+            }
+
+            state = updatedState.copy(
                 items = updatedItems,
                 history = state.history + supervisorRecord + workerRecord,
                 turnCount = state.turnCount + 1
@@ -138,8 +194,11 @@ class MultiAgentRxOrchestrator(
         return Result.success(
             OrchestrationResult(
                 items = state.items,
+                safetyAudited = state.safetyAudited,
+                entityParsed = state.entityParsed,
                 isSuspendedForApproval = state.isSuspendedForApproval,
-                approvalReason = state.approvalReason
+                approvalReason = state.approvalReason,
+                executionHistory = state.history
             )
         )
     }
@@ -249,7 +308,8 @@ class MultiAgentRxOrchestrator(
             appendLine("⏱️ MULTI-AGENT EXECUTION TIMING REPORT (Total: ${totalTimeMs}ms)")
             appendLine("==========================================================================")
             history.forEachIndexed { index, record ->
-                appendLine("  Step ${index + 1}: ${record.agentType.displayName.padEnd(30)} -> ${record.executionTimeMs}ms (${record.itemCount} items in memory)")
+                val status = if (record.failureReason != null) "❌ FAILED (${record.failureReason.displayName})" else "✓ OK"
+                appendLine("  Step ${index + 1}: ${record.agentType.displayName.padEnd(30)} -> ${record.executionTimeMs}ms [$status] (${record.itemCount} items)")
             }
             appendLine("==========================================================================")
         }

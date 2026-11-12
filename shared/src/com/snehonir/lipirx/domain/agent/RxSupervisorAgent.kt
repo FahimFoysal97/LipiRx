@@ -12,7 +12,8 @@ data class AgentExecutionRecord(
     val reasoning: String,
     val feedbackPrompt: String,
     val itemCount: Int,
-    val executionTimeMs: Long = 0L
+    val executionTimeMs: Long = 0L,
+    val failureReason: PipelineFailureReason? = null
 )
 
 data class SupervisorState(
@@ -23,7 +24,9 @@ data class SupervisorState(
     val turnCount: Int = 0,
     val isFinished: Boolean = false,
     val isSuspendedForApproval: Boolean = false,
-    val approvalReason: String = ""
+    val approvalReason: String = "",
+    val safetyAudited: Boolean = true,
+    val entityParsed: Boolean = true
 )
 
 @Serializable

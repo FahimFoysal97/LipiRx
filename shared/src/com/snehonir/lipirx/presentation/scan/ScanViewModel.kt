@@ -804,8 +804,8 @@ class ScanViewModel(
                 schedule = schedulePart,
                 units = units,
                 unitType = unitType,
-                confidence = "high",
-                brandRecognized = true
+                confidence = "unknown",
+                brandRecognized = false
             )
         }
     }

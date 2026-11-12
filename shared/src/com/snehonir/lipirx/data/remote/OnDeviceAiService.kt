@@ -49,34 +49,17 @@ class OnDeviceAiService(
         }
 
         val rawText = localResult.getOrThrow()
-        val cleaned = cleanJson(rawText)
+        val parseResult = parseMedicineItemsFromText(rawText)
 
-        val decodedList = runCatching { jsonParser.decodeFromString<List<MedicineItem>>(cleaned) }
-        if (decodedList.isSuccess) {
-            val items = decodedList.getOrThrow()
-            Napier.d("[$flow -> OnDevice Success] Real local SLM model extracted ${items.size} items as array.", tag = TAG)
-            return Result.success(items)
+        if (parseResult.isFailure) {
+            val ex = parseResult.exceptionOrNull() ?: IllegalStateException("Failed to parse structured JSON from local SLM model.")
+            Napier.w("[$flow -> OnDevice Error] ${ex.message}", tag = TAG)
+            return Result.failure(ex)
         }
 
-        val decodedSingle = runCatching { jsonParser.decodeFromString<MedicineItem>(cleaned) }
-        if (decodedSingle.isSuccess) {
-            val item = decodedSingle.getOrThrow()
-            Napier.d("[$flow -> OnDevice Success] Real local SLM model extracted 1 item as object.", tag = TAG)
-            return Result.success(listOf(item))
-        }
-
-        // Fallback parsing from conversational text response
-        Napier.w("[$flow -> OnDevice Warning] Failed to parse strict JSON from local SLM. Falling back to text-to-item parsing.", tag = TAG)
-        val fallbackItem = MedicineItem(
-            medicineName = rawText.take(50).trim().ifBlank { "Prescribed Medication" },
-            genericName = "Local SLM Extracted",
-            schedule = "1 + 0 + 1",
-            units = 10,
-            unitType = "pcs",
-            confidence = "medium",
-            brandRecognized = true
-        )
-        return Result.success(listOf(fallbackItem))
+        val items = parseResult.getOrThrow()
+        Napier.d("[$flow -> OnDevice Success] Real local SLM model extracted ${items.size} items.", tag = TAG)
+        return Result.success(items)
     }
 
     override suspend fun processTextPrompt(
@@ -95,25 +78,43 @@ class OnDeviceAiService(
         }
 
         val localResult = onDeviceEngine.runTextPrompt(promptText, selectedModel)
-        return if (localResult.isSuccess) {
-            val responseText = localResult.getOrThrow()
-            Napier.d("[$flow -> OnDevice Success] Real local LiteRT-LM model generated ${responseText.length} chars.", tag = TAG)
-            Result.success(responseText)
-        } else {
-            val ex = localResult.exceptionOrNull() ?: IllegalStateException("On-Device SLM text inference failed.")
-            Napier.e("[$flow -> OnDevice Error] Local SLM text inference failed: ${ex.message}", throwable = ex, tag = TAG)
-            Result.failure(ex)
-        }
+        return localResult.fold(
+            onSuccess = { responseText ->
+                Napier.d("[$flow -> OnDevice Success] Real local LiteRT-LM model generated ${responseText.length} chars.", tag = TAG)
+                Result.success(responseText)
+            },
+            onFailure = { ex ->
+                Napier.e("[$flow -> OnDevice Error] Local SLM text inference failed: ${ex.message}", throwable = ex, tag = TAG)
+                Result.failure(ex)
+            }
+        )
     }
 
-    private fun cleanJson(raw: String): String {
-        val s = raw.replace(Regex("```(?:json)?", RegexOption.IGNORE_CASE), "").trim()
-        val start = s.indexOfFirst { it == '[' || it == '{' }
-        val end = s.indexOfLast { it == ']' || it == '}' }
-        return if (start in 0 until end) s.substring(start, end + 1) else s
+    private fun parseMedicineItemsFromText(rawText: String): Result<List<MedicineItem>> {
+        val cleaned = cleanJson(rawText)
+
+        runCatching { jsonParser.decodeFromString<List<MedicineItem>>(cleaned) }
+            .getOrNull()
+            ?.let { return Result.success(it) }
+
+        runCatching { jsonParser.decodeFromString<MedicineItem>(cleaned) }
+            .getOrNull()
+            ?.let { return Result.success(listOf(it)) }
+
+        return Result.failure(
+            IllegalStateException("Local SLM response could not be decoded into structured prescription JSON.")
+        )
+    }
+
+    private fun cleanJson(rawText: String): String {
+        val sanitized = rawText.replace(JsonFenceRegex, "").trim()
+        val start = sanitized.indexOfFirst { it == '[' || it == '{' }
+        val end = sanitized.indexOfLast { it == ']' || it == '}' }
+        return if (start in 0 until end) sanitized.substring(start, end + 1) else sanitized
     }
 
     companion object {
         private const val TAG = "OnDeviceAiService"
+        private val JsonFenceRegex = Regex("```(?:json)?", RegexOption.IGNORE_CASE)
     }
 }

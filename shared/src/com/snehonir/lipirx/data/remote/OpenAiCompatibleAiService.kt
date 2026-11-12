@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.data.remote
 
+import com.snehonir.lipirx.domain.agent.AiOutputFormatException
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
@@ -137,7 +138,9 @@ abstract class OpenAiCompatibleAiService(
                 parseResult = runCatching { parseTwoPassResponse(rawResponseText) }
             }
 
-            val twoPassResponse = parseResult.getOrThrow()
+            val twoPassResponse = parseResult.getOrElse { ex ->
+                throw AiOutputFormatException(rawOutput = rawResponseText, cause = ex)
+            }
             onProgress(2, "Matching brand names")
 
             val items = merge(
