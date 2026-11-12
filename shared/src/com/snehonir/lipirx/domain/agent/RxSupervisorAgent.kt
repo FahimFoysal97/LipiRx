@@ -52,7 +52,6 @@ class RxSupervisorAgent(
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; isLenient = true }
 ) {
     val agentName: String = "Rx Supervisor Manager Agent"
-    val description: String = "Evaluates current prescription analysis workspace and routes tasks dynamically to specialized agents"
 
     suspend fun decideNextStep(
         state: SupervisorState,
