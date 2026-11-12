@@ -36,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -166,6 +169,15 @@ fun ModelSelectionBottomSheet(
             )
 
             var showStrategyDropdown by remember { mutableStateOf(false) }
+            val strategyScrollState = rememberScrollState()
+            var selectedStrategyY by remember(showStrategyDropdown) { mutableStateOf<Int?>(null) }
+
+            LaunchedEffect(showStrategyDropdown, selectedStrategyY) {
+                val y = selectedStrategyY
+                if (showStrategyDropdown && y != null) {
+                    strategyScrollState.scrollTo(y.coerceAtMost(strategyScrollState.maxValue))
+                }
+            }
 
             Box(modifier = Modifier.fillMaxWidth()) {
                 Surface(
@@ -213,29 +225,41 @@ fun ModelSelectionBottomSheet(
                         .fillMaxWidth(0.85f)
                         .background(Color.White)
                 ) {
-                    OnDeviceStrategy.ALL.forEach { strat ->
-                        val isSelected = onDeviceStrategy == strat
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(
-                                        text = strat.displayName,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Lipi.Primary else Lipi.Ink
-                                    )
-                                    Text(
-                                        text = strat.description,
-                                        fontSize = 11.sp,
-                                        color = Lipi.Muted
-                                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 220.dp)
+                            .verticalScroll(strategyScrollState)
+                    ) {
+                        OnDeviceStrategy.ALL.forEach { strat ->
+                            val isSelected = onDeviceStrategy == strat
+                            DropdownMenuItem(
+                                modifier = Modifier.onGloballyPositioned { coordinates ->
+                                    if (isSelected && selectedStrategyY == null) {
+                                        selectedStrategyY = coordinates.positionInParent().y.toInt()
+                                    }
+                                },
+                                text = {
+                                    Column {
+                                        Text(
+                                            text = strat.displayName,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Lipi.Primary else Lipi.Ink
+                                        )
+                                        Text(
+                                            text = strat.description,
+                                            fontSize = 11.sp,
+                                            color = Lipi.Muted
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    onSelectOnDeviceStrategy(strat)
+                                    showStrategyDropdown = false
                                 }
-                            },
-                            onClick = {
-                                onSelectOnDeviceStrategy(strat)
-                                showStrategyDropdown = false
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -279,6 +303,26 @@ fun ModelSelectionBottomSheet(
 
                         var showProviderDropdown by remember { mutableStateOf(false) }
                         var showModelDropdown by remember { mutableStateOf(false) }
+
+                        val providerScrollState = rememberScrollState()
+                        var selectedProviderY by remember(showProviderDropdown) { mutableStateOf<Int?>(null) }
+
+                        LaunchedEffect(showProviderDropdown, selectedProviderY) {
+                            val y = selectedProviderY
+                            if (showProviderDropdown && y != null) {
+                                providerScrollState.scrollTo(y.coerceAtMost(providerScrollState.maxValue))
+                            }
+                        }
+
+                        val modelScrollState = rememberScrollState()
+                        var selectedModelY by remember(showModelDropdown) { mutableStateOf<Int?>(null) }
+
+                        LaunchedEffect(showModelDropdown, selectedModelY) {
+                            val y = selectedModelY
+                            if (showModelDropdown && y != null) {
+                                modelScrollState.scrollTo(y.coerceAtMost(modelScrollState.maxValue))
+                            }
+                        }
 
                         Box(modifier = Modifier.fillMaxWidth()) {
                             Surface(
@@ -341,7 +385,7 @@ fun ModelSelectionBottomSheet(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 220.dp)
-                                        .verticalScroll(rememberScrollState())
+                                        .verticalScroll(providerScrollState)
                                 ) {
                                     AiProvider.ALL.forEach { prov ->
                                         val isSelected = currentAssignedProvider == prov
@@ -349,6 +393,11 @@ fun ModelSelectionBottomSheet(
                                                 (onDeviceStrategy == OnDeviceStrategy.ON_DEVICE_ONLY && prov != AiProvider.OnDevice)
 
                                         DropdownMenuItem(
+                                            modifier = Modifier.onGloballyPositioned { coordinates ->
+                                                if (isSelected && selectedProviderY == null) {
+                                                    selectedProviderY = coordinates.positionInParent().y.toInt()
+                                                }
+                                            },
                                             text = {
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
@@ -452,12 +501,17 @@ fun ModelSelectionBottomSheet(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 220.dp)
-                                        .verticalScroll(rememberScrollState())
+                                        .verticalScroll(modelScrollState)
                                 ) {
                                     if (liveModelsForProvider.isNotEmpty()) {
-                                        liveModelsForProvider.forEach { mName ->
-                                            val isModelSelected = currentAssignedModel == mName
+                                        liveModelsForProvider.forEachIndexed { idx, mName ->
+                                            val isModelSelected = if (currentAssignedModel.isNotBlank()) currentAssignedModel == mName else idx == 0
                                             DropdownMenuItem(
+                                                modifier = Modifier.onGloballyPositioned { coordinates ->
+                                                    if (isModelSelected && selectedModelY == null) {
+                                                        selectedModelY = coordinates.positionInParent().y.toInt()
+                                                    }
+                                                },
                                                 text = {
                                                     Row(
                                                         modifier = Modifier.fillMaxWidth(),
