@@ -41,7 +41,7 @@ class GeminiAiService(
             val modelsResponse = jsonParser.decodeFromString<GeminiModelsResponse>(responseText)
             val modelsList = modelsResponse.models?.filter { model ->
                 val cleanName = model.name.lowercase()
-                val supportsGenerate = model.supportedGenerationMethods != null && model.supportedGenerationMethods.contains("generateContent")
+                val supportsGenerate = model.supportedGenerationMethods?.contains("generateContent") == true
                 val isNonVisionType = cleanName.contains("tts") || cleanName.contains("lyria") || cleanName.contains("embedding") || cleanName.contains("aqa")
                 supportsGenerate && !isNonVisionType
             } ?: emptyList()

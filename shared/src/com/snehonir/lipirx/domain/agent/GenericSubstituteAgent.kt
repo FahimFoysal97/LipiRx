@@ -39,86 +39,91 @@ class GenericSubstituteAgent(
 
         if (input.isEmpty()) return Result.success(emptyList())
 
-        var currentItems = input
-
-        val service = aiService
-        if (service != null && (apiKey.isNotBlank() || provider == AiProvider.Custom && customUrl.isNotBlank())) {
-            val initialPrompt = buildString {
-                appendLine("You are a pharmaceutical substitute finder for Bangladeshi (DGDA) pharmaceutical brands.")
-                if (feedbackPrompt.isNotBlank()) {
-                    appendLine("SUPERVISOR INSTRUCTIONS: $feedbackPrompt")
-                }
-                if (episodicMemory.isNotBlank()) {
-                    appendLine(episodicMemory)
-                    appendLine("NOTE: Prioritize previously dispensed Bangladeshi brand substitutes if matching generics.")
-                }
-                appendLine("For each of the following medicine generics/brands, identify its active generic composition (genericName) and suggest 3 to 5 popular Bangladeshi alternative brand substitutes with manufacturer (similarBrands).")
-                appendLine("""Return ONLY a JSON array: [{"id": 1, "genericName": "Esomeprazole", "similarBrands": ["Seclo (Square)", "Maxpro (Renata)", "Nexum (Incepta)"]}]""")
-                appendLine("Input items:")
-                input.forEachIndexed { i, item ->
-                    appendLine("ID: ${i + 1}, Medicine: '${item.medicineName}', Written Generic: '${item.genericName}'")
-                }
-            }
-
-            // P0: Self-Correction Loop
-            var currentPrompt = initialPrompt
-            var attempts = 0
-            val maxAttempts = 2
-            var parseSuccess = false
-
-            while (!parseSuccess && attempts < maxAttempts) {
-                val aiResult = service.processTextPrompt(
-                    promptText = currentPrompt,
-                    selectedModel = selectedModel,
-                    providedApiKey = apiKey,
-                    provider = provider,
-                    customUrl = customUrl,
-                    flow = "Agent -> $agentName (Attempt ${attempts + 1})"
-                )
-
-                if (aiResult.isSuccess) {
-                    val rawText = aiResult.getOrThrow()
-                    val cleanedJson = cleanJson(rawText)
-                    val decodedResult = runCatching { jsonParser.decodeFromString<List<GenericSubstituteDto>>(cleanedJson) }
-
-                    if (decodedResult.isSuccess) {
-                        val dtos = decodedResult.getOrThrow()
-                        val dtoMap = dtos.associateBy { it.id ?: -1 }
-
-                        currentItems = input.mapIndexed { index, item ->
-                            val dto = dtoMap[index + 1]
-                            if (dto != null) {
-                                val newGeneric = dto.genericName?.takeIf { it.isNotBlank() } ?: item.genericName
-                                val newSubstitutes = dto.similarBrands?.filter { it.isNotBlank() }?.ifEmpty { item.similarBrands } ?: item.similarBrands
-                                item.copy(
-                                    genericName = newGeneric,
-                                    similarBrands = newSubstitutes
-                                )
-                            } else {
-                                item
-                            }
-                        }
-                        parseSuccess = true
-                        Napier.d("[$agentName -> AI Success] Received LLM generic substitute enrichment on attempt ${attempts + 1}", tag = TAG)
-                    } else {
-                        attempts++
-                        val parseError = decodedResult.exceptionOrNull()?.message ?: "JSON parse error"
-                        Napier.w("[$agentName -> Self-Correction Attempt $attempts] JSON validation error: $parseError. Triggering correction loop...", tag = TAG)
-                        currentPrompt = buildString {
-                            appendLine(initialPrompt)
-                            appendLine()
-                            appendLine("CRITICAL FIX REQUIRED: Your previous response failed JSON schema validation with error: '$parseError'.")
-                            appendLine("Fix the JSON syntax and return ONLY strictly valid JSON matching the exact required schema.")
-                        }
-                    }
-                } else {
-                    break
-                }
-            }
+        val aiEnrichedItems = if (canExecuteAiService(provider, apiKey, customUrl)) {
+            executeAiEnrichmentLoop(input, provider, selectedModel, apiKey, customUrl, feedbackPrompt, episodicMemory) ?: input
+        } else {
+            input
         }
 
-        // Local Rule-Based Substitute Enrichment (Guarantee / Fallback)
-        val enriched = currentItems.map { item ->
+        val finalEnriched = applyLocalFallbackEnrichment(aiEnrichedItems)
+        Napier.d("[$agentName -> Result] Enriched ${finalEnriched.size} items with generic substitute mappings", tag = TAG)
+        return Result.success(finalEnriched)
+    }
+
+    private fun canExecuteAiService(provider: AiProvider, apiKey: String, customUrl: String): Boolean {
+        return aiService != null && (apiKey.isNotBlank() || (provider == AiProvider.Custom && customUrl.isNotBlank()))
+    }
+
+    private suspend fun executeAiEnrichmentLoop(
+        input: List<MedicineItem>,
+        provider: AiProvider,
+        selectedModel: String,
+        apiKey: String,
+        customUrl: String,
+        feedbackPrompt: String,
+        episodicMemory: String
+    ): List<MedicineItem>? {
+        val service = aiService ?: return null
+        val initialPrompt = buildPrompt(input, feedbackPrompt, episodicMemory)
+        var currentPrompt = initialPrompt
+        var attempts = 0
+        val maxAttempts = 2
+
+        while (attempts < maxAttempts) {
+            val aiResult = service.processTextPrompt(
+                promptText = currentPrompt,
+                selectedModel = selectedModel,
+                providedApiKey = apiKey,
+                provider = provider,
+                customUrl = customUrl,
+                flow = "Agent -> $agentName (Attempt ${attempts + 1})"
+            )
+
+            if (aiResult.isFailure) break
+
+            val rawText = aiResult.getOrThrow()
+            val parseResult = parseAndApplyDtos(rawText, input)
+
+            if (parseResult.isSuccess) {
+                Napier.d("[$agentName -> AI Success] Received LLM generic substitute enrichment on attempt ${attempts + 1}", tag = TAG)
+                return parseResult.getOrThrow()
+            }
+
+            attempts++
+            val parseError = parseResult.exceptionOrNull()?.message ?: "JSON parse error"
+            Napier.w("[$agentName -> Self-Correction Attempt $attempts] JSON validation error: $parseError. Triggering correction loop...", tag = TAG)
+            currentPrompt = buildCorrectionPrompt(initialPrompt, parseError)
+        }
+
+        return null
+    }
+
+    private fun parseAndApplyDtos(rawText: String, input: List<MedicineItem>): Result<List<MedicineItem>> {
+        val cleanedJson = cleanJson(rawText)
+        val decodedResult = runCatching { jsonParser.decodeFromString<List<GenericSubstituteDto>>(cleanedJson) }
+
+        if (decodedResult.isFailure) {
+            return Result.failure(decodedResult.exceptionOrNull() ?: IllegalArgumentException("Invalid JSON"))
+        }
+
+        val dtos = decodedResult.getOrThrow()
+        val dtoMap = dtos.associateBy { it.id ?: -1 }
+
+        val updatedItems = input.mapIndexed { index, item ->
+            val dto = dtoMap[index + 1] ?: return@mapIndexed item
+            val newGeneric = dto.genericName?.takeIf { it.isNotBlank() } ?: item.genericName
+            val newSubstitutes = dto.similarBrands?.filter { it.isNotBlank() }?.ifEmpty { item.similarBrands } ?: item.similarBrands
+            item.copy(
+                genericName = newGeneric,
+                similarBrands = newSubstitutes
+            )
+        }
+
+        return Result.success(updatedItems)
+    }
+
+    private fun applyLocalFallbackEnrichment(items: List<MedicineItem>): List<MedicineItem> {
+        return items.map { item ->
             if (item.similarBrands.isEmpty() && item.genericName.isNotBlank()) {
                 val defaultSubstitutes = findSubstitutesForGeneric(item.genericName)
                 item.copy(similarBrands = defaultSubstitutes)
@@ -126,9 +131,6 @@ class GenericSubstituteAgent(
                 item
             }
         }
-
-        Napier.d("[$agentName -> Result] Enriched ${enriched.size} items with generic substitute mappings", tag = TAG)
-        return Result.success(enriched)
     }
 
     private fun findSubstitutesForGeneric(genericName: String): List<String> {
@@ -142,6 +144,30 @@ class GenericSubstituteAgent(
             clean.contains("montelukast") -> listOf("Monas (Pharmaasia)", "Provair (UniMed)")
             else -> emptyList()
         }
+    }
+
+    private fun buildPrompt(input: List<MedicineItem>, feedbackPrompt: String, episodicMemory: String): String = buildString {
+        appendLine("You are a pharmaceutical substitute finder for Bangladeshi (DGDA) pharmaceutical brands.")
+        if (feedbackPrompt.isNotBlank()) {
+            appendLine("SUPERVISOR INSTRUCTIONS: $feedbackPrompt")
+        }
+        if (episodicMemory.isNotBlank()) {
+            appendLine(episodicMemory)
+            appendLine("NOTE: Prioritize previously dispensed Bangladeshi brand substitutes if matching generics.")
+        }
+        appendLine("For each of the following medicine generics/brands, identify its active generic composition (genericName) and suggest 3 to 5 popular Bangladeshi alternative brand substitutes with manufacturer (similarBrands).")
+        appendLine("""Return ONLY a JSON array: [{"id": 1, "genericName": "Esomeprazole", "similarBrands": ["Seclo (Square)", "Maxpro (Renata)", "Nexum (Incepta)"]}]""")
+        appendLine("Input items:")
+        input.forEachIndexed { i, item ->
+            appendLine("ID: ${i + 1}, Medicine: '${item.medicineName}', Written Generic: '${item.genericName}'")
+        }
+    }
+
+    private fun buildCorrectionPrompt(initialPrompt: String, parseError: String): String = buildString {
+        appendLine(initialPrompt)
+        appendLine()
+        appendLine("CRITICAL FIX REQUIRED: Your previous response failed JSON schema validation with error: '$parseError'.")
+        appendLine("Fix the JSON syntax and return ONLY strictly valid JSON matching the exact required schema.")
     }
 
     private fun cleanJson(rawText: String): String {

@@ -284,7 +284,7 @@ abstract class OpenAiCompatibleAiService(
             val strengthNote = if (strengthValue.isBlank()) "not stated" else ""
 
             val recognized = e?.brandRecognized ?: false
-            val genericName = if (e != null && e.genericName.isNotBlank()) e.genericName else t.genericNameWritten
+            val genericName = e?.genericName?.takeIf { it.isNotBlank() } ?: t.genericNameWritten
             val similar = e?.similarBrands ?: emptyList()
 
             val possibleMisreading = e?.possibleMisreading ?: ""

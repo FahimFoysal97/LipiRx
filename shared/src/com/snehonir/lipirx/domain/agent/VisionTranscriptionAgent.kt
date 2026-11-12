@@ -16,10 +16,10 @@ data class TranscriptionInput(
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is TranscriptionInput) return false
-        return imageByteArray.contentEquals(other.imageByteArray) &&
-                selectedModel == other.selectedModel &&
-                provider == other.provider
+        val otherInput = other as? TranscriptionInput ?: return false
+        return imageByteArray.contentEquals(otherInput.imageByteArray) &&
+                selectedModel == otherInput.selectedModel &&
+                provider == otherInput.provider
     }
 
     override fun hashCode(): Int {

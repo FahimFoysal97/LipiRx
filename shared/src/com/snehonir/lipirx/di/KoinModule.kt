@@ -14,6 +14,10 @@ import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
 import com.snehonir.lipirx.domain.agent.SafetyAuditorAgent
 import com.snehonir.lipirx.domain.agent.VisionTranscriptionAgent
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
+import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
+import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
+import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
 import com.snehonir.lipirx.presentation.scan.ScanViewModel
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -77,10 +81,11 @@ val sharedModule = module {
         CompositeAiService(services)
     }
 
-    single {
+    single<PrescriptionRepository> {
         val driverFactory: DatabaseDriverFactory = get()
         LipiRxLocalDatabase(driverFactory.createDriver())
     }
+    single { get<PrescriptionRepository>() as LipiRxLocalDatabase }
 
     // Multiagent Architecture Components
     single { RxSupervisorAgent(aiService = get(), jsonParser = get()) }
@@ -100,7 +105,18 @@ val sharedModule = module {
         )
     }
 
-    factory { ScanViewModel(aiService = get(), orchestrator = get(), database = get()) }
+    // Use Cases
+    single { ProcessPrescriptionUseCase(orchestrator = get(), aiService = get()) }
+    single { GetScanHistoryUseCase(repository = get()) }
+    single { ManageProviderConfigUseCase(repository = get()) }
+
+    factory {
+        ScanViewModel(
+            processPrescriptionUseCase = get(),
+            getScanHistoryUseCase = get(),
+            manageProviderConfigUseCase = get()
+        )
+    }
 }
 
 fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {

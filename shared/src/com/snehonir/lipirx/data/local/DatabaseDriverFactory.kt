@@ -9,6 +9,7 @@ import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.AppConfigKey
 import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import io.github.aakira.napier.Napier
 
 expect fun getPlatformEpochMillis(): Long
@@ -87,7 +88,7 @@ data class ProviderConfigEntity(
     val modelName: String = ""
 )
 
-class LipiRxLocalDatabase(private val driver: SqlDriver) {
+class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepository {
 
     init {
         runCatching {
@@ -120,10 +121,10 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun saveSummary(
+    override fun saveSummary(
         summaryText: String,
-        timestampMillis: Long = getPlatformEpochMillis(),
-        flow: String = "App -> LipiRxLocalDatabase.saveSummary"
+        timestampMillis: Long,
+        flow: String
     ) {
         val currentTime = if (timestampMillis > 0) timestampMillis else getPlatformEpochMillis()
         Napier.d("[$flow] Executing SQL INSERT into PrescriptionHistory: summaryLength=${summaryText.length}, timestamp=$currentTime", tag = TAG)
@@ -138,9 +139,9 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         Napier.d("[$flow -> Success] Saved prescription summary into SQLite database successfully", tag = TAG)
     }
 
-    fun saveDispensedHistory(
+    override fun saveDispensedHistory(
         medicines: List<MedicineItem>,
-        flow: String = "App -> LipiRxLocalDatabase.saveDispensedHistory"
+        flow: String
     ) {
         val currentTime = getPlatformEpochMillis()
         Napier.d("[$flow] Saving ${medicines.size} items to DispensedHistory episodic memory table", tag = TAG)
@@ -164,9 +165,9 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getEpisodicMemoryContext(
+    override fun getEpisodicMemoryContext(
         generics: List<String>,
-        flow: String = "App -> LipiRxLocalDatabase.getEpisodicMemoryContext"
+        flow: String
     ): String {
         if (generics.isEmpty()) return ""
         val historyList = mutableListOf<String>()
@@ -205,7 +206,7 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getHistory(flow: String = "App -> LipiRxLocalDatabase.getHistory"): List<PrescriptionHistoryEntity> {
+    override fun getHistory(flow: String): List<PrescriptionHistoryEntity> {
         Napier.d("[$flow] Querying SELECT PrescriptionHistory from SQLite database...", tag = TAG)
         val queryResult = driver.executeQuery(
             identifier = null,
@@ -230,7 +231,7 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         return records
     }
 
-    fun deleteHistoryRecord(id: Long, flow: String = "App -> LipiRxLocalDatabase.deleteHistoryRecord") {
+    override fun deleteHistoryRecord(id: Long, flow: String) {
         Napier.d("[$flow] Deleting history record ID=$id from SQLite", tag = TAG)
         runCatching {
             driver.execute(
@@ -245,7 +246,7 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun clearAllHistory(flow: String = "App -> LipiRxLocalDatabase.clearAllHistory") {
+    override fun clearAllHistory(flow: String) {
         Napier.d("[$flow] Deleting all records from PrescriptionHistory table in SQLite", tag = TAG)
         runCatching {
             driver.execute(
@@ -258,9 +259,9 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun saveOnDeviceStrategy(
+    override fun saveOnDeviceStrategy(
         strategy: com.snehonir.lipirx.domain.model.OnDeviceStrategy,
-        flow: String = "App -> LipiRxLocalDatabase.saveOnDeviceStrategy"
+        flow: String
     ) {
         Napier.d("[$flow] Saving On-Device strategy '${strategy.id}' into SQLite", tag = TAG)
         driver.execute(
@@ -273,15 +274,15 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getOnDeviceStrategy(): com.snehonir.lipirx.domain.model.OnDeviceStrategy {
+    override fun getOnDeviceStrategy(): com.snehonir.lipirx.domain.model.OnDeviceStrategy {
         val raw = getConfigValue(AppConfigKey.ON_DEVICE_STRATEGY.key)
         return if (raw.isNotBlank()) com.snehonir.lipirx.domain.model.OnDeviceStrategy.fromId(raw) else com.snehonir.lipirx.domain.model.OnDeviceStrategy.HYBRID_FALLBACK
     }
 
-    fun saveSelectedModel(
+    override fun saveSelectedModel(
         modelName: String,
-        provider: AiProvider = AiProvider.Gemini,
-        flow: String = "App -> LipiRxLocalDatabase.saveSelectedModel"
+        provider: AiProvider,
+        flow: String
     ) {
         val modelKey = AppConfigKey.keyForProviderModel(provider)
         Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: $modelKey='$modelName'", tag = TAG)
@@ -303,16 +304,16 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getLastSelectedModel(
-        provider: AiProvider = AiProvider.Gemini,
-        flow: String = "App -> LipiRxLocalDatabase.getLastSelectedModel"
+    override fun getLastSelectedModel(
+        provider: AiProvider,
+        flow: String
     ): String {
         val modelKey = AppConfigKey.keyForProviderModel(provider)
         val value = getConfigValue(modelKey)
         return if (value.isNotBlank()) value else getConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key).ifBlank { provider.defaultModel }
     }
 
-    fun saveApiKey(apiKey: String, flow: String = "App -> LipiRxLocalDatabase.saveApiKey") {
+    override fun saveApiKey(apiKey: String, flow: String) {
         val cleanKey = apiKey.trim()
         Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: gemini_api_key (length=${cleanKey.length})", tag = TAG)
         driver.execute(
@@ -325,16 +326,16 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getApiKey(flow: String = "App -> LipiRxLocalDatabase.getApiKey"): String {
+    override fun getApiKey(flow: String): String {
         return getConfigValue(AppConfigKey.GEMINI_API_KEY.key)
     }
 
-    fun saveProviderConfig(
+    override fun saveProviderConfig(
         providerType: String,
         customUrl: String,
         apiKey: String,
         modelName: String,
-        flow: String = "App -> LipiRxLocalDatabase.saveProviderConfig"
+        flow: String
     ) {
         val cleanKey = apiKey.trim()
         val providerObj = AiProvider.fromId(providerType)
@@ -382,13 +383,13 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getApiKeyForProvider(providerType: String): String {
+    override fun getApiKeyForProvider(providerType: String): String {
         val providerObj = AiProvider.fromId(providerType)
         val key = AppConfigKey.keyForProvider(providerObj)
         return getConfigValue(key.key)
     }
 
-    fun getProviderConfig(flow: String = "App -> LipiRxLocalDatabase.getProviderConfig"): ProviderConfigEntity {
+    override fun getProviderConfig(flow: String): ProviderConfigEntity {
         val providerType = getConfigValue(AppConfigKey.PROVIDER_TYPE.key).ifBlank { AiProvider.Gemini.id }
         val customUrl = getConfigValue(AppConfigKey.CUSTOM_URL.key)
         val apiKey = getApiKeyForProvider(providerType)
@@ -404,11 +405,11 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         return config
     }
 
-    fun saveAgentConfig(
+    override fun saveAgentConfig(
         agentType: RxAgentType,
         provider: AiProvider,
-        modelName: String = "",
-        flow: String = "App -> LipiRxLocalDatabase.saveAgentConfig"
+        modelName: String,
+        flow: String
     ) {
         val providerKey = AppConfigKey.keyForAgentProvider(agentType)
         val modelKey = AppConfigKey.keyForAgentModel(agentType)
@@ -440,7 +441,7 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getAgentConfig(agentType: RxAgentType): AgentConfig {
+    override fun getAgentConfig(agentType: RxAgentType): AgentConfig {
         val providerKey = AppConfigKey.keyForAgentProvider(agentType)
         val modelKey = AppConfigKey.keyForAgentModel(agentType)
 
@@ -455,16 +456,16 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         )
     }
 
-    fun getAllAgentConfigs(): Map<RxAgentType, AgentConfig> {
+    override fun getAllAgentConfigs(): Map<RxAgentType, AgentConfig> {
         return RxAgentType.ALL.associateWith { agentType ->
             getAgentConfig(agentType)
         }
     }
 
-    fun saveProviderModels(
+    override fun saveProviderModels(
         providerType: String,
         models: List<String>,
-        flow: String = "App -> LipiRxLocalDatabase.saveProviderModels"
+        flow: String
     ) {
         val configKey = "models_list_${providerType.trim().lowercase()}"
         val serializedModels = models.joinToString(separator = "||")
@@ -484,14 +485,14 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) {
         }
     }
 
-    fun getProviderModels(providerType: String): List<String> {
+    override fun getProviderModels(providerType: String): List<String> {
         val configKey = "models_list_${providerType.trim().lowercase()}"
         val rawValue = getConfigValue(configKey)
         if (rawValue.isBlank()) return emptyList()
         return rawValue.split("||").map { it.trim() }.filter { it.isNotBlank() }
     }
 
-    fun getAllProviderModelsMap(): Map<String, List<String>> {
+    override fun getAllProviderModelsMap(): Map<String, List<String>> {
         return mapOf(
             "gemini" to getProviderModels("gemini"),
             "groq" to getProviderModels("groq"),
