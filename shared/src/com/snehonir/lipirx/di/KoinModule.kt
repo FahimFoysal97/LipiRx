@@ -7,7 +7,6 @@ import com.snehonir.lipirx.data.remote.CustomAiService
 import com.snehonir.lipirx.data.remote.GeminiAiService
 import com.snehonir.lipirx.data.remote.GroqAiService
 import com.snehonir.lipirx.data.remote.OpenAiAiService
-import com.snehonir.lipirx.domain.agent.MultiAgentRxOrchestrator
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
 import com.snehonir.lipirx.domain.agent.koog.KoogRxSupervisorEngine
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
@@ -103,14 +102,8 @@ val sharedModule = module {
         )
     }
 
-    single {
-        MultiAgentRxOrchestrator(
-            koogSupervisorEngine = get()
-        )
-    }
-
     // Use Cases
-    single { ProcessPrescriptionUseCase(orchestrator = get(), aiService = get()) }
+    single { ProcessPrescriptionUseCase(koogSupervisorEngine = get(), aiService = get()) }
     single { GetScanHistoryUseCase(repository = get()) }
     single { ManageProviderConfigUseCase(repository = get()) }
 

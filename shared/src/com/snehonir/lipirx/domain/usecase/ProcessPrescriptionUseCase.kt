@@ -2,15 +2,15 @@ package com.snehonir.lipirx.domain.usecase
 
 import com.snehonir.lipirx.data.remote.CompositeAiService
 import com.snehonir.lipirx.domain.agent.AgentConfig
-import com.snehonir.lipirx.domain.agent.MultiAgentRxOrchestrator
 import com.snehonir.lipirx.domain.agent.OrchestrationResult
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
+import com.snehonir.lipirx.domain.agent.koog.KoogRxSupervisorEngine
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.ProcessingStep
 
 class ProcessPrescriptionUseCase(
-    private val orchestrator: MultiAgentRxOrchestrator,
+    private val koogSupervisorEngine: KoogRxSupervisorEngine,
     private val aiService: CompositeAiService
 ) {
     suspend fun executePipeline(
@@ -18,7 +18,7 @@ class ProcessPrescriptionUseCase(
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
         onProgress: (step: ProcessingStep) -> Unit = {}
     ): Result<OrchestrationResult> {
-        return orchestrator.executePipeline(
+        return koogSupervisorEngine.runOrchestration(
             input = input,
             agentConfigs = agentConfigs,
             onProgress = onProgress
