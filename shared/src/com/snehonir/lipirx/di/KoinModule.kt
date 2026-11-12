@@ -7,12 +7,10 @@ import com.snehonir.lipirx.data.remote.CustomAiService
 import com.snehonir.lipirx.data.remote.GeminiAiService
 import com.snehonir.lipirx.data.remote.GroqAiService
 import com.snehonir.lipirx.data.remote.OpenAiAiService
-import com.snehonir.lipirx.domain.agent.GenericSubstituteAgent
-import com.snehonir.lipirx.domain.agent.MedicalEntityParserAgent
 import com.snehonir.lipirx.domain.agent.MultiAgentRxOrchestrator
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
-import com.snehonir.lipirx.domain.agent.SafetyAuditorAgent
-import com.snehonir.lipirx.domain.agent.VisionTranscriptionAgent
+import com.snehonir.lipirx.domain.agent.koog.KoogRxSupervisorEngine
+import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
@@ -87,21 +85,27 @@ val sharedModule = module {
     }
     single { get<PrescriptionRepository>() as LipiRxLocalDatabase }
 
-    // Multiagent Architecture Components
+    // JetBrains Koog Multi-Agent Architecture Components
     single { RxSupervisorAgent(aiService = get(), jsonParser = get()) }
-    single { VisionTranscriptionAgent(aiService = get()) }
-    single { MedicalEntityParserAgent(aiService = get(), jsonParser = get()) }
-    single { GenericSubstituteAgent(aiService = get(), jsonParser = get()) }
-    single { SafetyAuditorAgent(aiService = get(), jsonParser = get()) }
+
+    single {
+        RxAgentTools(
+            aiService = get(),
+            jsonParser = get()
+        )
+    }
+
+    single {
+        KoogRxSupervisorEngine(
+            rxSupervisorAgent = get(),
+            rxAgentTools = get(),
+            database = get()
+        )
+    }
 
     single {
         MultiAgentRxOrchestrator(
-            rxSupervisorAgent = get(),
-            visionTranscriptionAgent = get(),
-            medicalEntityParserAgent = get(),
-            genericSubstituteAgent = get(),
-            safetyAuditorAgent = get(),
-            database = get()
+            koogSupervisorEngine = get()
         )
     }
 
