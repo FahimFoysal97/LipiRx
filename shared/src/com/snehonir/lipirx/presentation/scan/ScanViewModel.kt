@@ -357,7 +357,7 @@ class ScanViewModel(
                             manageProviderConfigUseCase.saveProviderModels(providerObj.id, names, flow = "$flow -> ManageProviderConfigUseCase.saveProviderModels")
                         }
 
-                        val successMsg = "✓ ${providerObj.displayName} verified & saved! (${names.size} models loaded)"
+                        val successMsg = "${providerObj.displayName} verified & saved! (${names.size} models loaded)"
 
                         _uiState.update { currentState ->
                             val newGeminiKey = if (providerObj == AiProvider.Gemini) cleanKey else currentState.geminiApiKey

@@ -38,12 +38,13 @@ abstract class OpenAiCompatibleAiService(
             }
 
             val endpoint = if (provider == AiProvider.Custom) {
-                if (customUrl.contains("/chat/completions")) {
-                    customUrl.replace("/chat/completions", "/models")
-                } else if (customUrl.endsWith("/")) {
-                    "${customUrl}models"
+                val normalizedUrl = normalizeCustomUrl(customUrl)
+                if (normalizedUrl.contains("/chat/completions")) {
+                    normalizedUrl.replace("/chat/completions", "/models")
+                } else if (normalizedUrl.endsWith("/")) {
+                    "${normalizedUrl}models"
                 } else {
-                    "$customUrl/models"
+                    "$normalizedUrl/models"
                 }
             } else {
                 modelsEndpoint
@@ -106,7 +107,7 @@ abstract class OpenAiCompatibleAiService(
 
             onProgress(1, "Reading handwriting")
             val endpoint = if (provider == AiProvider.Custom) {
-                customUrl.ifBlank { completionsEndpoint }
+                normalizeCustomUrl(customUrl).ifBlank { completionsEndpoint }
             } else {
                 completionsEndpoint
             }
@@ -172,7 +173,7 @@ abstract class OpenAiCompatibleAiService(
             }
             val cleanModel = selectedModel.removePrefix("models/").ifBlank { provider.defaultModel }
             val endpoint = if (provider == AiProvider.Custom) {
-                customUrl.ifBlank { completionsEndpoint }
+                normalizeCustomUrl(customUrl).ifBlank { completionsEndpoint }
             } else {
                 completionsEndpoint
             }
@@ -450,6 +451,16 @@ abstract class OpenAiCompatibleAiService(
                 "Network request timed out. Please check your internet connection."
             }
             else -> msg.ifBlank { "Model is currently unavailable. Please tap 'Analyze Prescription' to try again." }
+        }
+    }
+
+    private fun normalizeCustomUrl(url: String): String {
+        val trimmed = url.trim()
+        if (trimmed.isBlank()) return ""
+        return if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+            "http://$trimmed"
+        } else {
+            trimmed
         }
     }
 
