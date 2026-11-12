@@ -92,13 +92,12 @@ class RxAgentTools(
         if (items.isEmpty()) return Result.success(emptyList())
 
         val providerObj = AiProvider.fromId(params.provider)
-        val aiEnriched = if (canExecute(providerObj, params.apiKey, params.customUrl)) {
+        val finalEnriched = if (canExecute(providerObj, params.apiKey, params.customUrl)) {
             executeGenericLoop(items, providerObj, params) ?: items
         } else {
             items
         }
 
-        val finalEnriched = applyLocalSubstituteFallback(aiEnriched)
         return Result.success(finalEnriched)
     }
 
@@ -221,26 +220,6 @@ class RxAgentTools(
             item.copy(genericName = newGeneric, similarBrands = newSubstitutes)
         }
         return Result.success(updated)
-    }
-
-    private fun applyLocalSubstituteFallback(items: List<MedicineItem>): List<MedicineItem> {
-        return items.map { item ->
-            if (item.similarBrands.isEmpty() && item.genericName.isNotBlank()) {
-                val clean = item.genericName.lowercase().trim()
-                val defaults = when {
-                    clean.contains("esomeprazole") -> listOf("Seclo (Square)", "Maxpro (Renata)", "Nexum (Incepta)")
-                    clean.contains("omeprazole") -> listOf("Seclo (Square)", "Losectil (Eskayef)")
-                    clean.contains("paracetamol") -> listOf("Napa (Beximco)", "Ace (Square)", "Pyrex (Incepta)")
-                    clean.contains("cefixime") -> listOf("Cef-3 (Square)", "Denvar (Incepta)")
-                    clean.contains("azithromycin") -> listOf("Zimax (Square)", "Zithrin (Beximco)")
-                    clean.contains("montelukast") -> listOf("Monas (Pharmaasia)", "Provair (UniMed)")
-                    else -> emptyList()
-                }
-                item.copy(similarBrands = defaults)
-            } else {
-                item
-            }
-        }
     }
 
     private suspend fun executeSafetyLoop(
