@@ -8,7 +8,7 @@ This is the engineering guide for developing, maintaining, and extending the mul
 
 ## 1. Core Architecture & Supervisor Loop
 
-LipiRx uses a supervisor-driven multi-agent architecture. Instead of a rigid sequential pipeline, a central `RxSupervisorAgent` inspects the workspace state after each step, decides which worker agent to invoke next, and decides when the prescription is in a safe state for pharmacist review.
+LipiRx uses JetBrains Koog multi-agent architecture with a supervisor-driven execution loop. Instead of a rigid sequential pipeline, `KoogRxSupervisorEngine` coordinates turns with `RxSupervisorAgent`, inspecting the workspace state after each step, deciding which tool from `RxAgentTools` to invoke next, and deciding when the prescription is in a safe state for pharmacist review.
 
 ```
                   ┌────────────────────────┐
@@ -16,12 +16,12 @@ LipiRx uses a supervisor-driven multi-agent architecture. Instead of a rigid seq
                   └───────────┬────────────┘
                               ▼
                   ┌────────────────────────┐
-                  │   RxSupervisorAgent    │ <─── (Dynamic Turn Loop, Max 6 Turns)
+                  │ KoogRxSupervisorEngine │ <─── (Dynamic Turn Loop, Max 6 Turns)
                   └───────────┬────────────┘
                               │
             ┌─────────────────┼─────────────────┐
             ▼                 ▼                 ▼
-     [TRANSCRIPTION]   [ENTITY_PARSER]   [SAFETY_AUDITOR] ...
+    [executeVisionOCR] [executeEntityParsing] [executeSafetyAudit] ...
             │                 │                 │
             └─────────────────┼─────────────────┘
                               ▼
@@ -31,25 +31,25 @@ LipiRx uses a supervisor-driven multi-agent architecture. Instead of a rigid seq
 ```
 
 ### Execution flow and rules
-1. **Entry point:** A prescription image (or raw capture) enters the pipeline with the user's active `OnDeviceStrategy`.
-2. **Supervisor control:** `RxSupervisorAgent` evaluates the current `RxWorkspaceState` (transcription text, parsed medicine items, substitution matches, audit flags).
+1. **Entry point:** A prescription image (or raw capture) enters the pipeline via `ProcessPrescriptionUseCase` and `KoogRxSupervisorEngine` with the user's active `OnDeviceStrategy`.
+2. **Supervisor control:** `KoogRxSupervisorEngine` and `RxSupervisorAgent` evaluate the current `SupervisorState` (transcription text, parsed medicine items, substitution matches, audit flags).
 3. **Turn limit:** The supervisor runs within a strict maximum of 6 turns to prevent infinite loops.
 4. **Suspension and gating:** If the safety auditor detects high-risk contraindications, unreadable or ambiguous dosages, or low confidence, execution suspends automatically at the Pharmacist Approval Gate. The gate can never be bypassed.
 
 ---
 
-## 2. Agent Registry
+## 2. Agent & Tool Registry
 
-All agents live in the KMP shared module:
+All agent components live in the KMP shared module:
 `shared/src/commonMain/kotlin/com/snehonir/lipirx/domain/agent/`
 
-| Agent Enum ID | Class Name | Responsibility | Default Provider | Default Model |
+| Agent Enum ID | Class / Tool Name | Responsibility | Default Provider | Default Model |
 | :--- | :--- | :--- | :--- | :--- |
-| `SUPERVISOR` | `RxSupervisorAgent` | Evaluates workspace state, coordinates dispatch, enforces the Pharmacist Approval Gate | Gemini | `gemini-2.0-flash` |
-| `TRANSCRIPTION` | `TranscriptionAgent` | Vision OCR of handwritten prescriptions: raw text, brand names, dosages | Gemini | `gemini-2.0-flash` |
-| `ENTITY_PARSER` | `EntityParserAgent` | Parses raw OCR text into structured `MedicineItem` (brand, generic, dosage, strength, form, schedule) | Gemini | `gemini-1.5-pro` |
-| `GENERIC_SUBSTITUTE` | `GenericSubstituteAgent` | Identifies active generic salts and queries the local SQLite database for verified Bangladeshi brand substitutes | Groq | `llama-3.1-8b-instant` |
-| `SAFETY_AUDITOR` | `SafetyAuditorAgent` | Audits dosages, flags ambiguous or unreadable entries, evaluates drug-drug contraindications, sets clinical warnings | OpenAI | `gpt-4o-mini` |
+| `SUPERVISOR` | `RxSupervisorAgent` & `KoogRxSupervisorEngine` | Evaluates workspace state, coordinates tool dispatches, enforces the Pharmacist Approval Gate | Gemini | `gemini-2.0-flash` |
+| `TRANSCRIPTION` | `RxAgentTools.executeVisionOCR` | Vision OCR of handwritten prescriptions: raw text, brand names, dosages | Gemini | `gemini-2.0-flash` |
+| `ENTITY_PARSER` | `RxAgentTools.executeEntityParsing` | Parses raw OCR text into structured `MedicineItem` (brand, generic, dosage, strength, form, schedule) | Gemini | `gemini-1.5-pro` |
+| `GENERIC_SUBSTITUTE` | `RxAgentTools.executeGenericSubstituteSearch` | Identifies active generic salts and queries the local SQLite database for verified Bangladeshi brand substitutes | Groq | `llama-3.2-90b-vision-instruct` |
+| `SAFETY_AUDITOR` | `RxAgentTools.executeSafetyAudit` | Audits dosages, flags ambiguous or unreadable entries, evaluates drug-drug contraindications, sets clinical warnings | OpenAI | `gpt-4o-mini` |
 
 ---
 
@@ -64,30 +64,21 @@ Providers (`AiProvider`): `gemini`, `groq`, `openai`, `custom` (OpenAI-compatibl
 
 ---
 
-## 4. The `RxAgent` Contract
+## 4. Error Handling and Failure Propagation
 
-Every agent implements the polymorphic `RxAgent` interface, which gives uniform orchestration, testability, and error handling across local and cloud providers.
-
-```kotlin
-interface RxAgent {
-    suspend fun execute(state: RxWorkspaceState): Result<RxWorkspaceState>
-}
-```
-
-### Error handling and failure propagation
 - **No silent fallbacks.** Never use `getOrDefault` or similar with fake clinical values (for example a dosage of `1 + 0 + 1` or a quantity of `10`).
 - **Explicit failures.** On a parsing error, network timeout, or rate limit (HTTP 429), return `Result.failure(...)` with a descriptive `IllegalStateException` or a custom domain exception.
-- **Cancellation.** Never swallow `CancellationException`. `runCatching` catches it, so rethrow it.
-- **Graceful degradation.** The orchestrator captures `Result.failure`, records it in the audit trail, then triggers the Hybrid Fallback strategy or surfaces the error to the UI.
+- **Cancellation.** Never swallow `CancellationException`.
+- **Graceful degradation.** `KoogRxSupervisorEngine` captures `Result.failure`, records it in the execution history, then triggers the Hybrid Fallback strategy or surfaces the error to the UI.
 
 ---
 
-## 5. Adding a New Agent
+## 5. Adding a New Tool / Agent Capability
 
-Follow these 5 steps.
+Follow these 4 steps.
 
 ### Step 1: Register in `RxAgentType.kt`
-`shared/src/commonMain/kotlin/com/snehonir/lipirx/domain/agent/RxAgentType.kt`
+`shared/src/com/snehonir/lipirx/domain/agent/RxAgentType.kt`
 ```kotlin
 enum class RxAgentType(
     val id: String,
@@ -108,50 +99,40 @@ enum class RxAgentType(
 }
 ```
 
-### Step 2: Implement the agent
-`shared/src/commonMain/kotlin/com/snehonir/lipirx/domain/agent/CustomSkillAgent.kt`
+### Step 2: Implement Tool in `RxAgentTools.kt`
+Add the function to `RxAgentTools`:
 ```kotlin
-class CustomSkillAgent(
-    private val database: LipiRxLocalDatabase
-) : RxAgent {
-    override suspend fun execute(state: RxWorkspaceState): Result<RxWorkspaceState> =
-        runCatching {
-            // 1. Perform agent-specific processing
-            // 2. Validate data without inventing clinical values
-            // 3. Return updated state immutably
-            state.copy(
-                auditTrail = state.auditTrail + AgentExecutionRecord("CustomSkillAgent", success = true)
-            )
-        }.recoverCatching { error ->
-            if (error is CancellationException) throw error
-            throw IllegalStateException("CustomSkillAgent execution failed: ${error.message}", error)
-        }
+suspend fun executeCustomSkill(
+    items: List<MedicineItem>,
+    params: ToolExecutionParams
+): Result<List<MedicineItem>> {
+    // 1. Perform tool processing
+    // 2. Return updated items without inventing clinical values
+    return Result.success(items)
 }
 ```
-All business logic stays in `commonMain` so it compiles for every target.
 
-### Step 3: Wire into `MultiAgentRxOrchestrator.kt`
-Inject the agent and add a branch in `dispatchToWorkerAgent(...)`. The `when` is exhaustive over `RxAgentType`, so the compiler flags any missing branch. No other dispatch sites need changes.
+### Step 3: Wire into `KoogRxSupervisorEngine.kt`
+Add a branch in `executeToolForAgent(...)`. The `when` is exhaustive over `RxAgentType`, so the compiler flags any missing branch.
 ```kotlin
-private suspend fun dispatchToWorkerAgent(
-    agentType: RxAgentType,
-    state: RxWorkspaceState
-): Result<RxWorkspaceState> =
-    when (agentType) {
-        RxAgentType.SUPERVISOR -> Result.success(state) // handled by the supervisor loop
-        RxAgentType.TRANSCRIPTION -> transcriptionAgent.execute(state)
-        RxAgentType.ENTITY_PARSER -> entityParserAgent.execute(state)
-        RxAgentType.GENERIC_SUBSTITUTE -> genericSubstituteAgent.execute(state)
-        RxAgentType.SAFETY_AUDITOR -> safetyAuditorAgent.execute(state)
-        RxAgentType.CUSTOM_SKILL -> customSkillAgent.execute(state)
+private suspend fun executeToolForAgent(
+    targetAgentType: RxAgentType,
+    input: TranscriptionInput,
+    items: List<MedicineItem>,
+    params: ToolExecutionParams
+): Result<List<MedicineItem>> =
+    when (targetAgentType) {
+        RxAgentType.SUPERVISOR -> Result.success(items)
+        RxAgentType.TRANSCRIPTION -> rxAgentTools.executeVisionOCR(input)
+        RxAgentType.ENTITY_PARSER -> rxAgentTools.executeEntityParsing(items, params)
+        RxAgentType.GENERIC_SUBSTITUTE -> rxAgentTools.executeGenericSubstituteSearch(items, params)
+        RxAgentType.SAFETY_AUDITOR -> rxAgentTools.executeSafetyAudit(items, params)
+        RxAgentType.CUSTOM_SKILL -> rxAgentTools.executeCustomSkill(items, params)
     }
 ```
 
-### Step 4: Update `RxSupervisorAgent.kt`
-Update the supervisor system prompt and decision logic so it knows when to invoke `CUSTOM_SKILL`.
-
-### Step 5: UI (automatic)
-`ModelSelectionBottomSheet.kt` iterates over `RxAgentType.entries` and renders provider and model selection per agent. No manual UI change is needed.
+### Step 4: UI (automatic)
+`ModelSelectionBottomSheet.kt` iterates over `RxAgentType.entries` and renders provider and model selection per agent tool. No manual UI change is needed.
 
 ---
 

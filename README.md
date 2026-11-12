@@ -1,6 +1,6 @@
 # LipiRx - KMP Supervisor-Driven Multi-Agent AI Prescription Scanner
 
-**LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
+**LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
 
 It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, **Groq**, **OpenAI**, **Custom OpenAI-Compatible Endpoints** (such as local Ollama or private LLM proxies), and **Edge On-Device SLM (LiteRT-LM)** for 100% offline pharmacy operations.
 
@@ -8,7 +8,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 
 ## 🤖 Multi-Agent Architecture
 
-Unlike fixed single-prompt systems, LipiRx uses an autonomous **Manager/Supervisor Multi-Agent Pipeline** where a master LLM agent dynamically evaluates workspace state, routes tasks to specialized worker agents, passes feedback prompts, and controls pipeline execution.
+Unlike fixed single-prompt systems, LipiRx uses an autonomous **Manager/Supervisor Multi-Agent Pipeline** powered by `KoogRxSupervisorEngine` where a master LLM agent dynamically evaluates workspace state, dispatches tasks to specialized `RxAgentTools`, passes feedback prompts, and controls pipeline execution.
 
 ```
                       ┌─────────────────────────────────┐
@@ -16,24 +16,24 @@ Unlike fixed single-prompt systems, LipiRx uses an autonomous **Manager/Supervis
                       │    (Manager / Supervisor LLM)   │
                       └────────────────┬────────────────┘
                                        │
-     Evaluates SupervisorState (turn count, medicines in memory, execution history)
-     & dynamically decides: Next Agent, Reasoning, and Feedback Prompt instructions
+            Evaluates SupervisorState via KoogRxSupervisorEngine
+     & dynamically decides: Next Tool, Reasoning, and Feedback Prompt
                                        │
          ┌─────────────────────────────┼─────────────────────────────┐
          ▼                             ▼                             ▼
-[VisionTranscriptionAgent]   [MedicalEntityParserAgent]   [GenericSubstituteAgent]   [SafetyAuditorAgent]
+ [executeVisionOCR]           [executeEntityParsing]       [executeSafetyAudit]
 ```
 
-### 1. Supervisor Manager Agent (`RxSupervisorAgent`)
+### 1. Supervisor Manager Agent (`RxSupervisorAgent` & `KoogRxSupervisorEngine`)
 - **Role**: Evaluates the workspace state (`SupervisorState`) on each turn.
-- **Dynamic Decision Loop**: Prompts the assigned Manager LLM (e.g. Gemini 2.0 Flash / GPT-4o) to decide which agent executes next (`TRANSCRIPTION`, `ENTITY_PARSER`, `GENERIC_SUBSTITUTE`, `SAFETY_AUDITOR`, or `FINISH`), generating detailed reasoning and custom `feedbackPrompt` instructions.
+- **Dynamic Decision Loop**: Prompts the assigned Manager LLM (e.g. Gemini 2.0 Flash / GPT-4o) to decide which agent tool executes next (`TRANSCRIPTION`, `ENTITY_PARSER`, `GENERIC_SUBSTITUTE`, `SAFETY_AUDITOR`, or `FINISH`), generating detailed reasoning and custom `feedbackPrompt` instructions.
 - **Rule Fallback & Guardrails**: Includes robust decision fallbacks and guardrails preventing premature finishing when workspace items are empty.
 
-### 2. Specialized Worker Agents
-1. **`VisionTranscriptionAgent` (Stage 1)**: Encodes images to Base64 and executes Multimodal Vision OCR to extract raw handwriting.
-2. **`MedicalEntityParserAgent` (Stage 2)**: Parses and normalizes medicine forms, strengths, units, schedules, and total unit calculations using structured `ParsedEntityDto` JSON.
-3. **`GenericSubstituteAgent` (Stage 3)**: Cross-references DGDA active ingredients and matches 3–5 Bangladeshi brand substitutes (with manufacturer names) using `GenericSubstituteDto` JSON.
-4. **`SafetyAuditorAgent` (Stage 4)**: Audits dosage safety, interaction risks, unreadable spellings, and sets pharmacist review flags using `SafetyAuditDto` JSON.
+### 2. Type-Safe Koog Agent Tools (`RxAgentTools`)
+1. **`executeVisionOCR` (Stage 1)**: Encodes images to Base64 and executes Multimodal Vision OCR to extract raw handwriting.
+2. **`executeEntityParsing` (Stage 2)**: Parses and normalizes medicine forms, strengths, units, schedules, and total unit calculations using structured `ParsedEntityDto` JSON.
+3. **`executeGenericSubstituteSearch` (Stage 3)**: Cross-references DGDA active ingredients and matches 3–5 Bangladeshi brand substitutes (with manufacturer names) using `GenericSubstituteDto` JSON.
+4. **`executeSafetyAudit` (Stage 4)**: Audits dosage safety, interaction risks, unreadable spellings, and sets pharmacist review flags using `SafetyAuditDto` JSON.
 
 ---
 
@@ -53,7 +53,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 
 - **Platforms**: Android & iOS
 - **UI Framework**: Compose Multiplatform with Material 3 (adaptive layouts & custom themes)
-- **Multi-Agent Pipeline**: `RxSupervisorAgent` + `MultiAgentRxOrchestrator` managing specialized `RxAgent` instances
+- **Multi-Agent Pipeline**: `KoogRxSupervisorEngine` + `RxSupervisorAgent` dispatching to type-safe `RxAgentTools`
 - **Multi-Provider AI Architecture**: Strategy Pattern (`PrescriptionAiService` -> `GeminiAiService`, `GroqAiService`, `OpenAiAiService`, `CustomAiService`, `OnDeviceAiService`, managed by `CompositeAiService`)
 - **On-Device LLM Runtime**: Google LiteRT-LM (`com.google.ai.edge.litertlm`) and LiteRT CompiledModel
 - **Image Loading**: Coil 3 (`io.coil-kt.coil3:coil-compose`)
@@ -127,19 +127,20 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
     │       │   └── KoinModule.kt                    # Koin 4.x dependency injection module
     │       ├── domain/
     │       │   ├── agent/
-    │       │   │   ├── RxAgent.kt                   # Base Agent interface
+    │       │   │   ├── koog/
+    │       │   │   │   ├── KoogRxSupervisorEngine.kt # Koog Multi-Agent Supervisor Engine
+    │       │   │   │   └── RxAgentTools.kt           # Type-safe Koog Agent Tools
     │       │   │   ├── RxAgentType.kt               # Agent type enum & default configs
     │       │   │   ├── RxSupervisorAgent.kt         # Master Supervisor LLM Agent
-    │       │   │   ├── VisionTranscriptionAgent.kt  # Stage 1 Multimodal Vision OCR Agent
-    │       │   │   ├── MedicalEntityParserAgent.kt  # Stage 2 Medical Entity Parser Agent
-    │       │   │   ├── GenericSubstituteAgent.kt    # Stage 3 Generic & Substitute Agent
-    │       │   │   ├── SafetyAuditorAgent.kt        # Stage 4 Patient Safety Auditor Agent
-    │       │   │   └── MultiAgentRxOrchestrator.kt  # Manager-driven orchestration loop with timing logs
-    │       │   └── model/
-    │       │       ├── AiProvider.kt                # Sealed interface for AI Providers (including OnDevice)
-    │       │       ├── OnDeviceStrategy.kt          # On-device execution strategy enum
-    │       │       ├── MedicineItem.kt              # Prescription medicine model
-    │       │       └── ProcessingStep.kt            # Analysis progress step enum
+    │       │   │   ├── TranscriptionInput.kt        # Prescription input domain model
+    │       │   │   └── OrchestrationResult.kt       # Multi-agent result domain model
+    │       │   ├── model/
+    │       │   │   ├── AiProvider.kt                # Sealed interface for AI Providers (including OnDevice)
+    │       │   │   ├── OnDeviceStrategy.kt          # On-device execution strategy enum
+    │       │   │   ├── MedicineItem.kt              # Prescription medicine model
+    │       │   │   └── ProcessingStep.kt            # Analysis progress step enum
+    │       │   └── usecase/
+    │       │       └── ProcessPrescriptionUseCase.kt # Use case dispatching directly to KoogRxSupervisorEngine
     │       └── presentation/
     │           └── scan/
     │               ├── ScanContract.kt              # ScanUiState & ScanUiEvent contracts
