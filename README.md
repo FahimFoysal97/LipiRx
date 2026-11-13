@@ -2,7 +2,36 @@
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
 
-It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, **Groq**, **OpenAI**, **Custom OpenAI-Compatible Endpoints** (such as local Ollama or private LLM proxies), and **Edge On-Device SLM (LiteRT-LM)** for 100% offline pharmacy operations.
+It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, **Groq**, **OpenAI**, **Custom OpenAI-Compatible Endpoints** (such as local Ollama or private LLM proxies), **Edge On-Device SLM (LiteRT-LM)**, and an **Embedded Model Context Protocol (MCP) Server** for seamless integration with external AI tools and desktop pharmacy POS systems.
+
+---
+
+## ✨ Core Features
+
+1. **Supervisor-Driven Multi-Agent Orchestration (JetBrains Koog)**:
+   - Configurable **Agent Settings Matrix** allowing developers to assign specific providers and models per agent (including `📱 On-Device SLM`).
+   - Dynamic 5-step analysis UI (`LoadingView`) showing live Supervisor reasoning, progress checklist, and per-agent execution timing logs.
+
+2. **Embedded Model Context Protocol (MCP) & OS Integration**:
+   - JSON-RPC 2.0 server (`LipiRxMcpServer`) and local HTTP listener (`McpHttpServer` on port `8080`).
+   - Exposes SQLDelight prescription history (`lipirx://history/scans`) as MCP Resources.
+   - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
+
+3. **Multi-Provider & Edge Vision AI Engine**:
+   - **Google Gemini**: Dynamic model discovery via Gemini REST API (`gemini-2.0-flash`, etc.).
+   - **Groq**: High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
+   - **OpenAI**: Integration with OpenAI Vision models (`gpt-4o`, etc.).
+   - **Custom Endpoint**: Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
+   - **On-Device SLM**: Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage.
+
+4. **Scan History & Local Storage Management**:
+   - SQLDelight SQLite storage saving prescription scan history and cross-session episodic dispensing memory.
+   - Interactive `HistoryScreen` supporting single-item deletion (with confirmation dialog) and bulk **Clear All** removal.
+
+5. **Safety & UX Controls**:
+   - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
+   - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
+   - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
 
 ---
 
@@ -37,6 +66,46 @@ Unlike fixed single-prompt systems, LipiRx uses an autonomous **Manager/Supervis
 
 ---
 
+## 🔌 Model Context Protocol (MCP) & OS-Level Integration
+
+LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`LipiRxMcpServer`) compliant with standard JSON-RPC 2.0 specifications.
+
+```
+  ┌─────────────────────────────────────────────────────────────┐
+  │  External MCP Clients (Claude Desktop, Cursor, POS Software)│
+  └──────────────────────────────┬──────────────────────────────┘
+                                 │ HTTP POST (http://localhost:8080/mcp)
+                                 ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │                   McpHttpServer (Port 8080)                 │
+  └──────────────────────────────┬──────────────────────────────┘
+                                 │ JSON-RPC 2.0 Payload
+                                 ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │                    LipiRxMcpServer Engine                   │
+  └──────────────┬───────────────────────────────┬──────────────┘
+                 │                               │
+                 ▼                               ▼
+     ┌───────────────────────┐       ┌───────────────────────┐
+     │     MCP Resources     │       │       MCP Tools       │
+     │  (SQLDelight History  │       │    (RxAgentTools      │
+     │   & Provider Config)  │       │   OCR/Parsing/Audit)  │
+     └───────────────────────┘       └───────────────────────┘
+```
+
+### Exposed Capabilities:
+- **MCP Resources (`resources/list`, `resources/read`)**:
+  - `lipirx://history/scans`: Accesses SQLDelight prescription scan history and extracted items.
+  - `lipirx://config/providers`: Queries current AI provider configurations and assigned models.
+- **MCP Tools (`tools/list`, `tools/call`)**:
+  - `scan_prescription_vision_ocr`: Executes vision OCR on base64 image input.
+  - `parse_medical_entities`: Normalizes brand names, dosages, forms, and schedules.
+  - `search_generic_substitutes`: Cross-references generic compositions and Bangladeshi brand substitutes.
+  - `audit_patient_safety`: Audits clinical safety warnings and flags dosage anomalies.
+- **Local HTTP Transport (`McpHttpServer`)**: Runs an embedded HTTP server on port `8080` (`http://localhost:8080/mcp`) so terminal commands (`curl`/PowerShell `Invoke-RestMethod`), Claude Desktop, and local Pharmacy POS desktop software can connect directly.
+
+---
+
 ## 📱 Edge On-Device AI & LiteRT-LM Support
 
 LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** (`litertlm-android`) and LiteRT runtime (`.litertlm` and `.tflite` model files).
@@ -54,6 +123,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 - **Platforms**: Android & iOS
 - **UI Framework**: Compose Multiplatform with Material 3 (adaptive layouts & custom themes)
 - **Multi-Agent Pipeline**: `KoogRxSupervisorEngine` + `RxSupervisorAgent` dispatching to type-safe `RxAgentTools`
+- **Protocol Integration**: Model Context Protocol (MCP) JSON-RPC 2.0 server (`LipiRxMcpServer` + `McpHttpServer` on port 8080)
 - **Multi-Provider AI Architecture**: Strategy Pattern (`PrescriptionAiService` -> `GeminiAiService`, `GroqAiService`, `OpenAiAiService`, `CustomAiService`, `OnDeviceAiService`, managed by `CompositeAiService`)
 - **On-Device LLM Runtime**: Google LiteRT-LM (`com.google.ai.edge.litertlm`) and LiteRT CompiledModel
 - **Image Loading**: Coil 3 (`io.coil-kt.coil3:coil-compose`)
@@ -64,30 +134,6 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 
 ---
 
-## ✨ Core Features
-
-1. **Supervisor-Driven Multi-Agent Orchestration**:
-   - Configurable **Agent Settings Matrix** allowing developers to assign specific providers and models per agent (including `📱 On-Device SLM`).
-   - Dynamic 5-step analysis UI (`LoadingView`) showing live Supervisor reasoning, progress checklist, and per-agent execution timing logs.
-
-2. **Multi-Provider & Edge Vision AI Engine**:
-   - **Google Gemini**: Dynamic model discovery via Gemini REST API (`gemini-2.0-flash`, etc.).
-   - **Groq**: High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
-   - **OpenAI**: Integration with OpenAI Vision models (`gpt-4o`, etc.).
-   - **Custom Endpoint**: Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
-   - **On-Device SLM**: Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage.
-
-3. **Scan History & Local Storage Management**:
-   - SQLDelight SQLite storage saving prescription scan history and cross-session episodic dispensing memory.
-   - Interactive `HistoryScreen` supporting single-item deletion (with confirmation dialog) and bulk **Clear All** removal.
-
-4. **Safety & UX Controls**:
-   - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
-   - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
-   - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
-
----
-
 ## 📂 Project Structure
 
 ```
@@ -95,7 +141,8 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 ├── androidApp/                                      # Android Application entry point
 │   ├── src/
 │   │   ├── MainActivity.kt                          # ComponentActivity displaying App()
-│   │   ├── LipiRxApplication.kt                     # Application class initializing Koin
+│   │   ├── LipiRxApplication.kt                     # Application class initializing Koin & McpHttpServer
+│   │   ├── McpHttpServer.kt                         # Embedded HTTP Server listening on port 8080
 │   │   └── AndroidManifest.xml                      # Includes OpenCL & Vndk native library declarations
 │   └── module.yaml
 │
@@ -134,6 +181,11 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
     │       │   │   ├── RxSupervisorAgent.kt         # Master Supervisor LLM Agent
     │       │   │   ├── TranscriptionInput.kt        # Prescription input domain model
     │       │   │   └── OrchestrationResult.kt       # Multi-agent result domain model
+    │       │   ├── mcp/                             # Model Context Protocol (MCP) Engine
+    │       │   │   ├── LipiRxMcpServer.kt           # Main JSON-RPC 2.0 MCP Protocol Handler
+    │       │   │   ├── McpResourceHandler.kt        # SQLDelight database resource provider
+    │       │   │   ├── McpToolHandler.kt            # RxAgentTools MCP tool wrapper
+    │       │   │   └── McpModels.kt                 # Protocol DTOs & serializable payloads
     │       │   ├── model/
     │       │   │   ├── AiProvider.kt                # Sealed interface for AI Providers (including OnDevice)
     │       │   │   ├── OnDeviceStrategy.kt          # On-device execution strategy enum
@@ -168,7 +220,20 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 2. Tap the **AI Pipeline & Engine Studio** configuration card on the home or preview screen.
 3. Configure your API keys for your preferred cloud providers (**`🤖 Gemini`**, **`⚡ Groq`**, **`🌐 OpenAI`**, or **`🛠️ Custom URL`**) or select your **On-Device AI & Fallback Strategy** (**`Hybrid Fallback`**, **`On-Device First`**, **`On-Device Only`**, or **`Cloud Only`**).
 4. Customize agent assignments and models in the **Per-Agent AI Assignments** matrix.
-5. Easily navigate back using the topbar back button on both the prescription preview and results screens.
+
+### 🔌 Testing the MCP Server via Terminal (PowerShell / `curl`)
+1. Forward the port if testing on emulator or USB device:
+   ```bash
+   adb forward tcp:8080 tcp:8080
+   ```
+2. Query registered MCP tools:
+   ```powershell
+   Invoke-RestMethod -Uri "http://localhost:8080/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"1","method":"tools/list"}' | ConvertTo-Json -Depth 5
+   ```
+3. Read SQLDelight prescription scan history:
+   ```powershell
+   Invoke-RestMethod -Uri "http://localhost:8080/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"2","method":"resources/read","params":{"uri":"lipirx://history/scans"}}' | ConvertTo-Json -Depth 5
+   ```
 
 ### 📱 Installing Local SLM Weights (Optional for Offline Mode)
 To run local models offline:
