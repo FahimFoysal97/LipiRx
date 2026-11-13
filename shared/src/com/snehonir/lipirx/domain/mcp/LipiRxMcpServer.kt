@@ -12,79 +12,85 @@ class LipiRxMcpServer(
 ) {
     suspend fun handleJsonRpcRequest(rawJsonRequest: String): String {
         Napier.d("[$TAG] Processing incoming JSON-RPC Request (${rawJsonRequest.length} chars)...", tag = TAG)
-        val request = try {
+
+        val request = runCatching {
             jsonParser.decodeFromString<McpRequest>(rawJsonRequest)
-        } catch (ex: Throwable) {
-            Napier.e("[$TAG -> Parse Error] Invalid JSON-RPC request syntax", throwable = ex, tag = TAG)
-            val errorResponse = McpResponse(
-                id = null,
-                error = McpError(code = McpError.PARSE_ERROR, message = "Parse error: ${ex.message}")
-            )
-            return jsonParser.encodeToString(errorResponse)
+        }.getOrElse { ex ->
+            Napier.e("[$TAG -> Parse Error] Invalid JSON-RPC syntax", throwable = ex, tag = TAG)
+            return buildErrorResponse(null, McpError.PARSE_ERROR, "Parse error: ${ex.message}")
         }
 
+        return runCatching {
+            dispatchMethod(request)
+        }.getOrElse { ex ->
+            Napier.e("[$TAG -> Execution Error] Method '${request.method}' failed: ${ex.message}", throwable = ex, tag = TAG)
+            buildErrorResponse(request.id, McpError.INTERNAL_ERROR, "Internal error: ${ex.message}")
+        }
+    }
+
+    private suspend fun dispatchMethod(request: McpRequest): String {
         val id = request.id
-        val method = request.method.trim()
-
-        return try {
-            val response = when (method) {
-                METHOD_INITIALIZE -> {
-                    val initResult = McpInitializeResult()
-                    McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpInitializeResult.serializer(), initResult))
-                }
-                METHOD_TOOLS_LIST -> {
-                    val toolsList = McpToolsListResult(tools = toolHandler.listTools())
-                    McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpToolsListResult.serializer(), toolsList))
-                }
-                METHOD_TOOLS_CALL -> {
-                    val paramsObj = request.params?.let { jsonParser.decodeFromJsonElement(McpToolCallRequest.serializer(), it) }
-                        ?: throw IllegalArgumentException("Missing required params for tools/call")
-                    val toolResult = toolHandler.executeTool(paramsObj).getOrThrow()
-                    McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpToolCallResult.serializer(), toolResult))
-                }
-                METHOD_RESOURCES_LIST -> {
-                    val resourcesList = McpResourcesListResult(resources = resourceHandler.listResources())
-                    McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpResourcesListResult.serializer(), resourcesList))
-                }
-                METHOD_RESOURCES_READ -> {
-                    val paramsObj = request.params as? JsonObject
-                    val uri = paramsObj?.get("uri")?.jsonPrimitive?.content
-                        ?: throw IllegalArgumentException("Missing required parameter 'uri' for resources/read")
-                    val readResult = resourceHandler.readResource(uri).getOrThrow()
-                    val resultObj = McpResourceReadResult(contents = listOf(readResult))
-                    McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpResourceReadResult.serializer(), resultObj))
-                }
-                METHOD_PROMPTS_LIST -> {
-                    val promptsList = McpPromptsListResult(
-                        prompts = listOf(
-                            McpPrompt(
-                                name = "prescription_safety_audit",
-                                description = "Clinical prompt template for auditing dosage safety and drug contraindications",
-                                arguments = listOf(
-                                    McpPromptArgument(name = "prescriptionText", description = "Raw prescription text", required = true)
-                                )
-                            )
-                        )
-                    )
-                    McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpPromptsListResult.serializer(), promptsList))
-                }
-                else -> {
-                    McpResponse(
-                        id = id,
-                        error = McpError(code = McpError.METHOD_NOT_FOUND, message = "Method '$method' not found")
-                    )
-                }
-            }
-
-            jsonParser.encodeToString(response)
-        } catch (ex: Throwable) {
-            Napier.e("[$TAG -> Execution Error] Request handling failed for method '$method': ${ex.message}", throwable = ex, tag = TAG)
-            val errorResponse = McpResponse(
-                id = id,
-                error = McpError(code = McpError.INTERNAL_ERROR, message = "Internal error: ${ex.message}")
-            )
-            jsonParser.encodeToString(errorResponse)
+        val response = when (request.method.trim()) {
+            METHOD_INITIALIZE -> handleInitialize(id)
+            METHOD_TOOLS_LIST -> handleToolsList(id)
+            METHOD_TOOLS_CALL -> handleToolsCall(id, request)
+            METHOD_RESOURCES_LIST -> handleResourcesList(id)
+            METHOD_RESOURCES_READ -> handleResourcesRead(id, request)
+            METHOD_PROMPTS_LIST -> handlePromptsList(id)
+            else -> McpResponse(id = id, error = McpError(McpError.METHOD_NOT_FOUND, "Method '${request.method}' not found"))
         }
+        return jsonParser.encodeToString(response)
+    }
+
+    private fun handleInitialize(id: String?): McpResponse {
+        val result = McpInitializeResult()
+        return McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpInitializeResult.serializer(), result))
+    }
+
+    private fun handleToolsList(id: String?): McpResponse {
+        val result = McpToolsListResult(tools = toolHandler.listTools())
+        return McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpToolsListResult.serializer(), result))
+    }
+
+    private suspend fun handleToolsCall(id: String?, request: McpRequest): McpResponse {
+        val paramsObj = request.params?.let { jsonParser.decodeFromJsonElement(McpToolCallRequest.serializer(), it) }
+            ?: throw IllegalArgumentException("Missing required params for tools/call")
+        val toolResult = toolHandler.executeTool(paramsObj).getOrThrow()
+        return McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpToolCallResult.serializer(), toolResult))
+    }
+
+    private fun handleResourcesList(id: String?): McpResponse {
+        val result = McpResourcesListResult(resources = resourceHandler.listResources())
+        return McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpResourcesListResult.serializer(), result))
+    }
+
+    private fun handleResourcesRead(id: String?, request: McpRequest): McpResponse {
+        val paramsObj = request.params as? JsonObject
+        val uri = paramsObj?.get("uri")?.jsonPrimitive?.content
+            ?: throw IllegalArgumentException("Missing required parameter 'uri' for resources/read")
+        val readResult = resourceHandler.readResource(uri).getOrThrow()
+        val resultObj = McpResourceReadResult(contents = listOf(readResult))
+        return McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpResourceReadResult.serializer(), resultObj))
+    }
+
+    private fun handlePromptsList(id: String?): McpResponse {
+        val result = McpPromptsListResult(
+            prompts = listOf(
+                McpPrompt(
+                    name = "prescription_safety_audit",
+                    description = "Clinical prompt template for auditing dosage safety and drug contraindications",
+                    arguments = listOf(
+                        McpPromptArgument(name = "prescriptionText", description = "Raw prescription text", required = true)
+                    )
+                )
+            )
+        )
+        return McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpPromptsListResult.serializer(), result))
+    }
+
+    private fun buildErrorResponse(id: String?, code: Int, message: String): String {
+        val errorResponse = McpResponse(id = id, error = McpError(code = code, message = message))
+        return jsonParser.encodeToString(errorResponse)
     }
 
     companion object {

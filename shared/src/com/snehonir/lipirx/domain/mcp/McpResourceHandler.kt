@@ -44,44 +44,45 @@ class McpResourceHandler(
 
     fun readResource(uri: String): Result<McpResourceContents> {
         Napier.d("[McpResourceHandler] Reading MCP Resource: $uri", tag = TAG)
-        return try {
+        return runCatching {
             val contentJson = when (uri.trim()) {
-                URI_SCAN_HISTORY -> {
-                    val history = database.getHistory("MCP -> readResource")
-                    val dtos = history.map { entity ->
-                        McpScanHistoryItemDto(
-                            id = entity.id,
-                            scannedAt = entity.scannedAt,
-                            dateTime = entity.formattedDateTime,
-                            summary = entity.medicineSummary
-                        )
-                    }
-                    jsonParser.encodeToString(dtos)
-                }
-                URI_PROVIDER_CONFIG -> {
-                    val config = database.getProviderConfig()
-                    val dto = McpProviderConfigItemDto(
-                        providerType = config.providerType,
-                        customUrl = config.customUrl,
-                        hasApiKey = config.apiKey.isNotBlank(),
-                        modelName = config.modelName
-                    )
-                    jsonParser.encodeToString(dto)
-                }
+                URI_SCAN_HISTORY -> readScanHistory()
+                URI_PROVIDER_CONFIG -> readProviderConfig()
                 else -> throw IllegalArgumentException("Unknown MCP Resource URI: '$uri'")
             }
 
-            Result.success(
-                McpResourceContents(
-                    uri = uri,
-                    mimeType = "application/json",
-                    text = contentJson
-                )
+            McpResourceContents(
+                uri = uri,
+                mimeType = "application/json",
+                text = contentJson
             )
-        } catch (ex: Throwable) {
+        }.onFailure { ex ->
             Napier.e("[McpResourceHandler -> Error] Failed to read resource '$uri': ${ex.message}", throwable = ex, tag = TAG)
-            Result.failure(ex)
         }
+    }
+
+    private fun readScanHistory(): String {
+        val history = database.getHistory("MCP -> readResource")
+        val dtos = history.map { entity ->
+            McpScanHistoryItemDto(
+                id = entity.id,
+                scannedAt = entity.scannedAt,
+                dateTime = entity.formattedDateTime,
+                summary = entity.medicineSummary
+            )
+        }
+        return jsonParser.encodeToString(dtos)
+    }
+
+    private fun readProviderConfig(): String {
+        val config = database.getProviderConfig()
+        val dto = McpProviderConfigItemDto(
+            providerType = config.providerType,
+            customUrl = config.customUrl,
+            hasApiKey = config.apiKey.isNotBlank(),
+            modelName = config.modelName
+        )
+        return jsonParser.encodeToString(dto)
     }
 
     companion object {

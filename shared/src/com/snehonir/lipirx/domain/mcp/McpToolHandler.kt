@@ -76,77 +76,90 @@ class McpToolHandler(
 
     suspend fun executeTool(request: McpToolCallRequest): Result<McpToolCallResult> {
         Napier.d("[McpToolHandler] Executing MCP Tool Call: ${request.name}", tag = TAG)
-        return try {
+        return runCatching {
             val args = request.arguments?.jsonObject ?: JsonObject(emptyMap())
+            val resultText = dispatchToolExecution(request.name.trim(), args)
 
-            val resultText = when (request.name.trim()) {
-                TOOL_VISION_OCR -> {
-                    val base64Str = args["imageBase64"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing required parameter 'imageBase64'")
-                    val imageBytes = Base64.decode(base64Str)
-                    val providerStr = args["provider"]?.jsonPrimitive?.content ?: "gemini"
-                    val modelStr = args["model"]?.jsonPrimitive?.content ?: ""
-                    val apiKeyStr = args["apiKey"]?.jsonPrimitive?.content ?: ""
-                    val customUrlStr = args["customUrl"]?.jsonPrimitive?.content ?: ""
-
-                    val input = TranscriptionInput(
-                        imageByteArray = imageBytes,
-                        selectedModel = modelStr,
-                        provider = AiProvider.fromId(providerStr),
-                        providedApiKey = apiKeyStr,
-                        customUrl = customUrlStr
-                    )
-                    val result = rxAgentTools.executeVisionOCR(input).getOrThrow()
-                    jsonParser.encodeToString(result)
-                }
-                TOOL_PARSE_ENTITIES -> {
-                    val itemsJson = args["itemsJson"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing required parameter 'itemsJson'")
-                    val items = jsonParser.decodeFromString<List<MedicineItem>>(itemsJson)
-                    val params = parseParams(args)
-                    val result = rxAgentTools.executeEntityParsing(items, params).getOrThrow()
-                    jsonParser.encodeToString(result)
-                }
-                TOOL_GENERIC_SUBSTITUTE -> {
-                    val itemsJson = args["itemsJson"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing required parameter 'itemsJson'")
-                    val items = jsonParser.decodeFromString<List<MedicineItem>>(itemsJson)
-                    val params = parseParams(args)
-                    val result = rxAgentTools.executeGenericSubstituteSearch(items, params).getOrThrow()
-                    jsonParser.encodeToString(result)
-                }
-                TOOL_SAFETY_AUDIT -> {
-                    val itemsJson = args["itemsJson"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing required parameter 'itemsJson'")
-                    val items = jsonParser.decodeFromString<List<MedicineItem>>(itemsJson)
-                    val params = parseParams(args)
-                    val result = rxAgentTools.executeSafetyAudit(items, params).getOrThrow()
-                    jsonParser.encodeToString(result)
-                }
-                else -> throw IllegalArgumentException("Unknown MCP Tool name: '${request.name}'")
-            }
-
-            Result.success(
-                McpToolCallResult(
-                    content = listOf(McpTextContent(text = resultText)),
-                    isError = false
-                )
+            McpToolCallResult(
+                content = listOf(McpTextContent(text = resultText)),
+                isError = false
             )
-        } catch (ex: Throwable) {
+        }.recoverCatching { ex ->
             Napier.e("[McpToolHandler -> Error] Tool execution failed for '${request.name}': ${ex.message}", throwable = ex, tag = TAG)
-            Result.success(
-                McpToolCallResult(
-                    content = listOf(McpTextContent(text = "Error executing tool '${request.name}': ${ex.message}")),
-                    isError = true
-                )
+            McpToolCallResult(
+                content = listOf(McpTextContent(text = "Error executing tool '${request.name}': ${ex.message}")),
+                isError = true
             )
         }
     }
 
+    private suspend fun dispatchToolExecution(toolName: String, args: JsonObject): String {
+        return when (toolName) {
+            TOOL_VISION_OCR -> executeVisionOcrTool(args)
+            TOOL_PARSE_ENTITIES -> executeEntityParsingTool(args)
+            TOOL_GENERIC_SUBSTITUTE -> executeGenericSubstituteTool(args)
+            TOOL_SAFETY_AUDIT -> executeSafetyAuditTool(args)
+            else -> throw IllegalArgumentException("Unknown MCP Tool name: '$toolName'")
+        }
+    }
+
+    private suspend fun executeVisionOcrTool(args: JsonObject): String {
+        val base64Str = getRequiredArg(args, "imageBase64")
+        val imageBytes = Base64.decode(base64Str)
+        val input = TranscriptionInput(
+            imageByteArray = imageBytes,
+            selectedModel = getOptionalArg(args, "model"),
+            provider = AiProvider.fromId(getOptionalArg(args, "provider", "gemini")),
+            providedApiKey = getOptionalArg(args, "apiKey"),
+            customUrl = getOptionalArg(args, "customUrl")
+        )
+        val result = rxAgentTools.executeVisionOCR(input).getOrThrow()
+        return jsonParser.encodeToString(result)
+    }
+
+    private suspend fun executeEntityParsingTool(args: JsonObject): String {
+        val items = getMedicineItemsArg(args)
+        val params = parseParams(args)
+        val result = rxAgentTools.executeEntityParsing(items, params).getOrThrow()
+        return jsonParser.encodeToString(result)
+    }
+
+    private suspend fun executeGenericSubstituteTool(args: JsonObject): String {
+        val items = getMedicineItemsArg(args)
+        val params = parseParams(args)
+        val result = rxAgentTools.executeGenericSubstituteSearch(items, params).getOrThrow()
+        return jsonParser.encodeToString(result)
+    }
+
+    private suspend fun executeSafetyAuditTool(args: JsonObject): String {
+        val items = getMedicineItemsArg(args)
+        val params = parseParams(args)
+        val result = rxAgentTools.executeSafetyAudit(items, params).getOrThrow()
+        return jsonParser.encodeToString(result)
+    }
+
+    private fun getMedicineItemsArg(args: JsonObject): List<MedicineItem> {
+        val itemsJson = getRequiredArg(args, "itemsJson")
+        return jsonParser.decodeFromString(itemsJson)
+    }
+
+    private fun getRequiredArg(args: JsonObject, key: String): String {
+        return args[key]?.jsonPrimitive?.content
+            ?: throw IllegalArgumentException("Missing required parameter '$key'")
+    }
+
+    private fun getOptionalArg(args: JsonObject, key: String, default: String = ""): String {
+        return args[key]?.jsonPrimitive?.content ?: default
+    }
+
     private fun parseParams(args: JsonObject): ToolExecutionParams {
         return ToolExecutionParams(
-            provider = args["provider"]?.jsonPrimitive?.content ?: "gemini",
-            model = args["model"]?.jsonPrimitive?.content ?: "",
-            apiKey = args["apiKey"]?.jsonPrimitive?.content ?: "",
-            customUrl = args["customUrl"]?.jsonPrimitive?.content ?: "",
-            feedbackPrompt = args["feedbackPrompt"]?.jsonPrimitive?.content ?: "",
-            memoryContext = args["memoryContext"]?.jsonPrimitive?.content ?: ""
+            provider = getOptionalArg(args, "provider", "gemini"),
+            model = getOptionalArg(args, "model"),
+            apiKey = getOptionalArg(args, "apiKey"),
+            customUrl = getOptionalArg(args, "customUrl"),
+            feedbackPrompt = getOptionalArg(args, "feedbackPrompt"),
+            memoryContext = getOptionalArg(args, "memoryContext")
         )
     }
 
