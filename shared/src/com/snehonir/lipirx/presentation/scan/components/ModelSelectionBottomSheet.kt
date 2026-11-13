@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -57,8 +55,15 @@ import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
+import com.snehonir.lipirx.ui.theme.ApiKeyVectorIcon
+import com.snehonir.lipirx.ui.theme.CustomUrlVectorIcon
 import com.snehonir.lipirx.ui.theme.Lipi
+import com.snehonir.lipirx.ui.theme.McpServerVectorIcon
+import com.snehonir.lipirx.ui.theme.OnDeviceStrategyVectorIcon
 import com.snehonir.lipirx.ui.theme.OnDeviceVectorIcon
+import com.snehonir.lipirx.ui.theme.PipelineMatrixVectorIcon
+import com.snehonir.lipirx.ui.theme.ProviderSelectVectorIcon
+import com.snehonir.lipirx.ui.theme.ProviderSettingsVectorIcon
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -164,12 +169,23 @@ fun ModelSelectionBottomSheet(
             }
 
             // --- ON-DEVICE AI EXECUTION STRATEGY ---
-            Text(
-                text = "On-Device AI & Fallback Strategy",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Ink
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = OnDeviceStrategyVectorIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Lipi.Primary
+                )
+                Text(
+                    text = "On-Device AI & Fallback Strategy",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Lipi.Ink
+                )
+            }
 
             var showStrategyDropdown by remember { mutableStateOf(false) }
             val strategyScrollState = rememberScrollState()
@@ -267,9 +283,27 @@ fun ModelSelectionBottomSheet(
                 }
             }
 
+            // --- MODEL CONTEXT PROTOCOL (MCP) SERVER CONTROL ---
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = McpServerVectorIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Lipi.Primary
+                )
+                Text(
+                    text = "Model Context Protocol (MCP)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Lipi.Ink
+                )
+            }
+
             var localMcpState by remember(isMcpServerEnabled) { mutableStateOf(isMcpServerEnabled) }
 
-            // --- MODEL CONTEXT PROTOCOL (MCP) SERVER CONTROL ---
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -284,12 +318,23 @@ fun ModelSelectionBottomSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "🔌 Model Context Protocol (MCP)",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Lipi.Ink
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = McpServerVectorIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Lipi.Primary
+                            )
+                            Text(
+                                text = "Local Server Endpoint",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.Ink
+                            )
+                        }
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = if (localMcpState) {
@@ -321,12 +366,23 @@ fun ModelSelectionBottomSheet(
             }
 
             // --- PER-AGENT AI ASSIGNMENTS ---
-            Text(
-                text = "Per-Agent AI & Model Assignments",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Ink
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = PipelineMatrixVectorIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Lipi.Primary
+                )
+                Text(
+                    text = "Per-Agent AI & Model Assignments",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Lipi.Ink
+                )
+            }
 
             RxAgentType.ALL.forEach { agentType ->
                 val currentConfig = agentConfigs[agentType]
@@ -345,12 +401,23 @@ fun ModelSelectionBottomSheet(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = agentType.displayName,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Lipi.Ink
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = agentType.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Lipi.Primary
+                            )
+                            Text(
+                                text = agentType.displayName,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.Ink
+                            )
+                        }
                         Text(
                             text = agentType.description,
                             fontSize = 11.sp,
@@ -624,50 +691,25 @@ fun ModelSelectionBottomSheet(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = "Provider Keys & Settings",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Ink
-            )
-
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                AiProvider.ALL.forEach { providerItem ->
-                    val isSelected = selectedTabProvider == providerItem.id
-                    Surface(
-                        onClick = {
-                            selectedTabProvider = providerItem.id
-                            onProviderTabSelected(providerItem.id)
-                        },
-                        shape = CircleShape,
-                        color = if (isSelected) providerItem.brandColor else Lipi.Background,
-                        border = BorderStroke(1.dp, if (isSelected) providerItem.brandColor else Lipi.Outline)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = providerItem.icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(15.dp),
-                                tint = if (isSelected) Color.White else providerItem.brandColor
-                            )
-                            Text(
-                                text = providerItem.displayName,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color.White else Lipi.Ink
-                            )
-                        }
-                    }
-                }
+                Icon(
+                    imageVector = ProviderSettingsVectorIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Lipi.Primary
+                )
+                Text(
+                    text = "Provider Settings",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Lipi.Ink
+                )
             }
+
+            val activeCardProvider = AiProvider.fromId(selectedTabProvider)
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -679,8 +721,134 @@ fun ModelSelectionBottomSheet(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = ProviderSelectVectorIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = Lipi.Primary
+                        )
+                        Text("Select Provider", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                    }
+
+                    var showCardProviderDropdown by remember { mutableStateOf(false) }
+                    val cardProviderScrollState = rememberScrollState()
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            onClick = { showCardProviderDropdown = !showCardProviderDropdown },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, activeCardProvider.brandColor.copy(alpha = 0.5f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = activeCardProvider.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = activeCardProvider.brandColor
+                                    )
+                                    Text(
+                                        text = activeCardProvider.displayName,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = activeCardProvider.brandColor
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Select Provider",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = activeCardProvider.brandColor
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showCardProviderDropdown,
+                            onDismissRequest = { showCardProviderDropdown = false },
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .background(Color.White)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 220.dp)
+                                    .verticalScroll(cardProviderScrollState)
+                            ) {
+                                AiProvider.ALL.forEach { prov ->
+                                    val isSelected = selectedTabProvider == prov.id
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = prov.icon,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp),
+                                                        tint = prov.brandColor
+                                                    )
+                                                    Text(
+                                                        text = prov.displayName,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                        color = if (isSelected) prov.brandColor else Lipi.Ink
+                                                    )
+                                                }
+                                                if (isSelected) {
+                                                    Text(
+                                                        text = "✓",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = prov.brandColor
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            selectedTabProvider = prov.id
+                                            onProviderTabSelected(prov.id)
+                                            showCardProviderDropdown = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     if (selectedTabProvider == "custom") {
-                        Text("Custom Endpoint URL", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = CustomUrlVectorIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = Lipi.Primary
+                            )
+                            Text("Custom Endpoint URL", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        }
                         OutlinedTextField(
                             value = inputUrl,
                             onValueChange = { inputUrl = it },
@@ -690,7 +858,18 @@ fun ModelSelectionBottomSheet(
                             shape = RoundedCornerShape(12.dp)
                         )
 
-                        Text("Custom Model Name", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = CustomUrlVectorIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = Lipi.Primary
+                            )
+                            Text("Custom Model Name", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        }
                         OutlinedTextField(
                             value = inputCustomModel,
                             onValueChange = { inputCustomModel = it },
@@ -727,7 +906,18 @@ fun ModelSelectionBottomSheet(
                             }
                         }
                     } else {
-                        Text("API Key", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = ApiKeyVectorIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = Lipi.Primary
+                            )
+                            Text("API Key", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
