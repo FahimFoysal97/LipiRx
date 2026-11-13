@@ -341,7 +341,7 @@ fun ModelSelectionBottomSheet(
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = if (localMcpState) {
-                                "🟢 Server running at http://localhost:8080/mcp"
+                                "🟢 Server running at http://localhost:8080/lipirx/mcp"
                             } else {
                                 "Exposes local OCR tools & prescription history for desktop tools & POS software"
                             },

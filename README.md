@@ -102,7 +102,7 @@ LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`Lipi
   - `parse_medical_entities`: Normalizes brand names, dosages, forms, and schedules.
   - `search_generic_substitutes`: Cross-references generic compositions and Bangladeshi brand substitutes.
   - `audit_patient_safety`: Audits clinical safety warnings and flags dosage anomalies.
-- **Local HTTP Transport (`McpHttpServer`)**: Runs an embedded HTTP server on port `8080` (`http://localhost:8080/mcp`) so terminal commands (`curl`/PowerShell `Invoke-RestMethod`), Claude Desktop, and local Pharmacy POS desktop software can connect directly.
+- **Local HTTP Transport (`McpHttpServer`)**: Runs an embedded HTTP server on port `8080` (`http://localhost:8080/lipirx/mcp`) so terminal commands (`curl`/PowerShell `Invoke-RestMethod`), Claude Desktop, and local Pharmacy POS desktop software can connect directly.
 
 ---
 
@@ -228,11 +228,11 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
    ```
 2. Query registered MCP tools:
    ```powershell
-   Invoke-RestMethod -Uri "http://localhost:8080/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"1","method":"tools/list"}' | ConvertTo-Json -Depth 5
+   Invoke-RestMethod -Uri "http://localhost:8080/lipirx/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"1","method":"tools/list"}' | ConvertTo-Json -Depth 5
    ```
 3. Read SQLDelight prescription scan history:
    ```powershell
-   Invoke-RestMethod -Uri "http://localhost:8080/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"2","method":"resources/read","params":{"uri":"lipirx://history/scans"}}' | ConvertTo-Json -Depth 5
+   Invoke-RestMethod -Uri "http://localhost:8080/lipirx/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"2","method":"resources/read","params":{"uri":"lipirx://history/scans"}}' | ConvertTo-Json -Depth 5
    ```
 
 ### 📱 Installing Local SLM Weights (Optional for Offline Mode)

@@ -13,7 +13,8 @@ import java.net.Socket
 
 class McpHttpServer(
     private val mcpServer: LipiRxMcpServer,
-    private val port: Int = 8080
+    private val port: Int = 8080,
+    private val endpointPath: String = "/lipirx/mcp"
 ) {
     private var isRunning = false
     private var serverSocket: ServerSocket? = null
@@ -24,7 +25,7 @@ class McpHttpServer(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 serverSocket = ServerSocket(port)
-                Napier.i("[McpHttpServer] Started local MCP HTTP Server on port $port (http://localhost:$port/mcp)", tag = TAG)
+                Napier.i("[McpHttpServer] Started LipiRx MCP HTTP Server on port $port (http://localhost:$port$endpointPath)", tag = TAG)
 
                 while (isRunning) {
                     val clientSocket = serverSocket?.accept() ?: break
@@ -49,15 +50,27 @@ class McpHttpServer(
                 val reader = BufferedReader(InputStreamReader(client.getInputStream()))
                 val writer = OutputStreamWriter(client.getOutputStream())
 
-                var line: String? = reader.readLine() ?: return
-                if (line == null) return
+                val requestLine = reader.readLine() ?: return
+                val parts = requestLine.split(" ")
+                val method = parts.getOrNull(0) ?: ""
 
                 var contentLength = 0
-                while (line != null && line.isNotBlank()) {
+                var line: String? = reader.readLine()
+                while (!line.isNullOrBlank()) {
                     if (line.startsWith("Content-Length:", ignoreCase = true)) {
                         contentLength = line.substringAfter(":").trim().toIntOrNull() ?: 0
                     }
                     line = reader.readLine()
+                }
+
+                if (method.equals("OPTIONS", ignoreCase = true)) {
+                    writer.write("HTTP/1.1 204 No Content\r\n")
+                    writer.write("Access-Control-Allow-Origin: *\r\n")
+                    writer.write("Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n")
+                    writer.write("Access-Control-Allow-Headers: Content-Type, Authorization\r\n")
+                    writer.write("\r\n")
+                    writer.flush()
+                    return
                 }
 
                 val bodyChars = CharArray(contentLength)
