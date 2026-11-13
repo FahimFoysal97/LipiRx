@@ -2,7 +2,24 @@ package com.snehonir.lipirx.domain.mcp
 
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import io.github.aakira.napier.Napier
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+
+@Serializable
+data class McpScanHistoryItemDto(
+    val id: Long,
+    val scannedAt: Long,
+    val dateTime: String,
+    val summary: String
+)
+
+@Serializable
+data class McpProviderConfigItemDto(
+    val providerType: String,
+    val customUrl: String,
+    val hasApiKey: Boolean,
+    val modelName: String
+)
 
 class McpResourceHandler(
     private val database: LipiRxLocalDatabase,
@@ -31,25 +48,25 @@ class McpResourceHandler(
             val contentJson = when (uri.trim()) {
                 URI_SCAN_HISTORY -> {
                     val history = database.getHistory("MCP -> readResource")
-                    val mapped = history.map { entity ->
-                        mapOf(
-                            "id" to entity.id,
-                            "scannedAt" to entity.scannedAt,
-                            "dateTime" to entity.formattedDateTime,
-                            "summary" to entity.medicineSummary
+                    val dtos = history.map { entity ->
+                        McpScanHistoryItemDto(
+                            id = entity.id,
+                            scannedAt = entity.scannedAt,
+                            dateTime = entity.formattedDateTime,
+                            summary = entity.medicineSummary
                         )
                     }
-                    jsonParser.encodeToString(mapped)
+                    jsonParser.encodeToString(dtos)
                 }
                 URI_PROVIDER_CONFIG -> {
                     val config = database.getProviderConfig()
-                    val mapped = mapOf(
-                        "providerType" to config.providerType,
-                        "customUrl" to config.customUrl,
-                        "hasApiKey" to config.apiKey.isNotBlank(),
-                        "modelName" to config.modelName
+                    val dto = McpProviderConfigItemDto(
+                        providerType = config.providerType,
+                        customUrl = config.customUrl,
+                        hasApiKey = config.apiKey.isNotBlank(),
+                        modelName = config.modelName
                     )
-                    jsonParser.encodeToString(mapped)
+                    jsonParser.encodeToString(dto)
                 }
                 else -> throw IllegalArgumentException("Unknown MCP Resource URI: '$uri'")
             }
