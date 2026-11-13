@@ -55,6 +55,7 @@ import coil3.compose.AsyncImage
 import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.ui.theme.Lipi
+import com.snehonir.lipirx.ui.theme.icons.CopyVectorIcon
 
 data class Alternative(val brand: String, val company: String)
 

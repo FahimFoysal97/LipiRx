@@ -2,12 +2,12 @@ package com.snehonir.lipirx.domain.model
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.snehonir.lipirx.ui.theme.CustomUrlVectorIcon
-import com.snehonir.lipirx.ui.theme.LightningVectorIcon
 import com.snehonir.lipirx.ui.theme.Lipi
-import com.snehonir.lipirx.ui.theme.OnDeviceVectorIcon
-import com.snehonir.lipirx.ui.theme.OpenAiVectorIcon
-import com.snehonir.lipirx.ui.theme.SparkleVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.LightningVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.OpenAiVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.SparkleVectorIcon
 
 sealed interface AiProvider {
     val id: String

@@ -2,11 +2,11 @@ package com.snehonir.lipirx.domain.agent
 
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.snehonir.lipirx.domain.model.AiProvider
-import com.snehonir.lipirx.ui.theme.GenericSubstituteAgentVectorIcon
-import com.snehonir.lipirx.ui.theme.MedicalParserAgentVectorIcon
-import com.snehonir.lipirx.ui.theme.SafetyAuditorAgentVectorIcon
-import com.snehonir.lipirx.ui.theme.SupervisorAgentVectorIcon
-import com.snehonir.lipirx.ui.theme.VisionOcrAgentVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.GenericSubstituteAgentVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.MedicalParserAgentVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.SafetyAuditorAgentVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.SupervisorAgentVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.VisionOcrAgentVectorIcon
 
 enum class RxAgentType(
     val id: String,

@@ -49,6 +49,9 @@ import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.ui.theme.Lipi
+import com.snehonir.lipirx.ui.theme.icons.CameraVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.GalleryVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
 
 @Composable
 fun ImagePreviewAndProcessView(

@@ -55,16 +55,18 @@ import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
-import com.snehonir.lipirx.ui.theme.ApiKeyVectorIcon
-import com.snehonir.lipirx.ui.theme.CustomUrlVectorIcon
 import com.snehonir.lipirx.ui.theme.Lipi
-import com.snehonir.lipirx.ui.theme.McpEndpointVectorIcon
-import com.snehonir.lipirx.ui.theme.McpServerVectorIcon
-import com.snehonir.lipirx.ui.theme.OnDeviceStrategyVectorIcon
-import com.snehonir.lipirx.ui.theme.OnDeviceVectorIcon
-import com.snehonir.lipirx.ui.theme.PipelineMatrixVectorIcon
-import com.snehonir.lipirx.ui.theme.ProviderSelectVectorIcon
-import com.snehonir.lipirx.ui.theme.ProviderSettingsVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.ApiKeyVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.McpEndpointVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.McpServerVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
+import com.snehonir.lipirx.ui.theme.icons.OnDeviceStrategyVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.PasteVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.PipelineMatrixVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.ProviderSelectVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.ProviderSettingsVectorIcon
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
