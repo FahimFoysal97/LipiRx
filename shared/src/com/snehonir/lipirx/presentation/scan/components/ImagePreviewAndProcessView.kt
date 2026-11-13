@@ -287,7 +287,7 @@ private fun PipelineSummaryCard(
                         )
                     }
                     Text(
-                        text = "⚡ Active AI Pipeline (4 Agents)",
+                        text = "AI & MCP Studio",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Lipi.Ink

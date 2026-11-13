@@ -431,7 +431,7 @@ fun ModelChip(
                     .background(Lipi.Success, CircleShape)
             )
             Text(
-                text = "⚡ AI & MCP ($agentCount)",
+                text = "AI & MCP Studio",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = Lipi.Ink,

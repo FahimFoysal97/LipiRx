@@ -223,7 +223,7 @@ fun EmptyStateView(
                 )
 
                 SecondaryButton(
-                    text = "AI & MCP Studio (${if (agentConfigs.isNotEmpty()) agentConfigs.size else 5})",
+                    text = "AI & MCP Studio",
                     icon = MultiAgentPipelineIcon,
                     onClick = { showModelBottomSheet = true },
                     modifier = Modifier.weight(1f),
