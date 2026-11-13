@@ -58,6 +58,7 @@ import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.ui.theme.ApiKeyVectorIcon
 import com.snehonir.lipirx.ui.theme.CustomUrlVectorIcon
 import com.snehonir.lipirx.ui.theme.Lipi
+import com.snehonir.lipirx.ui.theme.McpEndpointVectorIcon
 import com.snehonir.lipirx.ui.theme.McpServerVectorIcon
 import com.snehonir.lipirx.ui.theme.OnDeviceStrategyVectorIcon
 import com.snehonir.lipirx.ui.theme.OnDeviceVectorIcon
@@ -323,7 +324,7 @@ fun ModelSelectionBottomSheet(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(
-                                imageVector = McpServerVectorIcon,
+                                imageVector = McpEndpointVectorIcon,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
                                 tint = Lipi.Primary

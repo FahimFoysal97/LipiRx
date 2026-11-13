@@ -539,3 +539,34 @@ val ProviderSelectVectorIcon: ImageVector = ImageVector.Builder(
         close()
     }
 }.build()
+
+val McpEndpointVectorIcon: ImageVector = ImageVector.Builder(
+    name = "McpEndpoint",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(fill = SolidColor(Lipi.Primary)) {
+        moveTo(20f, 18f)
+        curveTo(21.1f, 18f, 22f, 17.1f, 22f, 16f)
+        lineTo(22f, 4f)
+        curveTo(22f, 2.9f, 21.1f, 2f, 20f, 2f)
+        lineTo(4f, 2f)
+        curveTo(2.9f, 2f, 2f, 2.9f, 2f, 4f)
+        lineTo(2f, 16f)
+        curveTo(2f, 17.1f, 2.9f, 18f, 4f, 18f)
+        lineTo(0f, 18f)
+        lineTo(0f, 20f)
+        lineTo(24f, 20f)
+        lineTo(24f, 18f)
+        lineTo(20f, 18f)
+        close()
+        moveTo(4f, 4f)
+        lineTo(20f, 4f)
+        lineTo(20f, 16f)
+        lineTo(4f, 16f)
+        lineTo(4f, 4f)
+        close()
+    }
+}.build()
