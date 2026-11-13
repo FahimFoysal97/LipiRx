@@ -10,6 +10,9 @@ import com.snehonir.lipirx.data.remote.OpenAiAiService
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
 import com.snehonir.lipirx.domain.agent.koog.KoogRxSupervisorEngine
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
+import com.snehonir.lipirx.domain.mcp.LipiRxMcpServer
+import com.snehonir.lipirx.domain.mcp.McpResourceHandler
+import com.snehonir.lipirx.domain.mcp.McpToolHandler
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
@@ -101,6 +104,11 @@ val sharedModule = module {
             database = get()
         )
     }
+
+    // Model Context Protocol (MCP) Server & Handlers
+    single { McpResourceHandler(database = get(), jsonParser = get()) }
+    single { McpToolHandler(rxAgentTools = get(), jsonParser = get()) }
+    single { LipiRxMcpServer(resourceHandler = get(), toolHandler = get(), jsonParser = get()) }
 
     // Use Cases
     single { ProcessPrescriptionUseCase(koogSupervisorEngine = get(), aiService = get()) }
