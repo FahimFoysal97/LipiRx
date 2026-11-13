@@ -23,6 +23,10 @@ object Lipi {
     val InkLine = Color(0xFF9FB0C8)
     val Success = Color(0xFF1DB36B)
     val ViewerBg = Color(0xFF070C0F)
+    val SwitchOffTrack = Color(0xFFDCDFE0)
+    val SwitchOffThumb = Color(0xFF52666C)
+    val SwitchOffBorder = Color(0xFF9FB0C8)
+    val StatusActiveGreen = Color(0xFF2E7D32)
 }
 
 @Composable

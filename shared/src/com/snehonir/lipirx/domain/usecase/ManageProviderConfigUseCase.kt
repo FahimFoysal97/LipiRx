@@ -38,6 +38,14 @@ class ManageProviderConfigUseCase(
         repository.saveOnDeviceStrategy(strategy, flow)
     }
 
+    fun isMcpServerEnabled(): Boolean {
+        return repository.isMcpServerEnabled()
+    }
+
+    fun saveMcpServerEnabled(enabled: Boolean, flow: String = "") {
+        repository.saveMcpServerEnabled(enabled, flow)
+    }
+
     fun getAgentConfig(agentType: RxAgentType): AgentConfig {
         return repository.getAgentConfig(agentType)
     }

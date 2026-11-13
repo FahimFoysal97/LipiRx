@@ -279,6 +279,23 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
         return if (raw.isNotBlank()) com.snehonir.lipirx.domain.model.OnDeviceStrategy.fromId(raw) else com.snehonir.lipirx.domain.model.OnDeviceStrategy.HYBRID_FALLBACK
     }
 
+    override fun saveMcpServerEnabled(enabled: Boolean, flow: String) {
+        Napier.d("[$flow] Saving MCP server enabled = $enabled into SQLite", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.MCP_SERVER_ENABLED.key)
+            bindString(1, enabled.toString())
+        }
+    }
+
+    override fun isMcpServerEnabled(): Boolean {
+        val raw = getConfigValue(AppConfigKey.MCP_SERVER_ENABLED.key)
+        return raw.toBooleanStrictOrNull() ?: false
+    }
+
     override fun saveSelectedModel(
         modelName: String,
         provider: AiProvider,

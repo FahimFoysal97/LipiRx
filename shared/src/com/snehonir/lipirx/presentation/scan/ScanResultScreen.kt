@@ -143,6 +143,10 @@ fun ScanResultScreen(
                             apiKeySuccess = uiState.apiKeySuccess,
                             isTestingApiKey = uiState.isTestingApiKey,
                             onDeviceStrategy = uiState.onDeviceStrategy,
+                            isMcpServerEnabled = uiState.isMcpServerEnabled,
+                            onToggleMcpServer = { enabled ->
+                                viewModel.onMcpServerToggled(enabled, flow = "$flow -> ScanResultScreen.onToggleMcpServer")
+                            },
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
                             historyList = uiState.historyList,
@@ -190,6 +194,10 @@ fun ScanResultScreen(
                             errorMessage = uiState.errorMessage,
                             isTestingApiKey = uiState.isTestingApiKey,
                             onDeviceStrategy = uiState.onDeviceStrategy,
+                            isMcpServerEnabled = uiState.isMcpServerEnabled,
+                            onToggleMcpServer = { enabled ->
+                                viewModel.onMcpServerToggled(enabled, flow = "$flow -> ScanResultScreen.onToggleMcpServer")
+                            },
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
                             historyList = uiState.historyList,

@@ -66,6 +66,7 @@ class ScanViewModel(
         }.getOrDefault(emptyMap()).toImmutableMap()
 
         val loadedProviderModelsMap = loadProviderModelsMap()
+        val mcpEnabled = runCatching { manageProviderConfigUseCase.isMcpServerEnabled() }.getOrDefault(false)
 
         _uiState.update {
             it.copy(
@@ -76,6 +77,7 @@ class ScanViewModel(
                 openaiApiKey = openaiKey,
                 customApiKey = customKey,
                 selectedModel = cleanModel,
+                isMcpServerEnabled = mcpEnabled,
                 agentConfigs = loadedAgentConfigs,
                 providerModelsMap = loadedProviderModelsMap
             )
@@ -420,6 +422,17 @@ class ScanViewModel(
             manageProviderConfigUseCase.saveSelectedModel(cleanModel, currentProvider, flow = "$flow -> ManageProviderConfigUseCase.saveSelectedModel")
         }.onFailure { ex ->
             Napier.w("[$flow -> Warning] Failed to save selected model: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    fun onMcpServerToggled(enabled: Boolean, flow: String = "App -> ScanViewModel.onMcpServerToggled") {
+        Napier.d("[$flow] User toggled MCP Server enabled = $enabled", tag = TAG)
+        _uiState.update { it.copy(isMcpServerEnabled = enabled) }
+        com.snehonir.lipirx.domain.mcp.McpServerController.setEnabled(enabled)
+        runCatching {
+            manageProviderConfigUseCase.saveMcpServerEnabled(enabled, flow = flow)
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to save MCP server enabled state: ${ex.message}", throwable = ex, tag = TAG)
         }
     }
 

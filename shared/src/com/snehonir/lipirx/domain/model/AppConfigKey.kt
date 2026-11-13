@@ -10,7 +10,8 @@ enum class AppConfigKey(val key: String) {
     GROQ_API_KEY("groq_api_key"),
     OPENAI_API_KEY("openai_api_key"),
     CUSTOM_API_KEY("custom_api_key"),
-    ON_DEVICE_STRATEGY("on_device_strategy");
+    ON_DEVICE_STRATEGY("on_device_strategy"),
+    MCP_SERVER_ENABLED("mcp_server_enabled");
 
     companion object {
         fun keyForProvider(provider: AiProvider): AppConfigKey = when (provider) {

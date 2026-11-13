@@ -32,6 +32,7 @@ data class ScanUiState(
     val apiKeyError: String? = null,
     val apiKeySuccess: String? = null,
     val isTestingApiKey: Boolean = false,
+    val isMcpServerEnabled: Boolean = false,
     val onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
     val agentConfigs: ImmutableMap<RxAgentType, AgentConfig> = persistentMapOf(),
     val providerModelsMap: ImmutableMap<String, ImmutableList<String>> = persistentMapOf(),

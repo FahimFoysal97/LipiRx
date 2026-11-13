@@ -33,6 +33,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -74,6 +76,8 @@ fun ModelSelectionBottomSheet(
     apiKeySuccess: String? = null,
     isTestingApiKey: Boolean = false,
     onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
+    isMcpServerEnabled: Boolean = false,
+    onToggleMcpServer: (Boolean) -> Unit = {},
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
@@ -130,7 +134,6 @@ fun ModelSelectionBottomSheet(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            val activeProviderObj = AiProvider.fromId(providerType)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -261,6 +264,59 @@ fun ModelSelectionBottomSheet(
                             )
                         }
                     }
+                }
+            }
+
+            var localMcpState by remember(isMcpServerEnabled) { mutableStateOf(isMcpServerEnabled) }
+
+            // --- MODEL CONTEXT PROTOCOL (MCP) SERVER CONTROL ---
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = Lipi.Background,
+                border = BorderStroke(1.dp, Lipi.Outline)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "🔌 Model Context Protocol (MCP)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Ink
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = if (localMcpState) {
+                                "🟢 Server running at http://localhost:8080/mcp"
+                            } else {
+                                "Exposes local OCR tools & prescription history for desktop tools & POS software"
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = if (localMcpState) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (localMcpState) Lipi.StatusActiveGreen else Lipi.Muted
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = localMcpState,
+                        onCheckedChange = { enabled ->
+                            localMcpState = enabled
+                            onToggleMcpServer(enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Lipi.Primary,
+                            uncheckedThumbColor = Lipi.SwitchOffThumb,
+                            uncheckedTrackColor = Lipi.SwitchOffTrack,
+                            uncheckedBorderColor = Lipi.SwitchOffBorder
+                        )
+                    )
                 }
             }
 
@@ -760,7 +816,7 @@ fun ModelSelectionBottomSheet(
                             enabled = !isTestingApiKey,
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = activeProviderObj.brandColor,
+                                containerColor = Lipi.Primary,
                                 contentColor = Color.White
                             )
                         ) {
