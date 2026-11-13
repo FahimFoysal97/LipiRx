@@ -163,8 +163,8 @@ fun ModelSelectionBottomSheet(
                         )
                     }
                     Column {
-                        Text("AI Pipeline & Engine Studio", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
-                        Text("Assign specialized AI models per agent & configure keys", fontSize = 12.sp, color = Lipi.Muted)
+                        Text("AI Engine & MCP Studio", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+                        Text("Configure multi-agent pipeline, MCP server & provider keys", fontSize = 12.sp, color = Lipi.Muted)
                     }
                 }
             }
