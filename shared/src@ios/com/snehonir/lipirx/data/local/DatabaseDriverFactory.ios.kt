@@ -18,7 +18,7 @@ actual fun formatEpochMillisToDateTime(epochMillis: Long): String {
     val refSeconds = epochSeconds - 978307200.0
     val date = NSDate(timeIntervalSinceReferenceDate = refSeconds)
     val formatter = NSDateFormatter().apply {
-        dateFormat = "MMM dd, yyyy, hh:mm:ss a"
+        dateFormat = AppConstants.DATETIME_FORMAT_FULL_TIMESTAMP
         locale = NSLocale(localeIdentifier = "en_US")
     }
     return formatter.stringFromDate(date)

@@ -18,7 +18,9 @@ object Lipi {
     val Muted = Color(0xFF52666C)
     val AmberContainer = Color(0xFFFFF1DC)
     val OnAmber = Color(0xFF8A4B00)
-    val Error = Color(0xFFB3261E)
+    val Red = Color(0xFFB3261E)
+    val Error = Red
+    val Danger = Red
     val ImageWell = Color(0xFFE9EFEE)
     val InkLine = Color(0xFF9FB0C8)
     val Success = Color(0xFF1DB36B)

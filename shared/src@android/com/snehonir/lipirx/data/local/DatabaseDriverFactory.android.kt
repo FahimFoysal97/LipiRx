@@ -16,7 +16,7 @@ actual fun getPlatformEpochMillis(): Long = System.currentTimeMillis()
 
 actual fun formatEpochMillisToDateTime(epochMillis: Long): String {
     val date = Date(if (epochMillis <= 0) System.currentTimeMillis() else epochMillis)
-    val sdf = SimpleDateFormat("MMM dd, yyyy, hh:mm:ss a", Locale.ENGLISH)
+    val sdf = SimpleDateFormat(AppConstants.DATETIME_FORMAT_FULL_TIMESTAMP, Locale.ENGLISH)
     return sdf.format(date)
 }
 

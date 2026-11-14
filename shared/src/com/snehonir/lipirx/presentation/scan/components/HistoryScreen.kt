@@ -77,10 +77,11 @@ fun HistoryScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
+        // Top Navigation Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 20.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -90,7 +91,7 @@ fun HistoryScreen(
             ) {
                 Surface(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .clickable(onClick = onClose),
                     shape = CircleShape,
@@ -115,41 +116,73 @@ fun HistoryScreen(
                 )
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                InfoChip("${historyList.size} scans")
-
-                if (historyList.isNotEmpty()) {
-                    Surface(
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .clickable { showClearAllConfirm = true },
-                        shape = CircleShape,
-                        color = Lipi.AmberContainer
+            if (historyList.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { showClearAllConfirm = true },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Lipi.Error.copy(alpha = 0.08f),
+                    border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = stringResource(Res.string.btn_clear_history),
-                                modifier = Modifier.size(13.dp),
-                                tint = Lipi.Error
-                            )
-                            Text(
-                                text = stringResource(Res.string.btn_clear_history),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Lipi.Error
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(Res.string.btn_clear_history),
+                            modifier = Modifier.size(15.dp),
+                            tint = Lipi.Danger
+                        )
+                        Text(
+                            text = stringResource(Res.string.btn_clear_history),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Danger
+                        )
                     }
                 }
             }
+        }
+
+        // Sub-Header Stats Bar
+        if (historyList.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Lipi.PrimaryContainer,
+                    border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = Lipi.Primary
+                        )
+                        Text(
+                            text = "${historyList.size} Saved Scans",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.OnPrimaryContainer
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
         }
 
         if (historyList.isEmpty()) {
@@ -210,7 +243,7 @@ fun HistoryScreen(
                         itemToDelete = null
                     }
                 ) {
-                    Text(stringResource(Res.string.btn_delete), color = Lipi.Error)
+                    Text(stringResource(Res.string.btn_delete), color = Lipi.Danger)
                 }
             },
             dismissButton = {
@@ -233,7 +266,7 @@ fun HistoryScreen(
                         showClearAllConfirm = false
                     }
                 ) {
-                    Text(stringResource(Res.string.btn_clear_history), color = Lipi.Error)
+                    Text(stringResource(Res.string.btn_clear_history), color = Lipi.Danger)
                 }
             },
             dismissButton = {
@@ -289,14 +322,14 @@ private fun HistoryCard(
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = stringResource(Res.string.btn_delete),
-                        tint = Lipi.Muted,
+                        tint = Lipi.Danger,
                         modifier = Modifier.size(18.dp)
                     )
                 }
                 Icon(
                     imageVector = Icons.AutoMirrored.Default.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = Lipi.Muted,
+                    tint = Lipi.Primary,
                     modifier = Modifier.size(20.dp)
                 )
             }

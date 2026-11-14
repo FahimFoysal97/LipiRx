@@ -3,6 +3,10 @@ package com.snehonir.lipirx.common
 object AppConstants {
     const val DATABASE_NAME = "lipirx.db"
 
+    const val DATETIME_FORMAT_FULL_TIMESTAMP = "MMM dd, yyyy, hh:mm:ss a"
+    const val DATE_FORMAT_SHORT = "MMM dd, yyyy"
+    const val TIME_FORMAT_12H = "hh:mm:ss a"
+
     const val MODEL_PREFIX_GEMINI = "models/"
 
     const val MIME_TYPE_JPEG = "image/jpeg"
