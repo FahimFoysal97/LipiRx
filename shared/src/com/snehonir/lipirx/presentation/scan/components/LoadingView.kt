@@ -46,10 +46,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_stop_analysis
+import com.snehonir.lipirx.resources.content_desc_prescription
+import com.snehonir.lipirx.resources.content_desc_stop_analysis
+import com.snehonir.lipirx.resources.loading_analyzing_title
+import com.snehonir.lipirx.resources.loading_default_subtitle
+import com.snehonir.lipirx.resources.step_entity_parser
+import com.snehonir.lipirx.resources.step_manager
+import com.snehonir.lipirx.resources.step_safety_auditor
+import com.snehonir.lipirx.resources.step_substitute_finder
+import com.snehonir.lipirx.resources.step_vision_ocr
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
+import org.jetbrains.compose.resources.stringResource
 
-/** @param activeStep 0 = Manager Orchestration, 1 = Vision OCR, 2 = Entity Parser, 3 = Generic Substitutes, 4 = Safety Auditor */
 @Composable
 fun LoadingView(
     selectedModel: String,
@@ -75,7 +86,6 @@ fun LoadingView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
     ) {
-        // Resized document scan card container
         Box(
             modifier = Modifier
                 .size(190.dp, 250.dp)
@@ -87,7 +97,7 @@ fun LoadingView(
             if (imageByteArray != null && imageByteArray.isNotEmpty()) {
                 AsyncImage(
                     model = imageByteArray,
-                    contentDescription = "Prescription Photo",
+                    contentDescription = stringResource(Res.string.content_desc_prescription),
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
@@ -114,24 +124,26 @@ fun LoadingView(
             modifier = Modifier.padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Analyzing Prescription", fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+            Text(stringResource(Res.string.loading_analyzing_title), fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = statusText.ifBlank { "Multi-Agent AI Orchestration System..." },
+                text = statusText.ifBlank { stringResource(Res.string.loading_default_subtitle) },
                 fontSize = 14.sp,
                 color = Lipi.Muted,
                 textAlign = TextAlign.Center,
             )
         }
 
+        val stepLabels = listOf(
+            stringResource(Res.string.step_manager),
+            stringResource(Res.string.step_vision_ocr),
+            stringResource(Res.string.step_entity_parser),
+            stringResource(Res.string.step_substitute_finder),
+            stringResource(Res.string.step_safety_auditor)
+        )
+
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(
-                "Manager Agent Orchestrating",
-                "Vision Handwriting OCR",
-                "Medical Entity Parser",
-                "Generic & Substitute Finder",
-                "Patient Safety Auditor"
-            ).forEachIndexed { i, label ->
+            stepLabels.forEachIndexed { i, label ->
                 val (mark, color) = when {
                     i < activeStep -> "✓" to Lipi.Primary
                     i == activeStep -> "●" to Lipi.Ink
@@ -157,13 +169,13 @@ fun LoadingView(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Stop Analysis",
+                    contentDescription = stringResource(Res.string.content_desc_stop_analysis),
                     modifier = Modifier.size(16.dp),
                     tint = Lipi.Error
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Stop Analysis",
+                    text = stringResource(Res.string.btn_stop_analysis),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Lipi.Error

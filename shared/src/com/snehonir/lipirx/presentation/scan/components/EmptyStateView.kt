@@ -33,15 +33,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_choose_gallery
+import com.snehonir.lipirx.resources.btn_take_photo
+import com.snehonir.lipirx.resources.empty_description
+import com.snehonir.lipirx.resources.empty_headline
+import com.snehonir.lipirx.resources.header_ai_studio
+import com.snehonir.lipirx.resources.header_history
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import com.snehonir.lipirx.ui.theme.icons.CameraVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.GalleryVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun EmptyStateView(
@@ -166,7 +174,7 @@ fun EmptyStateView(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Read any prescription,\ninstantly.",
+                text = stringResource(Res.string.empty_headline),
                 fontSize = 30.sp,
                 lineHeight = 36.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -174,7 +182,7 @@ fun EmptyStateView(
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "Snap or upload a handwritten prescription. Get every medicine, schedule and alternative brand in seconds.",
+                text = stringResource(Res.string.empty_description),
                 fontSize = 15.sp,
                 lineHeight = 22.sp,
                 color = Lipi.Muted,
@@ -197,14 +205,14 @@ fun EmptyStateView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 PrimaryButton(
-                    text = "Take Photo",
+                    text = stringResource(Res.string.btn_take_photo),
                     icon = CameraVectorIcon,
                     onClick = onTakePhoto,
                     modifier = Modifier.weight(1f)
                 )
 
                 SecondaryButton(
-                    text = "Choose Gallery",
+                    text = stringResource(Res.string.btn_choose_gallery),
                     icon = GalleryVectorIcon,
                     onClick = onChooseGallery,
                     modifier = Modifier.weight(1f)
@@ -218,7 +226,7 @@ fun EmptyStateView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 SecondaryButton(
-                    text = "Scan History",
+                    text = stringResource(Res.string.header_history),
                     icon = Icons.Default.DateRange,
                     onClick = { onHistoryClick?.invoke() },
                     modifier = Modifier.weight(1f),
@@ -226,7 +234,7 @@ fun EmptyStateView(
                 )
 
                 SecondaryButton(
-                    text = "AI & MCP Studio",
+                    text = stringResource(Res.string.header_ai_studio),
                     icon = MultiAgentPipelineIcon,
                     onClick = { showModelBottomSheet = true },
                     modifier = Modifier.weight(1f),

@@ -1,7 +1,8 @@
 package com.snehonir.lipirx.domain.repository
 
-import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
-import com.snehonir.lipirx.data.local.ProviderConfigEntity
+import com.snehonir.lipirx.data.local.entity.AgentExecutionTraceEntity
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -33,6 +34,6 @@ interface PrescriptionRepository {
     fun getProviderModels(providerType: String): List<String>
     fun getAllProviderModelsMap(): Map<String, List<String>>
     fun saveAgentTrace(turnNumber: Int, agentType: String, provider: String, modelName: String, reasoning: String, feedbackPrompt: String = "", itemCount: Int, executionTimeMs: Long, isSuccess: Boolean, errorMessage: String = "", flow: String = "")
-    fun getAgentTraces(limit: Int = 100, flow: String = ""): List<com.snehonir.lipirx.data.local.AgentExecutionTraceEntity>
+    fun getAgentTraces(limit: Int = 100, flow: String = ""): List<AgentExecutionTraceEntity>
     fun clearAgentTraces(flow: String = "")
 }

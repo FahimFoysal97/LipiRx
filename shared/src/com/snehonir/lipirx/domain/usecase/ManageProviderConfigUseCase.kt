@@ -1,6 +1,6 @@
 package com.snehonir.lipirx.domain.usecase
 
-import com.snehonir.lipirx.data.local.ProviderConfigEntity
+import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider

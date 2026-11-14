@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LipiRx</string>
+
+    <!-- Navigation & Headers -->
+    <string name="header_subtitle">AI Prescription Scanning &amp; Audit Engine</string>
+    <string name="header_history">Scan History</string>
+    <string name="header_ai_studio">AI &amp; MCP Studio</string>
+
+    <!-- Scan Empty State -->
+    <string name="scan_title">Scan Prescription</string>
+    <string name="scan_subtitle">Upload or capture a prescription to extract handwritten medicines and audit safety.</string>
+    <string name="empty_headline">Read any prescription,\ninstantly.</string>
+    <string name="empty_description">Snap or upload a handwritten prescription. Get every medicine, schedule and alternative brand in seconds.</string>
+    <string name="btn_take_photo">Take Photo</string>
+    <string name="btn_choose_gallery">Choose Gallery</string>
+
+    <!-- Processing & Loading -->
+    <string name="loading_title">Processing Prescription...</string>
+    <string name="loading_analyzing_title">Analyzing Prescription</string>
+    <string name="loading_default_subtitle">Multi-Agent AI Orchestration System...</string>
+    <string name="loading_step_ocr">Step 1: Multimodal Vision OCR Transcribing...</string>
+    <string name="loading_step_parsing">Step 2: Medical Entity Parser Normalizing...</string>
+    <string name="loading_step_substitutes">Step 3: Finding DGDA Generic Brand Substitutes...</string>
+    <string name="loading_step_audit">Step 4: Clinical Safety Auditor Auditing Dosage...</string>
+    <string name="step_manager">Manager Agent Orchestrating</string>
+    <string name="step_vision_ocr">Vision Handwriting OCR</string>
+    <string name="step_entity_parser">Medical Entity Parser</string>
+    <string name="step_substitute_finder">Generic &amp; Substitute Finder</string>
+    <string name="step_safety_auditor">Patient Safety Auditor</string>
+    <string name="btn_stop_analysis">Stop Analysis</string>
+
+    <!-- Status & Progress Messages -->
+    <string name="status_encoding_payload">Encoding image &amp; payload...</string>
+    <string name="status_reading_handwriting">Reading handwriting &amp; Vision OCR...</string>
+    <string name="status_matching_brands">Matching brand names &amp; normalizing...</string>
+    <string name="status_finding_substitutes">Finding DGDA generic brand substitutes...</string>
+    <string name="status_auditing_safety">Auditing clinical dosage safety...</string>
+    <string name="status_retrying_vision">Retrying Vision AI request...</string>
+
+    <!-- Error & Success Messages -->
+    <string name="error_api_key_missing">API key is missing for %1$s. Please enter your API key in AI Studio.</string>
+    <string name="error_custom_url_missing">Custom endpoint URL is missing. Please enter your custom URL in AI Studio.</string>
+    <string name="error_network_timeout">Network request timed out. Please check your internet connection.</string>
+    <string name="error_invalid_response">AI Provider returned an invalid or empty response.</string>
+    <string name="error_scan_failed">Prescription processing failed: %1$s</string>
+    <string name="error_enter_valid_gemini_key">Please enter a valid Gemini API Key.</string>
+    <string name="error_enter_valid_url">Please enter a valid Endpoint URL.</string>
+    <string name="error_no_models_found">No supported models found for this endpoint.</string>
+    <string name="error_connection_failed">Connection failed. Please check your credentials and URL.</string>
+    <string name="success_provider_verified">%1$s verified &amp; saved! (%2$d models loaded)</string>
+
+    <!-- Prescription Results -->
+    <string name="saved_prescription_record">Saved Prescription Record</string>
+    <string name="results_title">Prescription Results</string>
+    <string name="no_medicines_title">No medicines recorded in this scan.</string>
+    <string name="no_medicines_subtitle">This prescription analysis record did not contain active medicine items.</string>
+    <string name="disclaimer_text">AI-read from handwriting. Verify with a pharmacist before use.</string>
+    <string name="btn_done">Done</string>
+    <string name="btn_sign_off">Sign Off &amp; Confirm Dispensing</string>
+    <string name="prescription_scanned">Prescription scanned</string>
+    <string name="tap_to_zoom">Tap to zoom</string>
+
+    <!-- History Screen -->
+    <string name="history_title">Prescription History</string>
+    <string name="history_empty_title">No Scan History Found</string>
+    <string name="history_empty_subtitle">Scanned prescription summaries will appear here.</string>
+    <string name="confirm_delete_title">Delete Record?</string>
+    <string name="confirm_delete_msg">Are you sure you want to delete this scan history record?</string>
+    <string name="confirm_clear_all_title">Clear All History?</string>
+    <string name="confirm_clear_all_msg">Are you sure you want to delete all prescription scan history records?</string>
+
+    <!-- Actions & Buttons -->
+    <string name="btn_copy_summary">Copy Summary</string>
+    <string name="btn_rescan">Scan New Prescription</string>
+    <string name="btn_save_config">Save Provider Config</string>
+    <string name="btn_paste">Paste</string>
+    <string name="btn_clear">Clear</string>
+    <string name="btn_dismiss">Dismiss</string>
+    <string name="btn_clear_history">Clear History</string>
+    <string name="btn_zoom">Zoom Image</string>
+    <string name="btn_close">Close</string>
+    <string name="btn_reset">Reset</string>
+    <string name="btn_delete">Delete</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="zoom_hint">Pinch up to 6x · Double-tap to toggle 100% / 250%</string>
+
+    <!-- Content Descriptions & Placeholders -->
+    <string name="content_desc_prescription">Prescription Photo</string>
+    <string name="content_desc_stop_analysis">Stop Analysis</string>
+    <string name="content_desc_select_strategy">Select Strategy</string>
+    <string name="placeholder_paste_key">Tap \'Paste\' to insert key...</string>
+
+    <!-- Bottom Sheet & Studio -->
+    <string name="studio_title">AI Engine &amp; MCP Studio</string>
+    <string name="studio_subtitle">Configure multi-agent pipeline, MCP server &amp; provider keys</string>
+    <string name="section_on_device">On-Device Strategy</string>
+    <string name="section_mcp">Model Context Protocol (MCP)</string>
+    <string name="section_mcp_endpoint">Local Server Endpoint</string>
+    <string name="section_per_agent">Per-Agent AI Assignments</string>
+    <string name="section_per_agent_assignments">Per-Agent AI &amp; Model Assignments</string>
+    <string name="section_provider_settings">Provider Settings</string>
+    <string name="label_select_provider">Select Provider</string>
+    <string name="label_custom_url">Custom Endpoint URL</string>
+    <string name="label_custom_model">Custom Model Name</string>
+    <string name="label_api_key">API Key</string>
+    <string name="label_model">Model:</string>
+    <string name="no_local_models_found">No local models found on device storage.\nPush .litertlm file via adb to filesDir.</string>
+    <string name="no_live_models_found">No live models found for %1$s.\nTap \'Save Provider Config\' below to verify key &amp; fetch models.</string>
+    <string name="configure_key_to_load_models">Configure API key to load models</string>
+    <string name="mcp_server_running">🟢 Server running at http://localhost:8080/lipirx/mcp</string>
+    <string name="mcp_server_description">Exposes local OCR tools &amp; prescription history for desktop tools &amp; POS software</string>
+    <string name="on_device_info_banner">On-Device SLM runs locally on your device hardware without requiring an API key.</string>
+
+    <!-- Clinical Warnings & Pharmacist Gate -->
+    <string name="gate_title">Pharmacist Review Required</string>
+    <string name="gate_subtitle">Safety Gate Triggered: Unverified dosage or interaction risk detected</string>
+    <string name="label_generic_substitutes">DGDA Generic Substitutes</string>
+    <string name="label_needs_pharmacist_review">Needs Pharmacist Sign-Off</string>
+    <string name="label_pharmacist_verified">Pharmacist Verified</string>
+</resources>

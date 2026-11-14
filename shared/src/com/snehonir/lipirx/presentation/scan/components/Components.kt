@@ -9,41 +9,26 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,12 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,21 +46,19 @@ import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.app_name
+import com.snehonir.lipirx.resources.header_ai_studio
+import com.snehonir.lipirx.resources.header_history
 import com.snehonir.lipirx.ui.theme.Lipi
-import com.snehonir.lipirx.ui.theme.icons.CameraVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.CopyVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.GalleryVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
-import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.PasteVectorIcon
-import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun AppHeader(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    backContentDescription: String = "Back",
-    title: String = "LipiRx",
+    backContentDescription: String = "",
+    title: String = stringResource(Res.string.app_name),
     subtitle: String? = null,
     trailing: @Composable () -> Unit = {}
 ) {
@@ -108,7 +86,7 @@ fun AppHeader(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = backContentDescription,
+                            contentDescription = backContentDescription.ifBlank { stringResource(Res.string.header_history) },
                             modifier = Modifier.size(20.dp),
                             tint = Lipi.Ink
                         )
@@ -177,12 +155,12 @@ fun HistoryChip(
         ) {
             Icon(
                 imageVector = Icons.Default.DateRange,
-                contentDescription = "Scan History",
+                contentDescription = stringResource(Res.string.header_history),
                 modifier = Modifier.size(15.dp),
                 tint = Lipi.Primary
             )
             Text(
-                text = "Scan History",
+                text = stringResource(Res.string.header_history),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = Lipi.Ink
@@ -199,7 +177,7 @@ fun ModelChip(
     groqApiKey: String = "",
     openaiApiKey: String = "",
     customApiKey: String = "",
-    providerType: String = "gemini",
+    providerType: String = AiProvider.Gemini.id,
     customUrl: String = "",
     apiKeyError: String? = null,
     apiKeySuccess: String? = null,
@@ -216,7 +194,6 @@ fun ModelChip(
     onSelectOnDeviceStrategy: (com.snehonir.lipirx.domain.model.OnDeviceStrategy) -> Unit = {}
 ) {
     var showSheet by remember { mutableStateOf(false) }
-    val agentCount = if (agentConfigs.isNotEmpty()) agentConfigs.size else RxAgentType.ALL.size
 
     Surface(
         modifier = Modifier
@@ -237,7 +214,7 @@ fun ModelChip(
                     .background(Lipi.Success, CircleShape)
             )
             Text(
-                text = "AI & MCP Studio",
+                text = stringResource(Res.string.header_ai_studio),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = Lipi.Ink,

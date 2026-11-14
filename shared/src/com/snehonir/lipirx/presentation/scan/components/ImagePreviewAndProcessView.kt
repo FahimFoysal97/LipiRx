@@ -43,14 +43,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.ui.theme.Lipi
-import com.snehonir.lipirx.ui.theme.icons.CameraVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.GalleryVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
 
 @Composable

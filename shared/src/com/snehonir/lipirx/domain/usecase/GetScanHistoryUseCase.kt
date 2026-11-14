@@ -1,6 +1,6 @@
 package com.snehonir.lipirx.domain.usecase
 
-import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 

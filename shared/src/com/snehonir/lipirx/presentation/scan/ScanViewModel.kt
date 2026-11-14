@@ -2,8 +2,9 @@ package com.snehonir.lipirx.presentation.scan
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
-import com.snehonir.lipirx.data.local.ProviderConfigEntity
+import com.snehonir.lipirx.common.AppConstants
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
@@ -46,10 +47,10 @@ class ScanViewModel(
     private var processingJob: Job? = null
 
     init {
-        val geminiKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider("gemini") }.getOrDefault("")
-        val groqKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider("groq") }.getOrDefault("")
-        val openaiKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider("openai") }.getOrDefault("")
-        val customKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider("custom") }.getOrDefault("")
+        val geminiKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Gemini.id) }.getOrDefault("")
+        val groqKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Groq.id) }.getOrDefault("")
+        val openaiKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.OpenAi.id) }.getOrDefault("")
+        val customKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Custom.id) }.getOrDefault("")
 
         val config = runCatching {
             manageProviderConfigUseCase.getProviderConfig(flow = "App -> ScanViewModel.init.getProviderConfig")
@@ -58,8 +59,8 @@ class ScanViewModel(
         val providerObj = AiProvider.fromId(config.providerType)
         val savedModelForProvider = runCatching {
             manageProviderConfigUseCase.getLastSelectedModel(providerObj, flow = "App -> ScanViewModel.init.getLastSelectedModel")
-        }.getOrDefault("").removePrefix("models/").trim()
-        val cleanModel = savedModelForProvider.ifBlank { config.modelName.removePrefix("models/").trim().ifBlank { providerObj.defaultModel } }
+        }.getOrDefault("").removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim()
+        val cleanModel = savedModelForProvider.ifBlank { config.modelName.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim().ifBlank { providerObj.defaultModel } }
 
         val loadedAgentConfigs = runCatching {
             manageProviderConfigUseCase.getAllAgentConfigs()
@@ -136,7 +137,7 @@ class ScanViewModel(
 
             result.fold(
                 onSuccess = { modelList ->
-                    val names = modelList.map { it.removePrefix("models/").trim() }.toImmutableList()
+                    val names = modelList.map { it.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim() }.toImmutableList()
                     if (names.isNotEmpty()) {
                         runCatching {
                             manageProviderConfigUseCase.saveProviderModels(targetProvider.id, names, flow = flow)
@@ -291,7 +292,7 @@ class ScanViewModel(
 
         val savedModelForProvider = runCatching {
             manageProviderConfigUseCase.getLastSelectedModel(providerObj, flow = "$flow -> ManageProviderConfigUseCase.getLastSelectedModel")
-        }.getOrDefault("").removePrefix("models/").trim().ifBlank { providerObj.defaultModel }
+        }.getOrDefault("").removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim().ifBlank { providerObj.defaultModel }
 
         _uiState.update {
             it.copy(
@@ -318,11 +319,11 @@ class ScanViewModel(
         val cleanModelInput = modelName.trim()
 
         if (providerObj == AiProvider.Gemini && cleanKey.isBlank()) {
-            _uiState.update { it.copy(apiKeyError = "Please enter a valid Gemini API Key.", apiKeySuccess = null) }
+            _uiState.update { it.copy(apiKeyError = "error_enter_valid_gemini_key", apiKeySuccess = null) }
             return
         }
         if (providerObj == AiProvider.Custom && cleanUrl.isBlank()) {
-            _uiState.update { it.copy(apiKeyError = "Please enter a valid Endpoint URL.", apiKeySuccess = null) }
+            _uiState.update { it.copy(apiKeyError = "error_enter_valid_url", apiKeySuccess = null) }
             return
         }
 
@@ -338,13 +339,13 @@ class ScanViewModel(
 
             result.fold(
                 onSuccess = { modelList ->
-                    val names = modelList.map { it.removePrefix("models/").trim() }.toImmutableList()
+                    val names = modelList.map { it.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim() }.toImmutableList()
                     Napier.d("[$flow -> Success] Connection successful! Retrieved ${names.size} models.", tag = TAG)
 
                     if (names.isNotEmpty()) {
                         val chosenModel = when {
                             cleanModelInput.isNotBlank() -> cleanModelInput
-                            names.contains("gemini-2.0-flash") -> "gemini-2.0-flash"
+                            names.contains(AiProvider.Gemini.defaultModel) -> AiProvider.Gemini.defaultModel
                             else -> names.first()
                         }
 
@@ -391,14 +392,14 @@ class ScanViewModel(
                         _uiState.update {
                             it.copy(
                                 isTestingApiKey = false,
-                                apiKeyError = "No supported models found for this endpoint.",
+                                apiKeyError = "error_no_models_found",
                                 apiKeySuccess = null
                             )
                         }
                     }
                 },
                 onFailure = { ex ->
-                    val errorMsg = ex.message ?: "Connection failed. Please check your credentials and URL."
+                    val errorMsg = ex.message?.ifBlank { "error_connection_failed" } ?: "error_connection_failed"
                     Napier.w("[$flow -> Failure] Provider test failed: $errorMsg", throwable = ex, tag = TAG)
                     _uiState.update {
                         it.copy(
@@ -413,7 +414,7 @@ class ScanViewModel(
     }
 
     fun selectModel(modelName: String, flow: String = "App -> ScanViewModel.selectModel") {
-        val cleanModel = modelName.removePrefix("models/").trim()
+        val cleanModel = modelName.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim()
         val currentProvider = _uiState.value.provider
         Napier.d("[$flow] User selected model: '$cleanModel' for provider '${currentProvider.id}'. Saving...", tag = TAG)
         _uiState.update { it.copy(selectedModel = cleanModel) }
@@ -461,7 +462,7 @@ class ScanViewModel(
 
             result.fold(
                 onSuccess = { modelList ->
-                    val names = modelList.map { it.removePrefix("models/").trim() }.toImmutableList()
+                    val names = modelList.map { it.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim() }.toImmutableList()
                     Napier.d("[$flow -> Success] Retrieved ${names.size} models directly from API: $names", tag = TAG)
 
                     if (names.isNotEmpty()) {
@@ -471,10 +472,10 @@ class ScanViewModel(
 
                         val savedModel = runCatching {
                             manageProviderConfigUseCase.getLastSelectedModel(currentProvider, flow = "$flow -> ManageProviderConfigUseCase.getLastSelectedModel")
-                        }.getOrDefault("").removePrefix("models/").trim()
+                        }.getOrDefault("").removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim()
 
                         _uiState.update { currentState ->
-                            val currentSelected = currentState.selectedModel.removePrefix("models/").trim()
+                            val currentSelected = currentState.selectedModel.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim()
 
                             val matchedSaved = names.firstOrNull { it.equals(savedModel, ignoreCase = true) }
                             val matchedCurrent = names.firstOrNull { it.equals(currentSelected, ignoreCase = true) }

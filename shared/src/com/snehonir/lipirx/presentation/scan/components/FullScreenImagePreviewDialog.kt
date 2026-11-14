@@ -50,8 +50,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_close
+import com.snehonir.lipirx.resources.btn_reset
+import com.snehonir.lipirx.resources.content_desc_prescription
+import com.snehonir.lipirx.resources.zoom_hint
 import com.snehonir.lipirx.ui.theme.Lipi
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 private const val MAX_ZOOM = 6f
@@ -96,7 +102,7 @@ fun FullScreenImagePreviewDialog(
         ) {
             AsyncImage(
                 model = imageByteArray,
-                contentDescription = "Prescription, zoomable",
+                contentDescription = stringResource(Res.string.content_desc_prescription),
                 modifier = Modifier
                     .fillMaxSize()
                     .onSizeChanged { box = it }
@@ -147,7 +153,7 @@ fun FullScreenImagePreviewDialog(
                 ) {
                     Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Reset", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(Res.string.btn_reset), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 IconButton(
                     onClick = onDismiss,
@@ -155,7 +161,7 @@ fun FullScreenImagePreviewDialog(
                         .size(44.dp)
                         .background(Color.White.copy(alpha = 0.14f), CircleShape),
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.btn_close), tint = Color.White)
                 }
             }
 
@@ -169,7 +175,7 @@ fun FullScreenImagePreviewDialog(
                 color = Color.White.copy(alpha = 0.14f),
             ) {
                 Text(
-                    text = "Pinch up to 6x · Double-tap to toggle 100% / 250%",
+                    text = stringResource(Res.string.zoom_hint),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     color = Color.White,
                     fontSize = 12.sp,

@@ -2,56 +2,15 @@ package com.snehonir.lipirx.domain.agent
 
 import com.snehonir.lipirx.data.remote.CompositeAiService
 import com.snehonir.lipirx.domain.model.AiProvider
-import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.domain.model.ClinicalApprovalReasons
 import io.github.aakira.napier.Napier
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-
-data class AgentExecutionRecord(
-    val agentType: RxAgentType,
-    val reasoning: String,
-    val feedbackPrompt: String,
-    val itemCount: Int,
-    val executionTimeMs: Long = 0L,
-    val failureReason: PipelineFailureReason? = null
-)
-
-data class SupervisorState(
-    val input: TranscriptionInput,
-    val items: List<MedicineItem> = emptyList(),
-    val history: List<AgentExecutionRecord> = emptyList(),
-    val episodicMemory: String = "",
-    val turnCount: Int = 0,
-    val isFinished: Boolean = false,
-    val isSuspendedForApproval: Boolean = false,
-    val approvalReason: String = "",
-    val safetyAudited: Boolean = true,
-    val entityParsed: Boolean = true
-)
-
-@Serializable
-internal data class SupervisorDecisionDto(
-    val nextAgent: String? = null,
-    val reasoning: String? = null,
-    val feedbackPrompt: String? = null,
-    val isSuspendedForApproval: Boolean? = null,
-    val approvalReason: String? = null
-)
-
-data class SupervisorDecision(
-    val nextAgent: RxAgentType?,
-    val isFinished: Boolean,
-    val isSuspendedForApproval: Boolean = false,
-    val approvalReason: String = "",
-    val reasoning: String,
-    val feedbackPrompt: String
-)
 
 class RxSupervisorAgent(
     private val aiService: CompositeAiService? = null,
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; isLenient = true }
 ) {
-    val agentName: String = "Rx Supervisor Manager Agent"
+    val agentName: String = SupervisorConstants.AGENT_NAME
 
     suspend fun decideNextStep(
         state: SupervisorState,
@@ -64,13 +23,13 @@ class RxSupervisorAgent(
 
         if (canExecuteAiService(provider, apiKey, customUrl)) {
             executeSupervisorLlmLoop(state, provider, selectedModel, apiKey, customUrl)?.let { decision ->
-                Napier.d("[$agentName -> LLM Decision] Next: ${decision.nextAgent?.displayName ?: "FINISH"}, Reason: ${decision.reasoning}", tag = TAG)
+                Napier.d("[$agentName -> LLM Decision] Next: ${decision.nextAgent?.displayName ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${decision.reasoning}", tag = TAG)
                 return decision
             }
         }
 
         val fallback = getFallbackDecision(state)
-        Napier.d("[$agentName -> Rule Fallback] Next: ${fallback.nextAgent?.displayName ?: "FINISH"}, Reason: ${fallback.reasoning}", tag = TAG)
+        Napier.d("[$agentName -> Rule Fallback] Next: ${fallback.nextAgent?.displayName ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${fallback.reasoning}", tag = TAG)
         return fallback
     }
 
@@ -138,21 +97,21 @@ class RxSupervisorAgent(
                 nextAgent = null,
                 isFinished = false,
                 isSuspendedForApproval = true,
-                approvalReason = dto.approvalReason ?: "Pharmacist sign-off required for flagged items",
-                reasoning = dto.reasoning ?: "Supervisor requested human approval.",
+                approvalReason = dto.approvalReason ?: ClinicalApprovalReasons.DEFAULT_PHARMACIST_APPROVAL,
+                reasoning = dto.reasoning ?: SupervisorConstants.REASON_HUMAN_APPROVAL,
                 feedbackPrompt = ""
             )
         }
 
         val nextAgentStr = dto.nextAgent?.uppercase()?.trim() ?: ""
         return when {
-            nextAgentStr == "FINISH" || nextAgentStr.isBlank() -> handleFinishDecision(dto, state)
+            nextAgentStr == SupervisorConstants.TOKEN_FINISH || nextAgentStr.isBlank() -> handleFinishDecision(dto, state)
             else -> {
                 val targetAgent = parseAgentType(nextAgentStr)
                 SupervisorDecision(
                     nextAgent = targetAgent,
                     isFinished = false,
-                    reasoning = dto.reasoning ?: "Supervisor assigned task to ${targetAgent.displayName}.",
+                    reasoning = dto.reasoning ?: SupervisorConstants.reasonTaskAssigned(targetAgent.displayName),
                     feedbackPrompt = dto.feedbackPrompt ?: ""
                 )
             }
@@ -165,14 +124,14 @@ class RxSupervisorAgent(
             SupervisorDecision(
                 nextAgent = RxAgentType.TRANSCRIPTION,
                 isFinished = false,
-                reasoning = "Forced transcription because workspace has no items yet.",
-                feedbackPrompt = "Transcribe prescription."
+                reasoning = SupervisorConstants.REASON_FORCED_TRANSCRIPTION,
+                feedbackPrompt = SupervisorConstants.PROMPT_TRANSCRIBE_DEFAULT
             )
         } else {
             SupervisorDecision(
                 nextAgent = null,
                 isFinished = true,
-                reasoning = dto.reasoning ?: "Supervisor completed all orchestration steps.",
+                reasoning = dto.reasoning ?: SupervisorConstants.REASON_ALL_COMPLETED,
                 feedbackPrompt = dto.feedbackPrompt ?: ""
             )
         }
@@ -222,10 +181,10 @@ class RxSupervisorAgent(
 
     private fun parseAgentType(str: String): RxAgentType {
         return when {
-            str.contains("TRANSCRIPTION") -> RxAgentType.TRANSCRIPTION
-            str.contains("PARSER") || str.contains("ENTITY") -> RxAgentType.ENTITY_PARSER
-            str.contains("GENERIC") || str.contains("SUBSTITUTE") -> RxAgentType.GENERIC_SUBSTITUTE
-            str.contains("SAFETY") || str.contains("AUDITOR") -> RxAgentType.SAFETY_AUDITOR
+            str.contains(SupervisorConstants.TOKEN_TRANSCRIPTION) -> RxAgentType.TRANSCRIPTION
+            str.contains(SupervisorConstants.TOKEN_PARSER) || str.contains(SupervisorConstants.TOKEN_ENTITY) -> RxAgentType.ENTITY_PARSER
+            str.contains(SupervisorConstants.TOKEN_GENERIC) || str.contains(SupervisorConstants.TOKEN_SUBSTITUTE) -> RxAgentType.GENERIC_SUBSTITUTE
+            str.contains(SupervisorConstants.TOKEN_SAFETY) || str.contains(SupervisorConstants.TOKEN_AUDITOR) -> RxAgentType.SAFETY_AUDITOR
             else -> RxAgentType.TRANSCRIPTION
         }
     }
@@ -237,32 +196,32 @@ class RxSupervisorAgent(
                 SupervisorDecision(
                     nextAgent = RxAgentType.TRANSCRIPTION,
                     isFinished = false,
-                    reasoning = "Workspace empty. Requesting Vision Transcription Agent to perform handwriting OCR.",
-                    feedbackPrompt = "Transcribe all written medicines accurately."
+                    reasoning = SupervisorConstants.REASON_EMPTY_WORKSPACE,
+                    feedbackPrompt = SupervisorConstants.PROMPT_TRANSCRIBE_ACCURATE
                 )
             }
             !historyTypes.contains(RxAgentType.ENTITY_PARSER) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.ENTITY_PARSER,
                     isFinished = false,
-                    reasoning = "Raw transcription complete. Requesting Medical Entity Parser Agent to clean brand names and normalize forms.",
-                    feedbackPrompt = "Clean prefixes and normalize strengths."
+                    reasoning = SupervisorConstants.REASON_TRANSCRIPTION_DONE,
+                    feedbackPrompt = SupervisorConstants.PROMPT_CLEAN_STRENGTHS
                 )
             }
             !historyTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.GENERIC_SUBSTITUTE,
                     isFinished = false,
-                    reasoning = "Entities normalized. Requesting Generic & Substitute Agent to match DGDA active ingredients and BD brand substitutes.",
-                    feedbackPrompt = "Provide 3 to 5 Bangladeshi brand substitutes per item."
+                    reasoning = SupervisorConstants.REASON_ENTITIES_NORMALIZED,
+                    feedbackPrompt = SupervisorConstants.PROMPT_PROVIDE_SUBSTITUTES
                 )
             }
             !historyTypes.contains(RxAgentType.SAFETY_AUDITOR) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.SAFETY_AUDITOR,
                     isFinished = false,
-                    reasoning = "Substitutes enriched. Requesting Safety Auditor Agent to verify clinical dosage safety and review flags.",
-                    feedbackPrompt = "Audit safety risks and unreadable spellings."
+                    reasoning = SupervisorConstants.REASON_SUBSTITUTES_ENRICHED,
+                    feedbackPrompt = SupervisorConstants.PROMPT_AUDIT_RISKS
                 )
             }
             state.items.any { it.needsReview || it.confidenceEnum.isLow } && !state.isSuspendedForApproval -> {
@@ -270,8 +229,8 @@ class RxSupervisorAgent(
                     nextAgent = null,
                     isFinished = false,
                     isSuspendedForApproval = true,
-                    approvalReason = "Flagged items require pharmacist verification",
-                    reasoning = "Flagged low confidence or dosage review items requiring human sign-off.",
+                    approvalReason = ClinicalApprovalReasons.FLAGGED_ITEMS_VERIFICATION,
+                    reasoning = SupervisorConstants.REASON_FLAGGED_ITEMS,
                     feedbackPrompt = ""
                 )
             }
@@ -279,7 +238,7 @@ class RxSupervisorAgent(
                 SupervisorDecision(
                     nextAgent = null,
                     isFinished = true,
-                    reasoning = "All pipeline capabilities executed successfully.",
+                    reasoning = SupervisorConstants.REASON_PIPELINE_SUCCESS,
                     feedbackPrompt = ""
                 )
             }

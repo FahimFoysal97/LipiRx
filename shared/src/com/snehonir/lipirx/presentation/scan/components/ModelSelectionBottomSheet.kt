@@ -55,18 +55,34 @@ import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_clear
+import com.snehonir.lipirx.resources.btn_paste
+import com.snehonir.lipirx.resources.btn_save_config
+import com.snehonir.lipirx.resources.configure_key_to_load_models
+import com.snehonir.lipirx.resources.content_desc_select_strategy
+import com.snehonir.lipirx.resources.label_api_key
+import com.snehonir.lipirx.resources.label_custom_model
+import com.snehonir.lipirx.resources.label_custom_url
+import com.snehonir.lipirx.resources.label_model
+import com.snehonir.lipirx.resources.label_select_provider
+import com.snehonir.lipirx.resources.mcp_server_description
+import com.snehonir.lipirx.resources.mcp_server_running
+import com.snehonir.lipirx.resources.no_live_models_found
+import com.snehonir.lipirx.resources.no_local_models_found
+import com.snehonir.lipirx.resources.on_device_info_banner
+import com.snehonir.lipirx.resources.placeholder_paste_key
+import com.snehonir.lipirx.resources.section_mcp
+import com.snehonir.lipirx.resources.section_mcp_endpoint
+import com.snehonir.lipirx.resources.section_on_device
+import com.snehonir.lipirx.resources.section_per_agent
+import com.snehonir.lipirx.resources.section_per_agent_assignments
+import com.snehonir.lipirx.resources.section_provider_settings
+import com.snehonir.lipirx.resources.studio_subtitle
+import com.snehonir.lipirx.resources.studio_title
 import com.snehonir.lipirx.ui.theme.Lipi
-import com.snehonir.lipirx.ui.theme.icons.ApiKeyVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.McpEndpointVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.McpServerVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
-import com.snehonir.lipirx.ui.theme.icons.OnDeviceStrategyVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.PasteVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.PipelineMatrixVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.ProviderSelectVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.ProviderSettingsVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.*
+import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -165,8 +181,8 @@ fun ModelSelectionBottomSheet(
                         )
                     }
                     Column {
-                        Text("AI Engine & MCP Studio", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
-                        Text("Configure multi-agent pipeline, MCP server & provider keys", fontSize = 12.sp, color = Lipi.Muted)
+                        Text(stringResource(Res.string.studio_title), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
+                        Text(stringResource(Res.string.studio_subtitle), fontSize = 12.sp, color = Lipi.Muted)
                     }
                 }
             }
@@ -183,7 +199,7 @@ fun ModelSelectionBottomSheet(
                     tint = Lipi.Primary
                 )
                 Text(
-                    text = "On-Device AI & Fallback Strategy",
+                    text = stringResource(Res.string.section_on_device),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Lipi.Ink
@@ -233,7 +249,7 @@ fun ModelSelectionBottomSheet(
                         }
                         Icon(
                             imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = "Select Strategy",
+                            contentDescription = stringResource(Res.string.content_desc_select_strategy),
                             modifier = Modifier.size(20.dp),
                             tint = Lipi.Muted
                         )
@@ -298,7 +314,7 @@ fun ModelSelectionBottomSheet(
                     tint = Lipi.Primary
                 )
                 Text(
-                    text = "Model Context Protocol (MCP)",
+                    text = stringResource(Res.string.section_mcp),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Lipi.Ink
@@ -332,7 +348,7 @@ fun ModelSelectionBottomSheet(
                                 tint = Lipi.Primary
                             )
                             Text(
-                                text = "Local Server Endpoint",
+                                text = stringResource(Res.string.section_mcp_endpoint),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Lipi.Ink
@@ -341,9 +357,9 @@ fun ModelSelectionBottomSheet(
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = if (localMcpState) {
-                                "🟢 Server running at http://localhost:8080/lipirx/mcp"
+                                stringResource(Res.string.mcp_server_running)
                             } else {
-                                "Exposes local OCR tools & prescription history for desktop tools & POS software"
+                                stringResource(Res.string.mcp_server_description)
                             },
                             fontSize = 11.sp,
                             fontWeight = if (localMcpState) FontWeight.SemiBold else FontWeight.Normal,
@@ -380,7 +396,7 @@ fun ModelSelectionBottomSheet(
                     tint = Lipi.Primary
                 )
                 Text(
-                    text = "Per-Agent AI & Model Assignments",
+                    text = stringResource(Res.string.section_per_agent_assignments),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Lipi.Ink
@@ -590,7 +606,7 @@ fun ModelSelectionBottomSheet(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
-                                            text = "Model:",
+                                            text = stringResource(Res.string.label_model),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Lipi.Muted
@@ -599,8 +615,8 @@ fun ModelSelectionBottomSheet(
                                             text = when {
                                                 currentAssignedModel.isNotBlank() -> currentAssignedModel
                                                 liveModelsForProvider.isNotEmpty() -> liveModelsForProvider.first()
-                                                currentAssignedProvider == AiProvider.OnDevice -> "No .litertlm model in device storage"
-                                                else -> "Configure API key to load models"
+                                                currentAssignedProvider == AiProvider.OnDevice -> stringResource(Res.string.no_local_models_found)
+                                                else -> stringResource(Res.string.configure_key_to_load_models)
                                             },
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.ExtraBold,
@@ -671,9 +687,9 @@ fun ModelSelectionBottomSheet(
                                             text = {
                                                 Text(
                                                     text = if (currentAssignedProvider == AiProvider.OnDevice) {
-                                                        "No local models found on device storage.\nPush .litertlm file via adb to filesDir."
+                                                        stringResource(Res.string.no_local_models_found)
                                                     } else {
-                                                        "No live models found for ${currentAssignedProvider.displayName}.\nTap '🔑 Save Provider Config' below to verify key & fetch models."
+                                                        stringResource(Res.string.no_live_models_found, currentAssignedProvider.displayName)
                                                     },
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.SemiBold,
@@ -705,7 +721,7 @@ fun ModelSelectionBottomSheet(
                     tint = Lipi.Primary
                 )
                 Text(
-                    text = "Provider Settings",
+                    text = stringResource(Res.string.section_provider_settings),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Lipi.Ink
@@ -734,7 +750,7 @@ fun ModelSelectionBottomSheet(
                             modifier = Modifier.size(15.dp),
                             tint = Lipi.Primary
                         )
-                        Text("Select Provider", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        Text(stringResource(Res.string.label_select_provider), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
                     }
 
                     var showCardProviderDropdown by remember { mutableStateOf(false) }
@@ -850,7 +866,7 @@ fun ModelSelectionBottomSheet(
                                 modifier = Modifier.size(15.dp),
                                 tint = Lipi.Primary
                             )
-                            Text("Custom Endpoint URL", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                            Text(stringResource(Res.string.label_custom_url), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
                         }
                         OutlinedTextField(
                             value = inputUrl,
@@ -871,7 +887,7 @@ fun ModelSelectionBottomSheet(
                                 modifier = Modifier.size(15.dp),
                                 tint = Lipi.Primary
                             )
-                            Text("Custom Model Name", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                            Text(stringResource(Res.string.label_custom_model), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
                         }
                         OutlinedTextField(
                             value = inputCustomModel,
@@ -901,7 +917,7 @@ fun ModelSelectionBottomSheet(
                                     tint = Lipi.Primary
                                 )
                                 Text(
-                                    text = "On-Device SLM runs locally on your device hardware without requiring an API key.",
+                                    text = stringResource(Res.string.on_device_info_banner),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Lipi.OnPrimaryContainer
@@ -919,7 +935,7 @@ fun ModelSelectionBottomSheet(
                                 modifier = Modifier.size(15.dp),
                                 tint = Lipi.Primary
                             )
-                            Text("API Key", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                            Text(stringResource(Res.string.label_api_key), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
                         }
 
                         Row(
@@ -932,7 +948,7 @@ fun ModelSelectionBottomSheet(
                                 onValueChange = {},
                                 readOnly = true,
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text("Tap 'Paste' to insert key...", fontSize = 12.sp) },
+                                placeholder = { Text(stringResource(Res.string.placeholder_paste_key), fontSize = 12.sp) },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp)
                             )
@@ -1022,7 +1038,7 @@ fun ModelSelectionBottomSheet(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Connecting & Saving...", fontSize = 13.sp)
                             } else {
-                                Text("🔑 Save Provider Config", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(Res.string.btn_save_config), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

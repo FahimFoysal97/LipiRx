@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.data.remote
 
+import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 

@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.domain.agent.koog
 
+import com.snehonir.lipirx.common.AppConstants.MAX_SUPERVISOR_TURNS
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.AgentExecutionRecord
 import com.snehonir.lipirx.domain.agent.OrchestrationResult
@@ -13,6 +14,7 @@ import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.ProcessingStep
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.data.local.getPlatformEpochMillis
+import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
 import io.github.aakira.napier.Napier
 
 class KoogRxSupervisorEngine(
@@ -37,7 +39,7 @@ class KoogRxSupervisorEngine(
         )
 
         var state = SupervisorState(input = input)
-        val maxTurns = 6
+        val maxTurns = MAX_SUPERVISOR_TURNS
 
         while (!state.isFinished && state.turnCount < maxTurns) {
             val supervisorStartTime = getPlatformEpochMillis()
@@ -147,7 +149,7 @@ class KoogRxSupervisorEngine(
                             history = state.history + supervisorRecord + failedRecord,
                             safetyAudited = false,
                             isSuspendedForApproval = true,
-                            approvalReason = "Safety Audit Agent failed (${failureReason.displayName}). Mandatory pharmacist sign-off required.",
+                            approvalReason = com.snehonir.lipirx.domain.model.ClinicalApprovalReasons.auditAgentFailed(failureReason.displayName),
                             turnCount = state.turnCount + 1
                         )
                         break

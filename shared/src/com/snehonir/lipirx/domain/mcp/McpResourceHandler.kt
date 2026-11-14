@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.domain.mcp
 
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.Serializable
@@ -31,19 +32,19 @@ class McpResourceHandler(
                 uri = URI_SCAN_HISTORY,
                 name = "Prescription Scan History",
                 description = "SQLDelight database records of past scanned prescriptions and extracted items",
-                mimeType = "application/json"
+                mimeType = AppConstants.MIME_TYPE_JSON
             ),
             McpResource(
                 uri = URI_PROVIDER_CONFIG,
                 name = "AI Provider Configuration",
                 description = "Active AI provider configurations and assigned models",
-                mimeType = "application/json"
+                mimeType = AppConstants.MIME_TYPE_JSON
             ),
             McpResource(
                 uri = URI_AGENT_TRACES,
                 name = "AgentOps Forensic Execution Traces",
                 description = "SQLite forensic execution traces for supervisor reasoning steps and tool calls",
-                mimeType = "application/json"
+                mimeType = AppConstants.MIME_TYPE_JSON
             )
         )
     }
@@ -60,7 +61,7 @@ class McpResourceHandler(
 
             McpResourceContents(
                 uri = uri,
-                mimeType = "application/json",
+                mimeType = AppConstants.MIME_TYPE_JSON,
                 text = contentJson
             )
         }.onFailure { ex ->

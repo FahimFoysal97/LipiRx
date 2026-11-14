@@ -2,6 +2,7 @@ package com.snehonir.lipirx.domain.model
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.LightningVectorIcon
@@ -22,8 +23,8 @@ sealed interface AiProvider {
     data object Gemini : AiProvider {
         override val id: String = "gemini"
         override val displayName: String = "Gemini"
-        override val defaultEndpoint: String = "https://generativelanguage.googleapis.com/v1beta/models"
-        override val defaultModel: String = "gemini-2.0-flash"
+        override val defaultEndpoint: String = AppConstants.GEMINI_DEFAULT_ENDPOINT
+        override val defaultModel: String = AppConstants.GEMINI_DEFAULT_MODEL
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = true
         override val icon: ImageVector = SparkleVectorIcon
@@ -33,8 +34,8 @@ sealed interface AiProvider {
     data object Groq : AiProvider {
         override val id: String = "groq"
         override val displayName: String = "Groq"
-        override val defaultEndpoint: String = "https://api.groq.com/openai/v1/models"
-        override val defaultModel: String = "llama-3.2-90b-vision-instruct"
+        override val defaultEndpoint: String = AppConstants.GROQ_DEFAULT_ENDPOINT
+        override val defaultModel: String = AppConstants.GROQ_DEFAULT_MODEL
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = true
         override val icon: ImageVector = LightningVectorIcon
@@ -44,8 +45,8 @@ sealed interface AiProvider {
     data object OpenAi : AiProvider {
         override val id: String = "openai"
         override val displayName: String = "OpenAI"
-        override val defaultEndpoint: String = "https://api.openai.com/v1/models"
-        override val defaultModel: String = "gpt-4o"
+        override val defaultEndpoint: String = AppConstants.OPENAI_DEFAULT_ENDPOINT
+        override val defaultModel: String = AppConstants.OPENAI_DEFAULT_MODEL
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = true
         override val icon: ImageVector = OpenAiVectorIcon
@@ -56,7 +57,7 @@ sealed interface AiProvider {
         override val id: String = "custom"
         override val displayName: String = "Custom URL"
         override val defaultEndpoint: String = ""
-        override val defaultModel: String = "custom-vision-model"
+        override val defaultModel: String = AppConstants.CUSTOM_DEFAULT_MODEL
         override val requiresCustomUrl: Boolean = true
         override val requiresApiKey: Boolean = false
         override val icon: ImageVector = CustomUrlVectorIcon
@@ -67,7 +68,7 @@ sealed interface AiProvider {
         override val id: String = "on_device"
         override val displayName: String = "On-Device SLM"
         override val defaultEndpoint: String = "local://on-device"
-        override val defaultModel: String = "gemini-nano-local"
+        override val defaultModel: String = AppConstants.ON_DEVICE_DEFAULT_MODEL
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = false
         override val icon: ImageVector = OnDeviceVectorIcon

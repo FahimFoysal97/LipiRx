@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.domain.agent
 
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.model.AiProvider
 
 data class TranscriptionInput(
@@ -8,7 +9,7 @@ data class TranscriptionInput(
     val provider: AiProvider,
     val providedApiKey: String = "",
     val customUrl: String = "",
-    val mimeType: String = "image/jpeg",
+    val mimeType: String = AppConstants.MIME_TYPE_JPEG,
     val onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
 ) {
     override fun equals(other: Any?): Boolean {

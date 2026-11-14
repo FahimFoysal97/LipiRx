@@ -1,0 +1,552 @@
+package com.snehonir.lipirx.data.local
+
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
+import com.snehonir.lipirx.data.local.entity.AgentExecutionTraceEntity
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
+import com.snehonir.lipirx.domain.agent.AgentConfig
+import com.snehonir.lipirx.domain.agent.RxAgentType
+import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.model.AppConfigKey
+import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
+import io.github.aakira.napier.Napier
+
+class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepository {
+
+    init {
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = """
+                    CREATE TABLE IF NOT EXISTS AppConfig (
+                        configKey TEXT PRIMARY KEY,
+                        configValue TEXT NOT NULL
+                    );
+                """.trimIndent(),
+                parameters = 0
+            )
+            driver.execute(
+                identifier = null,
+                sql = """
+                    CREATE TABLE IF NOT EXISTS DispensedHistory (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        dispensedAt INTEGER NOT NULL,
+                        medicineName TEXT NOT NULL,
+                        genericName TEXT NOT NULL,
+                        dispensedBrand TEXT NOT NULL
+                    );
+                """.trimIndent(),
+                parameters = 0
+            )
+            Napier.d("Guaranteed AppConfig and DispensedHistory tables exist in SQLite database", tag = TAG)
+        }.onFailure { ex ->
+            Napier.w("Failed to ensure tables exist in SQLite database: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    override fun saveSummary(
+        summaryText: String,
+        timestampMillis: Long,
+        flow: String
+    ) {
+        val currentTime = if (timestampMillis > 0) timestampMillis else getPlatformEpochMillis()
+        Napier.d("[$flow] Executing SQL INSERT into PrescriptionHistory: summaryLength=${summaryText.length}, timestamp=$currentTime", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT INTO PrescriptionHistory (scannedAt, medicineSummary) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindLong(0, currentTime)
+            bindString(1, summaryText)
+        }
+        Napier.d("[$flow -> Success] Saved prescription summary into SQLite database successfully", tag = TAG)
+    }
+
+    override fun saveDispensedHistory(
+        medicines: List<MedicineItem>,
+        flow: String
+    ) {
+        val currentTime = getPlatformEpochMillis()
+        Napier.d("[$flow] Saving ${medicines.size} items to DispensedHistory episodic memory table", tag = TAG)
+        medicines.forEach { item ->
+            val brand = item.formattedFullName
+            val generic = item.genericName
+            if (generic.isNotBlank() && brand.isNotBlank()) {
+                runCatching {
+                    driver.execute(
+                        identifier = null,
+                        sql = "INSERT INTO DispensedHistory (dispensedAt, medicineName, genericName, dispensedBrand) VALUES (?, ?, ?, ?)",
+                        parameters = 4
+                    ) {
+                        bindLong(0, currentTime)
+                        bindString(1, item.medicineName)
+                        bindString(2, generic)
+                        bindString(3, brand)
+                    }
+                }
+            }
+        }
+    }
+
+    override fun getEpisodicMemoryContext(
+        generics: List<String>,
+        flow: String
+    ): String {
+        if (generics.isEmpty()) return ""
+        val historyList = mutableListOf<String>()
+
+        generics.filter { it.isNotBlank() }.distinct().forEach { generic ->
+            runCatching {
+                val queryResult = driver.executeQuery(
+                    identifier = null,
+                    sql = "SELECT dispensedBrand, dispensedAt FROM DispensedHistory WHERE genericName LIKE ? ORDER BY id DESC LIMIT 3",
+                    mapper = { cursor ->
+                        val brands = mutableListOf<String>()
+                        while (cursor.next().value) {
+                            val brand = cursor.getString(0) ?: ""
+                            if (brand.isNotBlank() && !brands.contains(brand)) {
+                                brands.add(brand)
+                            }
+                        }
+                        QueryResult.Value(brands)
+                    },
+                    parameters = 1
+                ) {
+                    bindString(0, "%$generic%")
+                }
+                val matchedBrands = queryResult.value
+                if (matchedBrands.isNotEmpty()) {
+                    historyList.add("Generic '$generic': Previously dispensed ${matchedBrands.joinToString(", ")}")
+                }
+            }
+        }
+
+        if (historyList.isEmpty()) return ""
+        Napier.d("[$flow -> Episodic Memory] Found ${historyList.size} past episodic memory records for generics", tag = TAG)
+        return buildString {
+            appendLine("CROSS-SESSION EPISODIC MEMORY (PAST PATIENT REFILL & DISPENSING HISTORY):")
+            historyList.forEach { appendLine("- $it") }
+        }
+    }
+
+    override fun getHistory(flow: String): List<PrescriptionHistoryEntity> {
+        Napier.d("[$flow] Querying SELECT PrescriptionHistory from SQLite database...", tag = TAG)
+        val queryResult = driver.executeQuery(
+            identifier = null,
+            sql = "SELECT id, scannedAt, medicineSummary FROM PrescriptionHistory ORDER BY id DESC",
+            mapper = { cursor ->
+                val list = mutableListOf<PrescriptionHistoryEntity>()
+                while (cursor.next().value) {
+                    list.add(
+                        PrescriptionHistoryEntity(
+                            id = cursor.getLong(0) ?: 0L,
+                            scannedAt = cursor.getLong(1) ?: 0L,
+                            medicineSummary = cursor.getString(2) ?: ""
+                        )
+                    )
+                }
+                QueryResult.Value(list)
+            },
+            parameters = 0
+        )
+        val records = queryResult.value
+        Napier.d("[$flow -> Result] Retrieved ${records.size} history records from SQLite database", tag = TAG)
+        return records
+    }
+
+    override fun deleteHistoryRecord(id: Long, flow: String) {
+        Napier.d("[$flow] Deleting history record ID=$id from SQLite", tag = TAG)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "DELETE FROM PrescriptionHistory WHERE id = ?",
+                parameters = 1
+            ) {
+                bindLong(0, id)
+            }
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to delete history record $id: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    override fun clearAllHistory(flow: String) {
+        Napier.d("[$flow] Deleting all records from PrescriptionHistory table in SQLite", tag = TAG)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "DELETE FROM PrescriptionHistory",
+                parameters = 0
+            )
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to clear all history: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    override fun saveOnDeviceStrategy(
+        strategy: com.snehonir.lipirx.domain.model.OnDeviceStrategy,
+        flow: String
+    ) {
+        Napier.d("[$flow] Saving On-Device strategy '${strategy.id}' into SQLite", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.ON_DEVICE_STRATEGY.key)
+            bindString(1, strategy.id)
+        }
+    }
+
+    override fun getOnDeviceStrategy(): com.snehonir.lipirx.domain.model.OnDeviceStrategy {
+        val raw = getConfigValue(AppConfigKey.ON_DEVICE_STRATEGY.key)
+        return if (raw.isNotBlank()) com.snehonir.lipirx.domain.model.OnDeviceStrategy.fromId(raw) else com.snehonir.lipirx.domain.model.OnDeviceStrategy.HYBRID_FALLBACK
+    }
+
+    override fun saveMcpServerEnabled(enabled: Boolean, flow: String) {
+        Napier.d("[$flow] Saving MCP server enabled = $enabled into SQLite", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.MCP_SERVER_ENABLED.key)
+            bindString(1, enabled.toString())
+        }
+    }
+
+    override fun isMcpServerEnabled(): Boolean {
+        val raw = getConfigValue(AppConfigKey.MCP_SERVER_ENABLED.key)
+        return raw.toBooleanStrictOrNull() ?: false
+    }
+
+    override fun saveSelectedModel(
+        modelName: String,
+        provider: AiProvider,
+        flow: String
+    ) {
+        val modelKey = AppConfigKey.keyForProviderModel(provider)
+        Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: $modelKey='$modelName'", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, modelKey)
+            bindString(1, modelName)
+        }
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.LAST_SELECTED_MODEL.key)
+            bindString(1, modelName)
+        }
+    }
+
+    override fun getLastSelectedModel(
+        provider: AiProvider,
+        flow: String
+    ): String {
+        val modelKey = AppConfigKey.keyForProviderModel(provider)
+        val value = getConfigValue(modelKey)
+        return if (value.isNotBlank()) value else getConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key).ifBlank { provider.defaultModel }
+    }
+
+    override fun saveApiKey(apiKey: String, flow: String) {
+        val cleanKey = apiKey.trim()
+        Napier.d("[$flow] Executing SQL INSERT OR REPLACE INTO AppConfig: gemini_api_key (length=${cleanKey.length})", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.GEMINI_API_KEY.key)
+            bindString(1, cleanKey)
+        }
+    }
+
+    override fun getApiKey(flow: String): String {
+        return getConfigValue(AppConfigKey.GEMINI_API_KEY.key)
+    }
+
+    override fun saveProviderConfig(
+        providerType: String,
+        customUrl: String,
+        apiKey: String,
+        modelName: String,
+        flow: String
+    ) {
+        val cleanKey = apiKey.trim()
+        val providerObj = AiProvider.fromId(providerType)
+        val providerKey = AppConfigKey.keyForProvider(providerObj)
+
+        Napier.d("[$flow] Saving provider config: provider=${providerObj.id}, keyName=${providerKey.key}, customUrl=$customUrl, model=$modelName", tag = TAG)
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.PROVIDER_TYPE.key)
+            bindString(1, providerObj.id)
+        }
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.CUSTOM_URL.key)
+            bindString(1, customUrl.trim())
+        }
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, providerKey.key)
+            bindString(1, cleanKey)
+        }
+
+        if (modelName.isNotBlank()) {
+            driver.execute(
+                identifier = null,
+                sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                parameters = 2
+            ) {
+                bindString(0, AppConfigKey.LAST_SELECTED_MODEL.key)
+                bindString(1, modelName.trim())
+            }
+        }
+    }
+
+    override fun getApiKeyForProvider(providerType: String): String {
+        val providerObj = AiProvider.fromId(providerType)
+        val key = AppConfigKey.keyForProvider(providerObj)
+        return getConfigValue(key.key)
+    }
+
+    override fun getProviderConfig(flow: String): ProviderConfigEntity {
+        val providerType = getConfigValue(AppConfigKey.PROVIDER_TYPE.key).ifBlank { AiProvider.Gemini.id }
+        val customUrl = getConfigValue(AppConfigKey.CUSTOM_URL.key)
+        val apiKey = getApiKeyForProvider(providerType)
+        val modelName = getConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key)
+
+        val config = ProviderConfigEntity(
+            providerType = providerType,
+            customUrl = customUrl,
+            apiKey = apiKey,
+            modelName = modelName
+        )
+        Napier.d("[$flow -> Result] Provider Config retrieved: $config", tag = TAG)
+        return config
+    }
+
+    override fun saveAgentConfig(
+        agentType: RxAgentType,
+        provider: AiProvider,
+        modelName: String,
+        flow: String
+    ) {
+        val providerKey = AppConfigKey.keyForAgentProvider(agentType)
+        val modelKey = AppConfigKey.keyForAgentModel(agentType)
+
+        Napier.d("[$flow] Saving agent config: agent=${agentType.id}, provider=${provider.id}, model=$modelName", tag = TAG)
+
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                parameters = 2
+            ) {
+                bindString(0, providerKey)
+                bindString(1, provider.id)
+            }
+
+            if (modelName.isNotBlank()) {
+                driver.execute(
+                    identifier = null,
+                    sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                    parameters = 2
+                ) {
+                    bindString(0, modelKey)
+                    bindString(1, modelName.trim())
+                }
+            }
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to save agent config into SQLite: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    override fun getAgentConfig(agentType: RxAgentType): AgentConfig {
+        val providerKey = AppConfigKey.keyForAgentProvider(agentType)
+        val modelKey = AppConfigKey.keyForAgentModel(agentType)
+
+        val rawProviderId = getConfigValue(providerKey)
+        val provider = if (rawProviderId.isNotBlank()) AiProvider.fromId(rawProviderId) else agentType.defaultProvider
+        val modelName = getConfigValue(modelKey).ifBlank { agentType.defaultModel }
+
+        return AgentConfig(
+            agentType = agentType,
+            provider = provider,
+            selectedModel = modelName
+        )
+    }
+
+    override fun getAllAgentConfigs(): Map<RxAgentType, AgentConfig> {
+        return RxAgentType.ALL.associateWith { agentType ->
+            getAgentConfig(agentType)
+        }
+    }
+
+    override fun saveProviderModels(
+        providerType: String,
+        models: List<String>,
+        flow: String
+    ) {
+        val configKey = "models_list_${providerType.trim().lowercase()}"
+        val serializedModels = models.joinToString(separator = "||")
+        Napier.d("[$flow] Saving ${models.size} live models for provider '$providerType' into SQLite", tag = TAG)
+
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                parameters = 2
+            ) {
+                bindString(0, configKey)
+                bindString(1, serializedModels)
+            }
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to save provider models into SQLite: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    override fun getProviderModels(providerType: String): List<String> {
+        val configKey = "models_list_${providerType.trim().lowercase()}"
+        val rawValue = getConfigValue(configKey)
+        if (rawValue.isBlank()) return emptyList()
+        return rawValue.split("||").map { it.trim() }.filter { it.isNotBlank() }
+    }
+
+    override fun getAllProviderModelsMap(): Map<String, List<String>> {
+        return AiProvider.ALL.associate { prov ->
+            prov.id to getProviderModels(prov.id)
+        }
+    }
+
+    override fun saveAgentTrace(
+        turnNumber: Int,
+        agentType: String,
+        provider: String,
+        modelName: String,
+        reasoning: String,
+        feedbackPrompt: String,
+        itemCount: Int,
+        executionTimeMs: Long,
+        isSuccess: Boolean,
+        errorMessage: String,
+        flow: String
+    ) {
+        val currentTime = getPlatformEpochMillis()
+        Napier.d("[$flow] Inserting AgentExecutionTrace into SQLite: turn=$turnNumber, agent=$agentType, provider=$provider, success=$isSuccess", tag = TAG)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = """
+                    INSERT INTO AgentExecutionTrace (timestamp, turnNumber, agentType, provider, modelName, reasoning, feedbackPrompt, itemCount, executionTimeMs, isSuccess, errorMessage)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+                parameters = 11
+            ) {
+                bindLong(0, currentTime)
+                bindLong(1, turnNumber.toLong())
+                bindString(2, agentType)
+                bindString(3, provider)
+                bindString(4, modelName)
+                bindString(5, reasoning)
+                bindString(6, feedbackPrompt)
+                bindLong(7, itemCount.toLong())
+                bindLong(8, executionTimeMs)
+                bindLong(9, if (isSuccess) 1L else 0L)
+                bindString(10, errorMessage)
+            }
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to insert AgentExecutionTrace into SQLite: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    override fun getAgentTraces(limit: Int, flow: String): List<AgentExecutionTraceEntity> {
+        Napier.d("[$flow] Querying SELECT AgentExecutionTrace from SQLite...", tag = TAG)
+        return runCatching {
+            driver.executeQuery(
+                identifier = null,
+                sql = "SELECT id, timestamp, turnNumber, agentType, provider, modelName, reasoning, feedbackPrompt, itemCount, executionTimeMs, isSuccess, errorMessage FROM AgentExecutionTrace ORDER BY id DESC LIMIT ?",
+                mapper = { cursor ->
+                    val list = mutableListOf<AgentExecutionTraceEntity>()
+                    while (cursor.next().value) {
+                        list.add(
+                            AgentExecutionTraceEntity(
+                                id = cursor.getLong(0) ?: 0L,
+                                timestamp = cursor.getLong(1) ?: 0L,
+                                turnNumber = (cursor.getLong(2) ?: 0L).toInt(),
+                                agentType = cursor.getString(3) ?: "",
+                                provider = cursor.getString(4) ?: "",
+                                modelName = cursor.getString(5) ?: "",
+                                reasoning = cursor.getString(6) ?: "",
+                                feedbackPrompt = cursor.getString(7) ?: "",
+                                itemCount = (cursor.getLong(8) ?: 0L).toInt(),
+                                executionTimeMs = cursor.getLong(9) ?: 0L,
+                                isSuccess = (cursor.getLong(10) ?: 0L) == 1L,
+                                errorMessage = cursor.getString(11) ?: ""
+                            )
+                        )
+                    }
+                    QueryResult.Value(list)
+                },
+                parameters = 1
+            ) {
+                bindLong(0, limit.toLong())
+            }.value
+        }.getOrElse { emptyList() }
+    }
+
+    override fun clearAgentTraces(flow: String) {
+        Napier.d("[$flow] Deleting all records from AgentExecutionTrace table in SQLite", tag = TAG)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "DELETE FROM AgentExecutionTrace",
+                parameters = 0
+            )
+        }
+    }
+
+    private fun getConfigValue(key: String): String {
+        return runCatching {
+            val queryResult = driver.executeQuery(
+                identifier = null,
+                sql = "SELECT configValue FROM AppConfig WHERE configKey = ?",
+                mapper = { cursor ->
+                    if (cursor.next().value) {
+                        QueryResult.Value(cursor.getString(0) ?: "")
+                    } else {
+                        QueryResult.Value("")
+                    }
+                },
+                parameters = 1
+            ) {
+                bindString(0, key)
+            }
+            queryResult.value
+        }.getOrDefault("")
+    }
+
+    companion object {
+        private const val TAG = "LipiRxLocalDatabase"
+    }
+}

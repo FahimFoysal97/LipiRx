@@ -1,5 +1,7 @@
 package com.snehonir.lipirx.data.remote
 
+import com.snehonir.lipirx.common.AppConstants
+import com.snehonir.lipirx.data.remote.dto.*
 import com.snehonir.lipirx.domain.agent.AiOutputFormatException
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
@@ -99,7 +101,7 @@ abstract class OpenAiCompatibleAiService(
             if (provider.requiresApiKey && targetApiKey.isBlank()) {
                 throw IllegalStateException("${provider.displayName} API key is missing. Please set your API key in Model Settings.")
             }
-            val cleanModel = selectedModel.removePrefix("models/").ifBlank { provider.defaultModel }
+            val cleanModel = selectedModel.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).ifBlank { provider.defaultModel }
             onProgress(0, "Encoding image & payload")
             Napier.d("[$flow] Starting processing: provider=${provider.id}, model=$cleanModel, size=${imageByteArray.size} bytes", tag = TAG)
 
@@ -171,7 +173,7 @@ abstract class OpenAiCompatibleAiService(
             if (provider.requiresApiKey && targetApiKey.isBlank()) {
                 throw IllegalStateException("${provider.displayName} API key is missing. Please set your API key in Model Settings.")
             }
-            val cleanModel = selectedModel.removePrefix("models/").ifBlank { provider.defaultModel }
+            val cleanModel = selectedModel.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).ifBlank { provider.defaultModel }
             val endpoint = if (provider == AiProvider.Custom) {
                 normalizeCustomUrl(customUrl).ifBlank { completionsEndpoint }
             } else {

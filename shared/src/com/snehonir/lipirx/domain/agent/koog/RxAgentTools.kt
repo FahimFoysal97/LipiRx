@@ -2,51 +2,11 @@ package com.snehonir.lipirx.domain.agent.koog
 
 import com.snehonir.lipirx.data.remote.CompositeAiService
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
+import com.snehonir.lipirx.domain.agent.koog.dto.*
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-
-@Serializable
-data class ToolExecutionParams(
-    val provider: String = "gemini",
-    val model: String = "",
-    val apiKey: String = "",
-    val customUrl: String = "",
-    val feedbackPrompt: String = "",
-    val memoryContext: String = ""
-)
-
-@Serializable
-internal data class ParsedEntityDto(
-    val id: Int? = null,
-    val medicineName: String? = null,
-    val dosageForm: String? = null,
-    val strengthValue: String? = null,
-    val strengthUnit: String? = null,
-    val strengthNote: String? = null,
-    val schedule: String? = null,
-    val units: Int? = null,
-    val unitType: String? = null
-)
-
-@Serializable
-internal data class GenericSubstituteDto(
-    val id: Int? = null,
-    val genericName: String? = null,
-    val similarBrands: List<String>? = null
-)
-
-@Serializable
-internal data class SafetyAuditDto(
-    val id: Int? = null,
-    val needsReview: Boolean? = null,
-    val possibleMisreading: String? = null,
-    val confidence: String? = null,
-    val enrichmentConfidence: String? = null,
-    val auditWarning: String? = null
-)
 
 class RxAgentTools(
     private val aiService: CompositeAiService,

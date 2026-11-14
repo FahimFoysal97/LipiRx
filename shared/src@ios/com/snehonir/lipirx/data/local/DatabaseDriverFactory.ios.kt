@@ -2,7 +2,8 @@ package com.snehonir.lipirx.data.local
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
-import com.snehonir.lipirx.data.remote.ModelInfoDto
+import com.snehonir.lipirx.common.AppConstants
+import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSLocale
@@ -31,7 +32,7 @@ actual class DatabaseDriverFactory {
     actual fun createDriver(): SqlDriver {
         return NativeSqliteDriver(
             schema = LipiRxSchema,
-            name = "lipirx.db"
+            name = AppConstants.DATABASE_NAME
         )
     }
 }

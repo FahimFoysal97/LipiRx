@@ -44,8 +44,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_cancel
+import com.snehonir.lipirx.resources.btn_clear_history
+import com.snehonir.lipirx.resources.btn_delete
+import com.snehonir.lipirx.resources.confirm_clear_all_msg
+import com.snehonir.lipirx.resources.confirm_clear_all_title
+import com.snehonir.lipirx.resources.confirm_delete_msg
+import com.snehonir.lipirx.resources.confirm_delete_title
+import com.snehonir.lipirx.resources.history_empty_subtitle
+import com.snehonir.lipirx.resources.history_empty_title
+import com.snehonir.lipirx.resources.history_title
 import com.snehonir.lipirx.ui.theme.Lipi
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun HistoryScreen(
@@ -65,13 +77,12 @@ fun HistoryScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        // Header Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -89,7 +100,7 @@ fun HistoryScreen(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(Res.string.history_title),
                             modifier = Modifier.size(20.dp),
                             tint = Lipi.Ink
                         )
@@ -97,7 +108,7 @@ fun HistoryScreen(
                 }
 
                 Text(
-                    text = "Scan History",
+                    text = stringResource(Res.string.history_title),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Lipi.Ink
@@ -125,12 +136,12 @@ fun HistoryScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = "Clear All",
+                                contentDescription = stringResource(Res.string.btn_clear_history),
                                 modifier = Modifier.size(13.dp),
                                 tint = Lipi.Error
                             )
                             Text(
-                                text = "Clear All",
+                                text = stringResource(Res.string.btn_clear_history),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Lipi.Error
@@ -159,13 +170,13 @@ fun HistoryScreen(
                         tint = Lipi.Muted
                     )
                     Text(
-                        text = "No prescription history found",
+                        text = stringResource(Res.string.history_empty_title),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Lipi.Ink
                     )
                     Text(
-                        text = "Scanned prescription summaries will appear here.",
+                        text = stringResource(Res.string.history_empty_subtitle),
                         fontSize = 13.sp,
                         color = Lipi.Muted
                     )
@@ -173,13 +184,13 @@ fun HistoryScreen(
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(historyList, key = { it.id }) { record ->
-                    HistoryItemCard(
+                    HistoryCard(
                         record = record,
-                        onClick = { onSelectRecord(record) },
+                        onSelect = { onSelectRecord(record) },
                         onDelete = { itemToDelete = record }
                     )
                 }
@@ -187,46 +198,34 @@ fun HistoryScreen(
         }
     }
 
-    // Confirmation Dialog for Single Item Delete
     if (itemToDelete != null) {
         AlertDialog(
             onDismissRequest = { itemToDelete = null },
-            title = {
-                Text("Delete History Record?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Lipi.Ink)
-            },
-            text = {
-                Text("Are you sure you want to delete the scan record for '${itemToDelete?.formattedDateTime}'?", fontSize = 13.sp, color = Lipi.Muted)
-            },
+            title = { Text(stringResource(Res.string.confirm_delete_title)) },
+            text = { Text(stringResource(Res.string.confirm_delete_msg)) },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        itemToDelete?.let { onDeleteRecord(it.id) }
+                        itemToDelete?.id?.let { onDeleteRecord(it) }
                         itemToDelete = null
                     }
                 ) {
-                    Text("Delete", color = Lipi.Error, fontWeight = FontWeight.Bold)
+                    Text(stringResource(Res.string.btn_delete), color = Lipi.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { itemToDelete = null }) {
-                    Text("Cancel", color = Lipi.Ink)
+                    Text(stringResource(Res.string.btn_cancel))
                 }
-            },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(20.dp)
+            }
         )
     }
 
-    // Confirmation Dialog for Clear All History
     if (showClearAllConfirm) {
         AlertDialog(
             onDismissRequest = { showClearAllConfirm = false },
-            title = {
-                Text("Clear Scan History?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Lipi.Ink)
-            },
-            text = {
-                Text("This will delete all saved prescription history records from local storage. This action cannot be undone.", fontSize = 13.sp, color = Lipi.Muted)
-            },
+            title = { Text(stringResource(Res.string.confirm_clear_all_title)) },
+            text = { Text(stringResource(Res.string.confirm_clear_all_msg)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -234,90 +233,73 @@ fun HistoryScreen(
                         showClearAllConfirm = false
                     }
                 ) {
-                    Text("Clear All", color = Lipi.Error, fontWeight = FontWeight.Bold)
+                    Text(stringResource(Res.string.btn_clear_history), color = Lipi.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearAllConfirm = false }) {
-                    Text("Cancel", color = Lipi.Ink)
+                    Text(stringResource(Res.string.btn_cancel))
                 }
-            },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(20.dp)
+            }
         )
     }
 }
 
 @Composable
-private fun HistoryItemCard(
+private fun HistoryCard(
     record: PrescriptionHistoryEntity,
-    onClick: () -> Unit,
+    onSelect: () -> Unit,
     onDelete: () -> Unit
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+        onClick = onSelect,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         color = Color.White,
         border = BorderStroke(1.dp, Lipi.CardBorder)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(Lipi.PrimaryContainer, RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = Lipi.Primary
-                )
-            }
-
             Column(modifier = Modifier.weight(1f)) {
-                // 12-hour AM/PM analyze start date & time with seconds
                 Text(
                     text = record.formattedDateTime,
-                    fontSize = 15.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Lipi.Ink
+                    color = Lipi.Primary
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = record.medicineSummary.ifBlank { "Prescription analysis record" },
-                    fontSize = 13.sp,
-                    color = Lipi.Muted,
+                    text = record.medicineSummary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Lipi.Ink,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(32.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = stringResource(Res.string.btn_delete),
+                        tint = Lipi.Muted,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
                 Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete record",
-                    modifier = Modifier.size(18.dp),
-                    tint = Lipi.Error
+                    imageVector = Icons.AutoMirrored.Default.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = Lipi.Muted,
+                    modifier = Modifier.size(20.dp)
                 )
             }
-
-            Icon(
-                imageVector = Icons.AutoMirrored.Default.KeyboardArrowRight,
-                contentDescription = "Open",
-                modifier = Modifier.size(20.dp),
-                tint = Lipi.Muted
-            )
         }
     }
 }

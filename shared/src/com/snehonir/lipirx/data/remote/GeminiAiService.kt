@@ -1,5 +1,7 @@
 package com.snehonir.lipirx.data.remote
 
+import com.snehonir.lipirx.common.AppConstants
+import com.snehonir.lipirx.data.remote.dto.*
 import com.snehonir.lipirx.domain.agent.AiOutputFormatException
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
@@ -70,7 +72,7 @@ class GeminiAiService(
             if (targetApiKey.isBlank()) {
                 throw IllegalStateException("Gemini API key is missing. Please set your API key in Model Settings.")
             }
-            val cleanModel = selectedModel.removePrefix("models/").ifBlank { provider.defaultModel }
+            val cleanModel = selectedModel.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).ifBlank { provider.defaultModel }
             onProgress(0, "Encoding image & payload")
             Napier.d("[$flow] Starting processing: provider=${provider.id}, model=$cleanModel, size=${imageByteArray.size} bytes", tag = TAG)
 
@@ -91,13 +93,13 @@ class GeminiAiService(
                     )
                 ),
                 generationConfig = GenerationConfig(
-                    responseMimeType = "application/json",
+                    responseMimeType = AppConstants.MIME_TYPE_JSON,
                     temperature = 0.0,
                     maxOutputTokens = 16384
                 )
             )
 
-            val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
+            val endpoint = "${AppConstants.GEMINI_DEFAULT_ENDPOINT}/$cleanModel:generateContent?key=$targetApiKey"
             var rawResponseText = executeGeminiPostCall(endpoint, requestPayload, flow)
             var parseResult = runCatching { parseTwoPassResponse(rawResponseText) }
 
@@ -140,7 +142,7 @@ class GeminiAiService(
             if (targetApiKey.isBlank()) {
                 throw IllegalStateException("Gemini API key is missing. Please set your API key in Model Settings.")
             }
-            val cleanModel = selectedModel.removePrefix("models/").ifBlank { provider.defaultModel }
+            val cleanModel = selectedModel.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).ifBlank { provider.defaultModel }
             val requestPayload = GeminiRequest(
                 contents = listOf(
                     Content(
@@ -149,13 +151,13 @@ class GeminiAiService(
                     )
                 ),
                 generationConfig = GenerationConfig(
-                    responseMimeType = "application/json",
+                    responseMimeType = AppConstants.MIME_TYPE_JSON,
                     temperature = 0.1,
                     maxOutputTokens = 8192
                 )
             )
 
-            val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:generateContent?key=$targetApiKey"
+            val endpoint = "${AppConstants.GEMINI_DEFAULT_ENDPOINT}/$cleanModel:generateContent?key=$targetApiKey"
             val rawResponseText = executeGeminiPostCall(endpoint, requestPayload, flow)
             val response = jsonParser.decodeFromString<GeminiResponse>(rawResponseText)
             if (response.error != null) {

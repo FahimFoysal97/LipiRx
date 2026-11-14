@@ -1,5 +1,6 @@
 package com.snehonir.lipirx
 
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.mcp.LipiRxMcpServer
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
@@ -13,8 +14,8 @@ import java.net.Socket
 
 class McpHttpServer(
     private val mcpServer: LipiRxMcpServer,
-    private val port: Int = 8080,
-    private val endpointPath: String = "/lipirx/mcp"
+    private val port: Int = AppConstants.DEFAULT_MCP_PORT,
+    private val endpointPath: String = AppConstants.DEFAULT_MCP_PATH
 ) {
     private var isRunning = false
     private var serverSocket: ServerSocket? = null
@@ -90,7 +91,7 @@ class McpHttpServer(
 
                 val responseBytes = responseBody.toByteArray(Charsets.UTF_8)
                 writer.write("HTTP/1.1 200 OK\r\n")
-                writer.write("Content-Type: application/json; charset=utf-8\r\n")
+                writer.write("Content-Type: ${AppConstants.MIME_TYPE_JSON}; charset=utf-8\r\n")
                 writer.write("Access-Control-Allow-Origin: *\r\n")
                 writer.write("Content-Length: ${responseBytes.size}\r\n")
                 writer.write("\r\n")

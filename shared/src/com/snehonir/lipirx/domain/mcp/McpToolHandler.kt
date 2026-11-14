@@ -3,7 +3,7 @@ package com.snehonir.lipirx.domain.mcp
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
-import com.snehonir.lipirx.domain.agent.koog.ToolExecutionParams
+import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier

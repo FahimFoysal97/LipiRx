@@ -3,7 +3,8 @@ package com.snehonir.lipirx.data.local
 import android.content.Context
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
-import com.snehonir.lipirx.data.remote.ModelInfoDto
+import com.snehonir.lipirx.common.AppConstants
+import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.data.remote.initOnDeviceEngineContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,12 +32,12 @@ actual fun scanInstalledOnDeviceModels(): List<ModelInfoDto> {
     dirsToScan.forEach { dir ->
         dir.listFiles()?.forEach { file ->
             val name = file.name
-            if (file.isFile && (name.endsWith(".litertlm", ignoreCase = true) || name.endsWith(".tflite", ignoreCase = true))) {
-                val sizeMb = file.length() / (1024 * 1024)
+            if (file.isFile && (name.endsWith(AppConstants.EXTENSION_LITETRLM, ignoreCase = true) || name.endsWith(AppConstants.EXTENSION_TFLITE, ignoreCase = true))) {
+                val sizeMb = file.length() / AppConstants.BYTES_PER_MB
                 foundModels.add(
                     ModelInfoDto(
                         name = name,
-                        displayName = "$name ($sizeMb MB)"
+                        displayName = "$name ($sizeMb ${AppConstants.UNIT_MB})"
                     )
                 )
             }
@@ -56,7 +57,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
         return AndroidSqliteDriver(
             schema = LipiRxSchema,
             context = context,
-            name = "lipirx.db"
+            name = AppConstants.DATABASE_NAME
         )
     }
 }

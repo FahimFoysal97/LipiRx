@@ -1,6 +1,6 @@
 package com.snehonir.lipirx.presentation.scan
 
-import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -96,8 +96,8 @@ data class ScanUiState(
         result = 31 * result + (capturedImageByteArray?.contentHashCode() ?: 0)
         result = 31 * result + medicines.hashCode()
         result = 31 * result + isSuspendedForApproval.hashCode()
-        result = 31 * result + (approvalReason?.hashCode() ?: 0)
-        result = 31 * result + (errorMessage?.hashCode() ?: 0)
+        result = 31 * result + approvalReason.hashCode()
+        result = 31 * result + errorMessage.hashCode()
         result = 31 * result + availableModels.hashCode()
         result = 31 * result + selectedModel.hashCode()
         result = 31 * result + isFetchingModels.hashCode()
@@ -107,14 +107,14 @@ data class ScanUiState(
         result = 31 * result + groqApiKey.hashCode()
         result = 31 * result + openaiApiKey.hashCode()
         result = 31 * result + customApiKey.hashCode()
-        result = 31 * result + (apiKeyError?.hashCode() ?: 0)
-        result = 31 * result + (apiKeySuccess?.hashCode() ?: 0)
+        result = 31 * result + apiKeyError.hashCode()
+        result = 31 * result + apiKeySuccess.hashCode()
         result = 31 * result + isTestingApiKey.hashCode()
         result = 31 * result + onDeviceStrategy.hashCode()
         result = 31 * result + agentConfigs.hashCode()
         result = 31 * result + providerModelsMap.hashCode()
         result = 31 * result + historyList.hashCode()
-        result = 31 * result + (selectedHistoryItem?.hashCode() ?: 0)
+        result = 31 * result + selectedHistoryItem.hashCode()
         return result
     }
 }

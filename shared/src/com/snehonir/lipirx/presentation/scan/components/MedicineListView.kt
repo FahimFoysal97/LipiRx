@@ -52,12 +52,27 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.snehonir.lipirx.data.local.PrescriptionHistoryEntity
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.presentation.scan.model.Alternative
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_copy_summary
+import com.snehonir.lipirx.resources.btn_done
+import com.snehonir.lipirx.resources.btn_sign_off
+import com.snehonir.lipirx.resources.content_desc_prescription
+import com.snehonir.lipirx.resources.disclaimer_text
+import com.snehonir.lipirx.resources.gate_title
+import com.snehonir.lipirx.resources.label_needs_pharmacist_review
+import com.snehonir.lipirx.resources.label_pharmacist_verified
+import com.snehonir.lipirx.resources.no_medicines_subtitle
+import com.snehonir.lipirx.resources.no_medicines_title
+import com.snehonir.lipirx.resources.prescription_scanned
+import com.snehonir.lipirx.resources.results_title
+import com.snehonir.lipirx.resources.saved_prescription_record
+import com.snehonir.lipirx.resources.tap_to_zoom
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.CopyVectorIcon
-
-data class Alternative(val brand: String, val company: String)
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun MedicineListView(
@@ -120,7 +135,7 @@ fun MedicineListView(
                             color = Lipi.Ink
                         )
                         Text(
-                            text = "Saved Prescription Record",
+                            text = stringResource(Res.string.saved_prescription_record),
                             fontSize = 12.sp,
                             color = Lipi.Muted
                         )
@@ -129,8 +144,7 @@ fun MedicineListView(
             } else {
                 AppHeader(
                     onBack = onRescan,
-                    backContentDescription = "Back",
-                    title = "Prescription Results"
+                    title = stringResource(Res.string.results_title)
                 ) {
                     if (onHistoryClick != null) {
                         HistoryChip(
@@ -183,13 +197,13 @@ fun MedicineListView(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "No medicines recorded in this scan.",
+                                    text = stringResource(Res.string.no_medicines_title),
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Lipi.Ink
                                 )
                                 Text(
-                                    text = "This prescription analysis record did not contain active medicine items.",
+                                    text = stringResource(Res.string.no_medicines_subtitle),
                                     fontSize = 12.5.sp,
                                     color = Lipi.Muted,
                                     textAlign = TextAlign.Center
@@ -203,7 +217,7 @@ fun MedicineListView(
 
                 item {
                     Text(
-                        text = "AI-read from handwriting. Verify with a pharmacist before use.",
+                        text = stringResource(Res.string.disclaimer_text),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
@@ -231,14 +245,14 @@ fun MedicineListView(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 SecondaryButton(
-                    text = "Copy Summary",
+                    text = stringResource(Res.string.btn_copy_summary),
                     icon = CopyVectorIcon,
                     onClick = onCopySummary,
                     modifier = Modifier.weight(1f),
                     height = 52.dp
                 )
                 PrimaryButton(
-                    text = "Done",
+                    text = stringResource(Res.string.btn_done),
                     icon = Icons.Default.Check,
                     onClick = onRescan,
                     modifier = Modifier.weight(1f)
@@ -275,7 +289,7 @@ private fun PharmacistApprovalBanner(
                     modifier = Modifier.size(22.dp)
                 )
                 Text(
-                    text = if (isApproved) "Pharmacist Verified" else "Human-in-the-Loop Sign-Off Required",
+                    text = if (isApproved) stringResource(Res.string.label_pharmacist_verified) else stringResource(Res.string.label_needs_pharmacist_review),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (isApproved) Lipi.OnPrimaryContainer else Lipi.OnAmber
@@ -310,7 +324,7 @@ private fun PharmacistApprovalBanner(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Sign Off & Confirm Dispensing",
+                            text = stringResource(Res.string.btn_sign_off),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -360,7 +374,7 @@ private fun PrescriptionThumbnail(
         ) {
             AsyncImage(
                 model = imageByteArray,
-                contentDescription = "Prescription thumbnail",
+                contentDescription = stringResource(Res.string.content_desc_prescription),
                 modifier = Modifier
                     .size(40.dp, 50.dp)
                     .clip(RoundedCornerShape(8.dp))
@@ -368,13 +382,13 @@ private fun PrescriptionThumbnail(
                 contentScale = ContentScale.Crop,
             )
             Column {
-                Text("Prescription scanned", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                Text(stringResource(Res.string.prescription_scanned), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(14.dp), tint = Lipi.Muted)
-                    Text("Tap to zoom", fontSize = 12.sp, color = Lipi.Muted)
+                    Text(stringResource(Res.string.tap_to_zoom), fontSize = 12.sp, color = Lipi.Muted)
                 }
             }
         }
