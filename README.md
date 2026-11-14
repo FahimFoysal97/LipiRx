@@ -322,3 +322,12 @@ The project includes CLI wrappers `kotlin` (macOS/Linux) and `kotlin.bat` (Windo
 ## ⚠️ Disclaimer (Reminder)
 
 LipiRx is an educational/learning project, not a business or production product, and not a substitute for professional medical or pharmaceutical judgment. AI output can be wrong. Use it cautiously and entirely at your own responsibility — the author is not responsible for any issues arising from its use.
+ 
+---
+ 
+## 📄 License
+ 
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+ 
+The software is provided "as is", without warranty of any kind. Third-party libraries used in this project (Koog, Koin, Ktor, SQLDelight, LiteRT-LM, etc.) are subject to their own licenses.
+ 
