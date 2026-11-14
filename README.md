@@ -2,7 +2,7 @@
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
 
-It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, **Groq**, **OpenAI**, **Custom OpenAI-Compatible Endpoints** (such as local Ollama or private LLM proxies), **Edge On-Device SLM (LiteRT-LM)**, and an **Embedded Model Context Protocol (MCP) Server** with **AgentOps Forensic Execution Tracing** for seamless integration with external AI tools and desktop pharmacy POS systems.
+It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, **Groq**, **OpenAI**, **Custom OpenAI-Compatible Endpoints** (such as local Ollama or private LLM proxies), **Edge On-Device SLM (LiteRT-LM)**, an **Embedded Model Context Protocol (MCP) Server**, and an **Automated Evaluation & Regression Testing Harness (`RxAgentEvaluator`)** for seamless integration with external AI tools and desktop pharmacy POS systems.
 
 ---
 
@@ -15,23 +15,27 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 2. **Embedded Model Context Protocol (MCP) & OS Integration**:
    - JSON-RPC 2.0 server (`LipiRxMcpServer`) and local HTTP listener (`McpHttpServer` on port `8080`).
    - Exposes SQLDelight prescription history (`lipirx://history/scans`), provider configurations (`lipirx://config/providers`), and SQLite AgentOps forensic traces (`lipirx://history/traces`) as MCP Resources.
-   - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit, and `get_agent_execution_traces`) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
+   - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit, `get_agent_execution_traces`, and `eval_run_benchmark`) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
 
 3. **Production AgentOps Forensic Execution Tracing**:
    - SQLite table (`AgentExecutionTrace`) automatically recording every supervisor turn and worker tool execution with timestamps, provider/model metadata, reasoning steps, feedback prompts, execution durations (ms), item counts, and error status.
 
-4. **Multi-Provider & Edge Vision AI Engine**:
+4. **Automated Multi-Agent Evaluation & Regression Testing Harness**:
+   - `RxAgentEvaluator` executes the pipeline against golden benchmark test cases (`RxEvalTestCase`), computing extraction accuracy %, turn counts, and latency.
+   - Exposes on-device evaluation runner via MCP Tool `eval_run_benchmark` (`http://localhost:8080/lipirx/mcp`).
+
+5. **Multi-Provider & Edge Vision AI Engine**:
    - **Google Gemini**: Dynamic model discovery via Gemini REST API (`gemini-2.0-flash`, etc.).
    - **Groq**: High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
    - **OpenAI**: Integration with OpenAI Vision models (`gpt-4o`, etc.).
    - **Custom Endpoint**: Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
    - **On-Device SLM**: Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage.
 
-5. **Scan History & Local Storage Management**:
+6. **Scan History & Local Storage Management**:
    - SQLDelight SQLite storage saving prescription scan history and cross-session episodic dispensing memory.
    - Interactive `HistoryScreen` supporting single-item deletion (with confirmation dialog) and bulk **Clear All** removal.
 
-6. **Safety & UX Controls**:
+7. **Safety & UX Controls**:
    - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
    - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
    - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
@@ -67,6 +71,7 @@ Unlike fixed single-prompt systems, LipiRx uses an autonomous **Manager/Supervis
 3. **`executeGenericSubstituteSearch` (Stage 3)**: Cross-references DGDA active ingredients and matches 3–5 Bangladeshi brand substitutes (with manufacturer names) using `GenericSubstituteDto` JSON.
 4. **`executeSafetyAudit` (Stage 4)**: Audits dosage safety, interaction risks, unreadable spellings, and sets pharmacist review flags using `SafetyAuditDto` JSON.
 5. **`get_agent_execution_traces` (Stage 5)**: Queries local SQLite AgentOps execution traces for forensic auditing and performance telemetry.
+6. **`eval_run_benchmark` (Stage 6)**: Runs automated multi-agent accuracy & regression test suite on-device and returns JSON summary report.
 
 ---
 
@@ -108,6 +113,7 @@ LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`Lipi
   - `search_generic_substitutes`: Cross-references generic compositions and Bangladeshi brand substitutes.
   - `audit_patient_safety`: Audits clinical safety warnings and flags dosage anomalies.
   - `get_agent_execution_traces`: Queries recent agent execution trace records from SQLite.
+  - `eval_run_benchmark`: Executes automated multi-agent evaluation suite on-device and returns JSON summary report.
 - **Local HTTP Transport (`McpHttpServer`)**: Runs an embedded HTTP server on port `8080` (`http://localhost:8080/lipirx/mcp`) with CORS preflight support so terminal commands (`curl`/PowerShell `Invoke-RestMethod`), Claude Desktop, and local Pharmacy POS desktop software can connect directly.
 
 ---
@@ -117,10 +123,10 @@ LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`Lipi
 LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** (`litertlm-android`) and LiteRT runtime (`.litertlm` and `.tflite` model files).
 
 ### On-Device Execution Strategies
-- **Hybrid Fallback** *(Default)*: Cloud AI First $\rightarrow$ Automatic On-Device SLM Fallback on network drops, server errors, or API quota limits.
-- **On-Device First**: Local NPU First $\rightarrow$ Cloud Escalation for complex safety auditing.
+- **Hybrid Fallback** *(Default)*: Cloud AI First → Automatic On-Device SLM Fallback on network drops, server errors, or API quota limits.
+- **On-Device First**: Local NPU First → Cloud Escalation for complex safety auditing.
 - **On-Device Only**: Strict 100% Offline / Local Execution Only.
-- **Cloud Only**: Disable On-Device SLM $\rightarrow$ Cloud AI Only.
+- **Cloud Only**: Disable On-Device SLM → Cloud AI Only.
 
 ---
 
@@ -210,6 +216,10 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   ├── RxSupervisorAgent.kt         # Master Supervisor LLM Agent
             │   │   ├── TranscriptionInput.kt        # Prescription input domain model
             │   │   └── OrchestrationResult.kt       # Multi-agent result domain model
+            │   ├── eval/                            # Evaluation & Regression Testing Harness
+            │   │   ├── RxEvalTestCase.kt            # Golden benchmark test case model
+            │   │   ├── EvalMetrics.kt               # Accuracy, latency & summary report DTOs
+            │   │   └── RxAgentEvaluator.kt          # On-device evaluation suite runner
             │   ├── mcp/                             # Model Context Protocol (MCP) Engine
             │   │   ├── LipiRxMcpServer.kt           # Main JSON-RPC 2.0 MCP Protocol Handler
             │   │   ├── McpResourceHandler.kt        # Resource handler for scans, config & traces
@@ -259,6 +269,10 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 4. Query recent agent traces using the `get_agent_execution_traces` tool:
    ```powershell
    Invoke-RestMethod -Uri "http://localhost:8080/lipirx/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"3","method":"tools/call","params":{"name":"get_agent_execution_traces","arguments":{"limit":"10"}}}' | ConvertTo-Json -Depth 5
+   ```
+5. Trigger on-device multi-agent evaluations using the `eval_run_benchmark` tool:
+   ```powershell
+   Invoke-RestMethod -Uri "http://localhost:8080/lipirx/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"4","method":"tools/call","params":{"name":"eval_run_benchmark","arguments":{}}}' | ConvertTo-Json -Depth 5
    ```
 
 ### 📱 Installing Local SLM Weights (Optional for Offline Mode)

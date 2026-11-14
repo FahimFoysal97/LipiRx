@@ -2,7 +2,7 @@
 
 General engineering standards come from the global CLAUDE.md and the `android-kotlin-standards` and `refactor` skills. This file covers LipiRx-specific rules only. Where this file conflicts with the global rules, this file wins, except security and data safety.
 
-This is the engineering guide for developing, maintaining, and extending the multi-agent transcription, safety, and AgentOps pipeline in LipiRx.
+This is the engineering guide for developing, maintaining, extending, and evaluating the multi-agent transcription, safety, and AgentOps pipeline in LipiRx.
 
 ---
 
@@ -46,18 +46,28 @@ Every turn and tool execution is automatically logged to SQLite (`AgentExecution
 All agent components live in the KMP shared module:
 `shared/src/commonMain/kotlin/com/snehonir/lipirx/domain/agent/`
 
-| Agent Enum ID | Class / Tool Name | Responsibility | Default Provider | Default Model |
-| :--- | :--- | :--- | :--- | :--- |
-| `SUPERVISOR` | `RxSupervisorAgent` & `KoogRxSupervisorEngine` | Evaluates workspace state, coordinates tool dispatches, enforces the Pharmacist Approval Gate | Gemini | `gemini-2.0-flash` |
-| `TRANSCRIPTION` | `RxAgentTools.executeVisionOCR` | Vision OCR of handwritten prescriptions: raw text, brand names, dosages | Gemini | `gemini-2.0-flash` |
-| `ENTITY_PARSER` | `RxAgentTools.executeEntityParsing` | Parses raw OCR text into structured `MedicineItem` (brand, generic, dosage, strength, form, schedule) | Gemini | `gemini-1.5-pro` |
-| `GENERIC_SUBSTITUTE` | `RxAgentTools.executeGenericSubstituteSearch` | Identifies active generic salts and queries Bangladeshi brand substitutes | Groq | `llama-3.2-90b-vision-instruct` |
-| `SAFETY_AUDITOR` | `RxAgentTools.executeSafetyAudit` | Audits dosages, flags ambiguous or unreadable entries, evaluates drug-drug contraindications, sets clinical warnings | OpenAI | `gpt-4o-mini` |
-| `--` | `McpToolHandler.get_agent_execution_traces` | Queries AgentOps SQLite execution traces for offline debugging & telemetry | -- | -- |
+| Agent Enum ID        | Class / Tool Name                              | Responsibility                                                                                                       | Default Provider | Default Model                   |
+|:---------------------|:-----------------------------------------------|:---------------------------------------------------------------------------------------------------------------------|:-----------------|:--------------------------------|
+| `SUPERVISOR`         | `RxSupervisorAgent` & `KoogRxSupervisorEngine` | Evaluates workspace state, coordinates tool dispatches, enforces the Pharmacist Approval Gate                        | Gemini           | `gemini-2.0-flash`              |
+| `TRANSCRIPTION`      | `RxAgentTools.executeVisionOCR`                | Vision OCR of handwritten prescriptions: raw text, brand names, dosages                                              | Gemini           | `gemini-2.0-flash`              |
+| `ENTITY_PARSER`      | `RxAgentTools.executeEntityParsing`            | Parses raw OCR text into structured `MedicineItem` (brand, generic, dosage, strength, form, schedule)                | Gemini           | `gemini-1.5-pro`                |
+| `GENERIC_SUBSTITUTE` | `RxAgentTools.executeGenericSubstituteSearch`  | Identifies active generic salts and queries Bangladeshi brand substitutes                                            | Groq             | `llama-3.2-90b-vision-instruct` |
+| `SAFETY_AUDITOR`     | `RxAgentTools.executeSafetyAudit`              | Audits dosages, flags ambiguous or unreadable entries, evaluates drug-drug contraindications, sets clinical warnings | OpenAI           | `gpt-4o-mini`                   |
+| `--`                 | `McpToolHandler.get_agent_execution_traces`    | Queries AgentOps SQLite execution traces for offline debugging & telemetry                                           | --               | --                              |
+| `--`                 | `McpToolHandler.eval_run_benchmark`            | Runs automated on-device accuracy & regression evaluation suite (`RxAgentEvaluator`)                                 | --               | --                              |
 
 ---
 
-## 3. AI Execution Strategies (`OnDeviceStrategy`)
+## 3. Automated Evaluation & Regression Testing (`RxAgentEvaluator`)
+
+LipiRx includes an on-device multi-agent evaluation harness in `domain/eval/` to prevent silent LLM accuracy regressions when updating prompts, changing providers, or switching models:
+- **Golden Test Cases (`RxEvalTestCase`)**: Baseline benchmark test cases with expected brand names, generic compositions, strengths, and maximum allowed turns.
+- **Accuracy & Turn Metrics (`EvalMetrics` & `EvalSummaryReport`)**: Calculates brand/generic extraction accuracy %, tracks turn efficiency and execution latency ms.
+- **MCP Evaluation Execution**: Invokable remotely via `eval_run_benchmark` MCP tool (`http://localhost:8080/lipirx/mcp`).
+
+---
+
+## 4. AI Execution Strategies (`OnDeviceStrategy`)
 
 - `HYBRID_FALLBACK` (default): cloud first, automatic on-device LiteRT-LM fallback on network error or offline.
 - `ON_DEVICE_FIRST`: local SLM first, cloud escalation for complex safety verification.
@@ -68,7 +78,7 @@ Providers (`AiProvider`): `gemini`, `groq`, `openai`, `custom` (OpenAI-compatibl
 
 ---
 
-## 4. Model Context Protocol (MCP) & AgentOps Exposure
+## 5. Model Context Protocol (MCP) & AgentOps Exposure
 
 LipiRx includes an embedded HTTP MCP Server running on port `8080` (`http://localhost:8080/lipirx/mcp`).
 
@@ -83,10 +93,11 @@ LipiRx includes an embedded HTTP MCP Server running on port `8080` (`http://loca
 - `search_generic_substitutes`
 - `audit_patient_safety`
 - `get_agent_execution_traces`
+- `eval_run_benchmark`
 
 ---
 
-## 5. Adding a New Tool / Agent Capability
+## 6. Adding a New Tool / Agent Capability
 
 Follow these 4 steps.
 
@@ -149,7 +160,7 @@ private suspend fun executeToolForAgent(
 
 ---
 
-## 6. Error Handling and Failure Propagation
+## 7. Error Handling and Failure Propagation
 
 - **No silent fallbacks.** Never use `getOrDefault` or similar with fake clinical values (for example a dosage of `1 + 0 + 1` or a quantity of `10`).
 - **Explicit failures.** On a parsing error, network timeout, or rate limit (HTTP 429), return `Result.failure(...)` with a descriptive `IllegalStateException` or a custom domain exception.
@@ -158,7 +169,7 @@ private suspend fun executeToolForAgent(
 
 ---
 
-## 7. Clinical Safety & Data Invariants (absolute, never weaken, including during refactors)
+## 8. Clinical Safety & Data Invariants (absolute, never weaken, including during refactors)
 
 1. **Pharmacist Approval Gate.** Never bypassed, disabled, or made optional. Any prescription flagged with warnings requires active pharmacist sign-off.
 2. **Zero hallucination.** If parsing fails or text is unreadable, never invent dosage schedules or tablet quantities. Leave fields empty or unknown, or fail explicitly.
@@ -171,7 +182,7 @@ private suspend fun executeToolForAgent(
 
 ---
 
-## 8. Compose Guardrails
+## 9. Compose Guardrails
 
 `DropdownMenu`, `ModalBottomSheet`, and any container using `Modifier.height(IntrinsicSize.Min)` MUST NOT contain `SubcomposeLayout` components (`LazyColumn`, `LazyRow`, `BoxWithConstraints`, `TabRow`).
 - Scrollable menus: plain `Column` with `verticalScroll(rememberScrollState())` and `heightIn(max = 220.dp)`.
@@ -179,7 +190,7 @@ private suspend fun executeToolForAgent(
 
 ---
 
-## 9. Project Rules
+## 10. Project Rules
 
 - Domain models and agent implementations live in `:shared` (`commonMain`).
 - Use the `Lipi` design system in `com.snehonir.lipirx.ui.theme`. Never create a second theme, palette, or typography.
@@ -187,7 +198,7 @@ private suspend fun executeToolForAgent(
 
 ---
 
-## 10. Build & Verify
+## 11. Build & Verify
 
 - Build: `./gradlew :shared:build` and `./gradlew :composeApp:assembleDebug`
 - Tests: `./gradlew :shared:allTests`
