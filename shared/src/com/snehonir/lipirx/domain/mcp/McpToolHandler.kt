@@ -4,6 +4,7 @@ import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
 import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
+import com.snehonir.lipirx.domain.eval.RxAgentEvaluator
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
@@ -18,6 +19,7 @@ import kotlin.io.encoding.Base64
 class McpToolHandler(
     private val rxAgentTools: RxAgentTools,
     private val database: LipiRxLocalDatabase,
+    private val rxAgentEvaluator: RxAgentEvaluator? = null,
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 ) {
     fun listTools(): List<McpTool> {
@@ -82,6 +84,16 @@ class McpToolHandler(
                     ),
                     required = emptyList()
                 )
+            ),
+            McpTool(
+                name = TOOL_EVAL_BENCHMARK,
+                description = "Runs automated multi-agent accuracy & regression test suite on-device and returns JSON summary report",
+                inputSchema = buildSchema(
+                    properties = mapOf(
+                        "suiteName" to "Benchmark suite identifier (optional)"
+                    ),
+                    required = emptyList()
+                )
             )
         )
     }
@@ -112,6 +124,7 @@ class McpToolHandler(
             TOOL_GENERIC_SUBSTITUTE -> executeGenericSubstituteTool(args)
             TOOL_SAFETY_AUDIT -> executeSafetyAuditTool(args)
             TOOL_GET_TRACES -> executeGetTracesTool(args)
+            TOOL_EVAL_BENCHMARK -> executeRunBenchmarkTool()
             else -> throw IllegalArgumentException("Unknown MCP Tool name: '$toolName'")
         }
     }
@@ -156,6 +169,12 @@ class McpToolHandler(
         val limit = limitStr.toIntOrNull() ?: 50
         val traces = database.getAgentTraces(limit = limit, flow = "MCP -> executeGetTracesTool")
         return jsonParser.encodeToString(traces)
+    }
+
+    private suspend fun executeRunBenchmarkTool(): String {
+        val evaluator = rxAgentEvaluator ?: throw IllegalStateException("RxAgentEvaluator is not initialized in McpToolHandler")
+        val report = evaluator.runEvaluationSuite()
+        return jsonParser.encodeToString(report)
     }
 
     private fun getMedicineItemsArg(args: JsonObject): List<MedicineItem> {
@@ -205,5 +224,6 @@ class McpToolHandler(
         const val TOOL_GENERIC_SUBSTITUTE = "search_generic_substitutes"
         const val TOOL_SAFETY_AUDIT = "audit_patient_safety"
         const val TOOL_GET_TRACES = "get_agent_execution_traces"
+        const val TOOL_EVAL_BENCHMARK = "eval_run_benchmark"
     }
 }

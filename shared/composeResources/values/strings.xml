@@ -108,7 +108,7 @@
     <string name="no_local_models_found">No local models found on device storage.\nPush .litertlm file via adb to filesDir.</string>
     <string name="no_live_models_found">No live models found for %1$s.\nTap \'Save Provider Config\' below to verify key &amp; fetch models.</string>
     <string name="configure_key_to_load_models">Configure API key to load models</string>
-    <string name="mcp_server_running">🟢 Server running at http://localhost:8080/lipirx/mcp</string>
+    <string name="mcp_server_running">🟢 Server running at \nhttp://localhost:8080/lipirx/mcp</string>
     <string name="mcp_server_description">Exposes local OCR tools &amp; prescription history for desktop tools &amp; POS software</string>
     <string name="on_device_info_banner">On-Device SLM runs locally on your device hardware without requiring an API key.</string>
 

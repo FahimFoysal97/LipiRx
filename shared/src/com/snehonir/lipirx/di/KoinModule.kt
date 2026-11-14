@@ -10,6 +10,7 @@ import com.snehonir.lipirx.data.remote.OpenAiAiService
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
 import com.snehonir.lipirx.domain.agent.koog.KoogRxSupervisorEngine
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
+import com.snehonir.lipirx.domain.eval.RxAgentEvaluator
 import com.snehonir.lipirx.domain.mcp.LipiRxMcpServer
 import com.snehonir.lipirx.domain.mcp.McpResourceHandler
 import com.snehonir.lipirx.domain.mcp.McpToolHandler
@@ -105,9 +106,11 @@ val sharedModule = module {
         )
     }
 
+    single { RxAgentEvaluator(supervisorEngine = get()) }
+
     // Model Context Protocol (MCP) Server & Handlers
     single { McpResourceHandler(database = get(), jsonParser = get()) }
-    single { McpToolHandler(rxAgentTools = get(), database = get(), jsonParser = get()) }
+    single { McpToolHandler(rxAgentTools = get(), database = get(), rxAgentEvaluator = get(), jsonParser = get()) }
     single { LipiRxMcpServer(resourceHandler = get(), toolHandler = get(), jsonParser = get()) }
 
     // Use Cases

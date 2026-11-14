@@ -24,6 +24,7 @@ class KoogRxSupervisorEngine(
 ) {
     suspend fun runOrchestration(
         input: TranscriptionInput,
+        initialItems: List<MedicineItem> = emptyList(),
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
         onProgress: (step: ProcessingStep) -> Unit = {}
     ): Result<OrchestrationResult> {
@@ -38,7 +39,7 @@ class KoogRxSupervisorEngine(
             fallbackCustomUrl = input.customUrl
         )
 
-        var state = SupervisorState(input = input)
+        var state = SupervisorState(input = input, items = initialItems)
         val maxTurns = MAX_SUPERVISOR_TURNS
 
         while (!state.isFinished && state.turnCount < maxTurns) {

@@ -45,4 +45,6 @@ object AppConstants {
 
     const val MAX_SUPERVISOR_TURNS = 6
     const val HTTP_TIMEOUT_MILLIS = 60_000L
+
+    const val EVAL_ACCURACY_THRESHOLD = 0.8f
 }
