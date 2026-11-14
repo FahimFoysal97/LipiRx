@@ -2,7 +2,7 @@
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
 
-It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, **Groq**, **OpenAI**, **Custom OpenAI-Compatible Endpoints** (such as local Ollama or private LLM proxies), **Edge On-Device SLM (LiteRT-LM)**, and an **Embedded Model Context Protocol (MCP) Server** for seamless integration with external AI tools and desktop pharmacy POS systems.
+It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, **Groq**, **OpenAI**, **Custom OpenAI-Compatible Endpoints** (such as local Ollama or private LLM proxies), **Edge On-Device SLM (LiteRT-LM)**, and an **Embedded Model Context Protocol (MCP) Server** with **AgentOps Forensic Execution Tracing** for seamless integration with external AI tools and desktop pharmacy POS systems.
 
 ---
 
@@ -14,21 +14,24 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 
 2. **Embedded Model Context Protocol (MCP) & OS Integration**:
    - JSON-RPC 2.0 server (`LipiRxMcpServer`) and local HTTP listener (`McpHttpServer` on port `8080`).
-   - Exposes SQLDelight prescription history (`lipirx://history/scans`) as MCP Resources.
-   - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
+   - Exposes SQLDelight prescription history (`lipirx://history/scans`), provider configurations (`lipirx://config/providers`), and SQLite AgentOps forensic traces (`lipirx://history/traces`) as MCP Resources.
+   - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit, and `get_agent_execution_traces`) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
 
-3. **Multi-Provider & Edge Vision AI Engine**:
+3. **Production AgentOps Forensic Execution Tracing**:
+   - SQLite table (`AgentExecutionTrace`) automatically recording every supervisor turn and worker tool execution with timestamps, provider/model metadata, reasoning steps, feedback prompts, execution durations (ms), item counts, and error status.
+
+4. **Multi-Provider & Edge Vision AI Engine**:
    - **Google Gemini**: Dynamic model discovery via Gemini REST API (`gemini-2.0-flash`, etc.).
    - **Groq**: High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
    - **OpenAI**: Integration with OpenAI Vision models (`gpt-4o`, etc.).
    - **Custom Endpoint**: Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
    - **On-Device SLM**: Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage.
 
-4. **Scan History & Local Storage Management**:
+5. **Scan History & Local Storage Management**:
    - SQLDelight SQLite storage saving prescription scan history and cross-session episodic dispensing memory.
    - Interactive `HistoryScreen` supporting single-item deletion (with confirmation dialog) and bulk **Clear All** removal.
 
-5. **Safety & UX Controls**:
+6. **Safety & UX Controls**:
    - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
    - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
    - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
@@ -63,6 +66,7 @@ Unlike fixed single-prompt systems, LipiRx uses an autonomous **Manager/Supervis
 2. **`executeEntityParsing` (Stage 2)**: Parses and normalizes medicine forms, strengths, units, schedules, and total unit calculations using structured `ParsedEntityDto` JSON.
 3. **`executeGenericSubstituteSearch` (Stage 3)**: Cross-references DGDA active ingredients and matches 3–5 Bangladeshi brand substitutes (with manufacturer names) using `GenericSubstituteDto` JSON.
 4. **`executeSafetyAudit` (Stage 4)**: Audits dosage safety, interaction risks, unreadable spellings, and sets pharmacist review flags using `SafetyAuditDto` JSON.
+5. **`get_agent_execution_traces` (Stage 5)**: Queries local SQLite AgentOps execution traces for forensic auditing and performance telemetry.
 
 ---
 
@@ -74,7 +78,7 @@ LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`Lipi
   ┌─────────────────────────────────────────────────────────────┐
   │  External MCP Clients (Claude Desktop, Cursor, POS Software)│
   └──────────────────────────────┬──────────────────────────────┘
-                                 │ HTTP POST (http://localhost:8080/mcp)
+                                 │ HTTP POST (http://localhost:8080/lipirx/mcp)
                                  ▼
   ┌─────────────────────────────────────────────────────────────┐
   │                   McpHttpServer (Port 8080)                 │
@@ -88,8 +92,8 @@ LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`Lipi
                  ▼                               ▼
      ┌───────────────────────┐       ┌───────────────────────┐
      │     MCP Resources     │       │       MCP Tools       │
-     │  (SQLDelight History  │       │    (RxAgentTools      │
-     │   & Provider Config)  │       │   OCR/Parsing/Audit)  │
+     │  (SQLDelight History, │       │    (RxAgentTools      │
+     │   Config & Traces)    │       │   OCR/Parsing/Traces) │
      └───────────────────────┘       └───────────────────────┘
 ```
 
@@ -97,12 +101,14 @@ LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`Lipi
 - **MCP Resources (`resources/list`, `resources/read`)**:
   - `lipirx://history/scans`: Accesses SQLDelight prescription scan history and extracted items.
   - `lipirx://config/providers`: Queries current AI provider configurations and assigned models.
+  - `lipirx://history/traces`: Reads AgentOps SQLite forensic execution traces.
 - **MCP Tools (`tools/list`, `tools/call`)**:
   - `scan_prescription_vision_ocr`: Executes vision OCR on base64 image input.
   - `parse_medical_entities`: Normalizes brand names, dosages, forms, and schedules.
   - `search_generic_substitutes`: Cross-references generic compositions and Bangladeshi brand substitutes.
   - `audit_patient_safety`: Audits clinical safety warnings and flags dosage anomalies.
-- **Local HTTP Transport (`McpHttpServer`)**: Runs an embedded HTTP server on port `8080` (`http://localhost:8080/lipirx/mcp`) so terminal commands (`curl`/PowerShell `Invoke-RestMethod`), Claude Desktop, and local Pharmacy POS desktop software can connect directly.
+  - `get_agent_execution_traces`: Queries recent agent execution trace records from SQLite.
+- **Local HTTP Transport (`McpHttpServer`)**: Runs an embedded HTTP server on port `8080` (`http://localhost:8080/lipirx/mcp`) with CORS preflight support so terminal commands (`curl`/PowerShell `Invoke-RestMethod`), Claude Desktop, and local Pharmacy POS desktop software can connect directly.
 
 ---
 
@@ -126,9 +132,8 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 - **Protocol Integration**: Model Context Protocol (MCP) JSON-RPC 2.0 server (`LipiRxMcpServer` + `McpHttpServer` on port 8080)
 - **Multi-Provider AI Architecture**: Strategy Pattern (`PrescriptionAiService` -> `GeminiAiService`, `GroqAiService`, `OpenAiAiService`, `CustomAiService`, `OnDeviceAiService`, managed by `CompositeAiService`)
 - **On-Device LLM Runtime**: Google LiteRT-LM (`com.google.ai.edge.litertlm`) and LiteRT CompiledModel
-- **Image Loading**: Coil 3 (`io.coil-kt.coil3:coil-compose`)
 - **State Management**: MVVM + `StateFlow` + `Channel` + `kotlinx.collections.immutable` (`ImmutableList`, `ImmutableMap`)
-- **Local Database**: SQLDelight 2.x SQLite database logging provider keys, per-provider models, agent matrix configurations, on-device strategy, and offline prescription history
+- **Local Database**: SQLDelight 2.x SQLite database logging provider keys, per-provider models, agent matrix configurations, on-device strategy, offline prescription history, and AgentOps execution traces
 - **Networking**: Ktor Client 3.x (`OkHttp` for Android, `Darwin` for iOS) with `kotlinx.serialization`
 - **Dependency Injection**: Koin 4.x (`koin-core`, `koin-compose`, `koin-compose-viewmodel`, `koin-android`)
 
@@ -142,7 +147,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 │   ├── src/
 │   │   ├── MainActivity.kt                          # ComponentActivity displaying App()
 │   │   ├── LipiRxApplication.kt                     # Application class initializing Koin & McpHttpServer
-│   │   ├── McpHttpServer.kt                         # Embedded HTTP Server listening on port 8080
+│   │   ├── McpHttpServer.kt                         # Embedded HTTP Server listening on port 8080 (/lipirx/mcp)
 │   │   └── AndroidManifest.xml                      # Includes OpenCL & Vndk native library declarations
 │   └── module.yaml
 │
@@ -153,62 +158,79 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 │   └── module.yaml
 │
 └── shared/                                          # KMP Shared Module
-    ├── src/                                         # Common Kotlin code
-    │   ├── App.kt                                   # Main Compose entry point & KoinContext wrapper
-    │   └── com/snehonir/lipirx/
-    │       ├── data/
-    │       │   ├── local/
-    │       │   │   └── DatabaseDriverFactory.kt     # SQLDelight database driver & agent/strategy config storage
-    │       │   └── remote/
-    │       │       ├── PrescriptionAiService.kt     # Core AI Service interface
-    │       │       ├── GeminiAiService.kt           # Google Gemini Vision REST implementation
-    │       │       ├── OpenAiCompatibleAiService.kt # Base class for OpenAI-compatible APIs
-    │       │       ├── GroqAiService.kt             # Groq Vision REST implementation
-    │       │       ├── OpenAiAiService.kt           # OpenAI Vision REST implementation
-    │       │       ├── CustomAiService.kt           # Custom Endpoint REST implementation
-    │       │       ├── OnDeviceAiService.kt         # On-Device SLM service implementation
-    │       │       ├── OnDeviceLlmEngine.kt         # LiteRT-LM expect/actual engine interface
-    │       │       ├── CompositeAiService.kt        # Polymorphic AI provider router
-    │       │       └── Prompts.kt                   # Vision prompt engineering
-    │       ├── di/
-    │       │   └── KoinModule.kt                    # Koin 4.x dependency injection module
-    │       ├── domain/
-    │       │   ├── agent/
-    │       │   │   ├── koog/
-    │       │   │   │   ├── KoogRxSupervisorEngine.kt # Koog Multi-Agent Supervisor Engine
-    │       │   │   │   └── RxAgentTools.kt           # Type-safe Koog Agent Tools
-    │       │   │   ├── RxAgentType.kt               # Agent type enum & default configs
-    │       │   │   ├── RxSupervisorAgent.kt         # Master Supervisor LLM Agent
-    │       │   │   ├── TranscriptionInput.kt        # Prescription input domain model
-    │       │   │   └── OrchestrationResult.kt       # Multi-agent result domain model
-    │       │   ├── mcp/                             # Model Context Protocol (MCP) Engine
-    │       │   │   ├── LipiRxMcpServer.kt           # Main JSON-RPC 2.0 MCP Protocol Handler
-    │       │   │   ├── McpResourceHandler.kt        # SQLDelight database resource provider
-    │       │   │   ├── McpToolHandler.kt            # RxAgentTools MCP tool wrapper
-    │       │   │   └── McpModels.kt                 # Protocol DTOs & serializable payloads
-    │       │   ├── model/
-    │       │   │   ├── AiProvider.kt                # Sealed interface for AI Providers (including OnDevice)
-    │       │   │   ├── OnDeviceStrategy.kt          # On-device execution strategy enum
-    │       │   │   ├── MedicineItem.kt              # Prescription medicine model
-    │       │   │   └── ProcessingStep.kt            # Analysis progress step enum
-    │       │   └── usecase/
-    │       │       └── ProcessPrescriptionUseCase.kt # Use case dispatching directly to KoogRxSupervisorEngine
-    │       └── presentation/
-    │           └── scan/
-    │               ├── ScanContract.kt              # ScanUiState & ScanUiEvent contracts
-    │               ├── ScanViewModel.kt             # MVVM ViewModel managing scan lifecycle
-    │               ├── ScanResultScreen.kt          # Main screen composable with back handlers
-    │               └── components/                  # UI View components (HistoryScreen, LoadingView, Cards, Matrix, etc.)
-    ├── src@android/                                 # Android-specific implementations
-    │   └── com/snehonir/lipirx/
-    │       ├── data/local/DatabaseDriverFactory.android.kt
-    │       ├── data/remote/OnDeviceLlmEngine.android.kt # Android LiteRT-LM Engine implementation
-    │       └── di/PlatformModule.android.kt
-    └── src@ios/                                     # iOS-specific implementations
+    ├── composeResources/
+    │   └── values/strings.xml                       # Centralized Compose Multiplatform string resources
+    └── src/                                         # Common Kotlin code
+        ├── App.kt                                   # Main Compose entry point & KoinContext wrapper
         └── com/snehonir/lipirx/
-            ├── data/local/DatabaseDriverFactory.ios.kt
-            ├── data/remote/OnDeviceLlmEngine.ios.kt     # iOS stub implementation
-            └── di/PlatformModule.ios.kt
+            ├── common/
+            │   └── AppConstants.kt                  # Application, network, database, and unit constants
+            ├── data/
+            │   ├── local/
+            │   │   ├── entity/                      # SQLite entities
+            │   │   │   ├── PrescriptionHistoryEntity.kt
+            │   │   │   ├── ProviderConfigEntity.kt
+            │   │   │   └── AgentExecutionTraceEntity.kt
+            │   │   ├── LipiRxLocalDatabase.kt       # SQLDelight repository database implementation
+            │   │   └── DatabaseDriverFactory.kt     # Expect/actual database driver factory
+            │   └── remote/
+            │       ├── dto/                         # Remote API DTOs
+            │       │   ├── ModelInfoDto.kt
+            │       │   ├── GeminiContentDto.kt
+            │       │   ├── GeminiTwoPassResponseDto.kt
+            │       │   ├── OpenAiChatDto.kt
+            │       │   └── OpenAiModelsDto.kt
+            │       ├── PrescriptionAiService.kt     # Core AI Service interface
+            │       ├── GeminiAiService.kt           # Google Gemini Vision REST implementation
+            │       ├── OpenAiCompatibleAiService.kt # Base class for OpenAI-compatible APIs
+            │       ├── GroqAiService.kt             # Groq Vision REST implementation
+            │       ├── OpenAiAiService.kt           # OpenAI Vision REST implementation
+            │       ├── CustomAiService.kt           # Custom Endpoint REST implementation
+            │       ├── OnDeviceAiService.kt         # On-Device SLM service implementation
+            │       ├── OnDeviceLlmEngine.kt         # LiteRT-LM expect/actual engine interface
+            │       └── CompositeAiService.kt        # Polymorphic AI provider router
+            ├── di/
+            │   └── KoinModule.kt                    # Koin 4.x dependency injection module
+            ├── domain/
+            │   ├── agent/
+            │   │   ├── koog/
+            │   │   │   ├── dto/                     # Agent tool parameters & DTOs
+            │   │   │   │   ├── ToolExecutionParams.kt
+            │   │   │   │   ├── ParsedEntityDto.kt
+            │   │   │   │   ├── GenericSubstituteDto.kt
+            │   │   │   │   └── SafetyAuditDto.kt
+            │   │   │   ├── KoogRxSupervisorEngine.kt # Koog Multi-Agent Supervisor Engine
+            │   │   │   └── RxAgentTools.kt           # Type-safe Koog Agent Tools
+            │   │   ├── AgentExecutionRecord.kt      # Agent execution history record
+            │   │   ├── SupervisorState.kt           # Supervisor orchestration state
+            │   │   ├── SupervisorDecision.kt        # Supervisor decision model
+            │   │   ├── SupervisorDecisionDto.kt     # Supervisor LLM decision DTO
+            │   │   ├── SupervisorConstants.kt       # Reasoning strings & feedback prompts
+            │   │   ├── RxAgentType.kt               # Agent type enum & default configs
+            │   │   ├── RxSupervisorAgent.kt         # Master Supervisor LLM Agent
+            │   │   ├── TranscriptionInput.kt        # Prescription input domain model
+            │   │   └── OrchestrationResult.kt       # Multi-agent result domain model
+            │   ├── mcp/                             # Model Context Protocol (MCP) Engine
+            │   │   ├── LipiRxMcpServer.kt           # Main JSON-RPC 2.0 MCP Protocol Handler
+            │   │   ├── McpResourceHandler.kt        # Resource handler for scans, config & traces
+            │   │   ├── McpToolHandler.kt            # RxAgentTools & AgentOps MCP tool wrapper
+            │   │   └── McpModels.kt                 # Protocol DTOs & serializable payloads
+            │   ├── model/
+            │   │   ├── AiProvider.kt                # Sealed interface for AI Providers
+            │   │   ├── ClinicalApprovalReasons.kt   # Pharmacist gate approval reasons
+            │   │   ├── OnDeviceStrategy.kt          # On-device execution strategy enum
+            │   │   ├── MedicineItem.kt              # Prescription medicine model
+            │   │   └── ProcessingStep.kt            # Analysis progress step enum
+            │   └── usecase/
+            │       └── ProcessPrescriptionUseCase.kt # Use case dispatching directly to KoogRxSupervisorEngine
+            └── presentation/
+                └── scan/
+                    ├── model/
+                    │   └── Alternative.kt           # UI alternative brand model
+                    ├── ScanContract.kt              # ScanUiState & ScanUiEvent contracts
+                    ├── ScanViewModel.kt             # MVVM ViewModel managing scan lifecycle
+                    ├── ScanResultScreen.kt          # Main screen composable
+                    └── components/                  # UI View components
 ```
 
 ---
@@ -217,7 +239,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 
 ### 🔑 Setting Up AI Providers & On-Device Strategy
 1. Launch **LipiRx** on your Android device.
-2. Tap the **AI Pipeline & Engine Studio** configuration card on the home or preview screen.
+2. Tap the **AI Engine & MCP Studio** card on the home or preview screen.
 3. Configure your API keys for your preferred cloud providers (**`🤖 Gemini`**, **`⚡ Groq`**, **`🌐 OpenAI`**, or **`🛠️ Custom URL`**) or select your **On-Device AI & Fallback Strategy** (**`Hybrid Fallback`**, **`On-Device First`**, **`On-Device Only`**, or **`Cloud Only`**).
 4. Customize agent assignments and models in the **Per-Agent AI Assignments** matrix.
 
@@ -230,9 +252,13 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
    ```powershell
    Invoke-RestMethod -Uri "http://localhost:8080/lipirx/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"1","method":"tools/list"}' | ConvertTo-Json -Depth 5
    ```
-3. Read SQLDelight prescription scan history:
+3. Read SQLite AgentOps forensic execution traces:
    ```powershell
-   Invoke-RestMethod -Uri "http://localhost:8080/lipirx/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"2","method":"resources/read","params":{"uri":"lipirx://history/scans"}}' | ConvertTo-Json -Depth 5
+   Invoke-RestMethod -Uri "http://localhost:8080/lipirx/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"2","method":"resources/read","params":{"uri":"lipirx://history/traces"}}' | ConvertTo-Json -Depth 5
+   ```
+4. Query recent agent traces using the `get_agent_execution_traces` tool:
+   ```powershell
+   Invoke-RestMethod -Uri "http://localhost:8080/lipirx/mcp" -Method Post -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":"3","method":"tools/call","params":{"name":"get_agent_execution_traces","arguments":{"limit":"10"}}}' | ConvertTo-Json -Depth 5
    ```
 
 ### 📱 Installing Local SLM Weights (Optional for Offline Mode)
