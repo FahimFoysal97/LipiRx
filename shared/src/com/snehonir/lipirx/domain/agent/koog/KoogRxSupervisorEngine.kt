@@ -75,6 +75,20 @@ class KoogRxSupervisorEngine(
                 executionTimeMs = supervisorTimeMs
             )
 
+            database.saveAgentTrace(
+                turnNumber = state.turnCount + 1,
+                agentType = RxAgentType.SUPERVISOR.displayName,
+                provider = supervisorRuntime.provider.displayName,
+                modelName = supervisorRuntime.model,
+                reasoning = decision.reasoning,
+                feedbackPrompt = decision.feedbackPrompt,
+                itemCount = state.items.size,
+                executionTimeMs = supervisorTimeMs,
+                isSuccess = true,
+                errorMessage = "",
+                flow = "KoogEngine -> SupervisorTrace"
+            )
+
             val workerRuntime = resolveRuntimeConfig(
                 agentType = targetAgentType,
                 agentConfigs = agentConfigs,
@@ -98,6 +112,20 @@ class KoogRxSupervisorEngine(
             val agentStartTime = getPlatformEpochMillis()
             val newItemsResult = executeToolForAgent(targetAgentType, input, state.items, toolParams)
             val agentTimeMs = getPlatformEpochMillis() - agentStartTime
+
+            database.saveAgentTrace(
+                turnNumber = state.turnCount + 1,
+                agentType = targetAgentType.displayName,
+                provider = workerRuntime.provider.displayName,
+                modelName = workerRuntime.model,
+                reasoning = decision.reasoning,
+                feedbackPrompt = decision.feedbackPrompt,
+                itemCount = if (newItemsResult.isSuccess) newItemsResult.getOrThrow().size else state.items.size,
+                executionTimeMs = agentTimeMs,
+                isSuccess = newItemsResult.isSuccess,
+                errorMessage = newItemsResult.exceptionOrNull()?.message ?: "",
+                flow = "KoogEngine -> ToolTrace"
+            )
 
             if (newItemsResult.isFailure) {
                 val ex = newItemsResult.exceptionOrNull() ?: IllegalStateException("Tool execution failed.")

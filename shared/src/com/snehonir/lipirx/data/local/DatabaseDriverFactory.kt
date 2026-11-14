@@ -55,6 +55,26 @@ val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
             """.trimIndent(),
             parameters = 0
         )
+        driver.execute(
+            identifier = null,
+            sql = """
+                CREATE TABLE IF NOT EXISTS AgentExecutionTrace (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp INTEGER NOT NULL,
+                    turnNumber INTEGER NOT NULL,
+                    agentType TEXT NOT NULL,
+                    provider TEXT NOT NULL,
+                    modelName TEXT NOT NULL,
+                    reasoning TEXT NOT NULL,
+                    feedbackPrompt TEXT,
+                    itemCount INTEGER NOT NULL,
+                    executionTimeMs INTEGER NOT NULL,
+                    isSuccess INTEGER NOT NULL,
+                    errorMessage TEXT
+                );
+            """.trimIndent(),
+            parameters = 0
+        )
         return QueryResult.Unit
     }
 
@@ -79,6 +99,25 @@ data class PrescriptionHistoryEntity(
 ) {
     val formattedDateTime: String
         get() = formatEpochMillisToDateTime(scannedAt)
+}
+
+@kotlinx.serialization.Serializable
+data class AgentExecutionTraceEntity(
+    val id: Long = 0L,
+    val timestamp: Long,
+    val turnNumber: Int,
+    val agentType: String,
+    val provider: String,
+    val modelName: String,
+    val reasoning: String,
+    val feedbackPrompt: String = "",
+    val itemCount: Int,
+    val executionTimeMs: Long,
+    val isSuccess: Boolean,
+    val errorMessage: String = ""
+) {
+    val formattedDateTime: String
+        get() = formatEpochMillisToDateTime(timestamp)
 }
 
 data class ProviderConfigEntity(
@@ -507,6 +546,93 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
         val rawValue = getConfigValue(configKey)
         if (rawValue.isBlank()) return emptyList()
         return rawValue.split("||").map { it.trim() }.filter { it.isNotBlank() }
+    }
+
+    override fun saveAgentTrace(
+        turnNumber: Int,
+        agentType: String,
+        provider: String,
+        modelName: String,
+        reasoning: String,
+        feedbackPrompt: String,
+        itemCount: Int,
+        executionTimeMs: Long,
+        isSuccess: Boolean,
+        errorMessage: String,
+        flow: String
+    ) {
+        val currentTime = getPlatformEpochMillis()
+        Napier.d("[$flow] Inserting AgentExecutionTrace into SQLite: turn=$turnNumber, agent=$agentType, provider=$provider, success=$isSuccess", tag = TAG)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = """
+                    INSERT INTO AgentExecutionTrace (timestamp, turnNumber, agentType, provider, modelName, reasoning, feedbackPrompt, itemCount, executionTimeMs, isSuccess, errorMessage)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+                parameters = 11
+            ) {
+                bindLong(0, currentTime)
+                bindLong(1, turnNumber.toLong())
+                bindString(2, agentType)
+                bindString(3, provider)
+                bindString(4, modelName)
+                bindString(5, reasoning)
+                bindString(6, feedbackPrompt)
+                bindLong(7, itemCount.toLong())
+                bindLong(8, executionTimeMs)
+                bindLong(9, if (isSuccess) 1L else 0L)
+                bindString(10, errorMessage)
+            }
+        }.onFailure { ex ->
+            Napier.w("[$flow -> Warning] Failed to insert AgentExecutionTrace into SQLite: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    override fun getAgentTraces(limit: Int, flow: String): List<AgentExecutionTraceEntity> {
+        Napier.d("[$flow] Querying SELECT AgentExecutionTrace from SQLite...", tag = TAG)
+        return runCatching {
+            driver.executeQuery(
+                identifier = null,
+                sql = "SELECT id, timestamp, turnNumber, agentType, provider, modelName, reasoning, feedbackPrompt, itemCount, executionTimeMs, isSuccess, errorMessage FROM AgentExecutionTrace ORDER BY id DESC LIMIT ?",
+                mapper = { cursor ->
+                    val list = mutableListOf<AgentExecutionTraceEntity>()
+                    while (cursor.next().value) {
+                        list.add(
+                            AgentExecutionTraceEntity(
+                                id = cursor.getLong(0) ?: 0L,
+                                timestamp = cursor.getLong(1) ?: 0L,
+                                turnNumber = (cursor.getLong(2) ?: 0L).toInt(),
+                                agentType = cursor.getString(3) ?: "",
+                                provider = cursor.getString(4) ?: "",
+                                modelName = cursor.getString(5) ?: "",
+                                reasoning = cursor.getString(6) ?: "",
+                                feedbackPrompt = cursor.getString(7) ?: "",
+                                itemCount = (cursor.getLong(8) ?: 0L).toInt(),
+                                executionTimeMs = cursor.getLong(9) ?: 0L,
+                                isSuccess = (cursor.getLong(10) ?: 0L) == 1L,
+                                errorMessage = cursor.getString(11) ?: ""
+                            )
+                        )
+                    }
+                    QueryResult.Value(list)
+                },
+                parameters = 1
+            ) {
+                bindLong(0, limit.toLong())
+            }.value
+        }.getOrElse { emptyList() }
+    }
+
+    override fun clearAgentTraces(flow: String) {
+        Napier.d("[$flow] Deleting all records from AgentExecutionTrace table in SQLite", tag = TAG)
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "DELETE FROM AgentExecutionTrace",
+                parameters = 0
+            )
+        }
     }
 
     override fun getAllProviderModelsMap(): Map<String, List<String>> {

@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.domain.mcp
 
+import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
 import com.snehonir.lipirx.domain.agent.koog.ToolExecutionParams
@@ -16,6 +17,7 @@ import kotlin.io.encoding.Base64
 
 class McpToolHandler(
     private val rxAgentTools: RxAgentTools,
+    private val database: LipiRxLocalDatabase,
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 ) {
     fun listTools(): List<McpTool> {
@@ -70,6 +72,16 @@ class McpToolHandler(
                     ),
                     required = listOf("itemsJson")
                 )
+            ),
+            McpTool(
+                name = TOOL_GET_TRACES,
+                description = "Queries forensic execution traces (supervisor reasoning steps, tool choices, timing, success/error status) from SQLite",
+                inputSchema = buildSchema(
+                    properties = mapOf(
+                        "limit" to "Maximum number of recent trace records to retrieve (default: 50)"
+                    ),
+                    required = emptyList()
+                )
             )
         )
     }
@@ -99,6 +111,7 @@ class McpToolHandler(
             TOOL_PARSE_ENTITIES -> executeEntityParsingTool(args)
             TOOL_GENERIC_SUBSTITUTE -> executeGenericSubstituteTool(args)
             TOOL_SAFETY_AUDIT -> executeSafetyAuditTool(args)
+            TOOL_GET_TRACES -> executeGetTracesTool(args)
             else -> throw IllegalArgumentException("Unknown MCP Tool name: '$toolName'")
         }
     }
@@ -136,6 +149,13 @@ class McpToolHandler(
         val params = parseParams(args)
         val result = rxAgentTools.executeSafetyAudit(items, params).getOrThrow()
         return jsonParser.encodeToString(result)
+    }
+
+    private fun executeGetTracesTool(args: JsonObject): String {
+        val limitStr = getOptionalArg(args, "limit", "50")
+        val limit = limitStr.toIntOrNull() ?: 50
+        val traces = database.getAgentTraces(limit = limit, flow = "MCP -> executeGetTracesTool")
+        return jsonParser.encodeToString(traces)
     }
 
     private fun getMedicineItemsArg(args: JsonObject): List<MedicineItem> {
@@ -184,5 +204,6 @@ class McpToolHandler(
         const val TOOL_PARSE_ENTITIES = "parse_medical_entities"
         const val TOOL_GENERIC_SUBSTITUTE = "search_generic_substitutes"
         const val TOOL_SAFETY_AUDIT = "audit_patient_safety"
+        const val TOOL_GET_TRACES = "get_agent_execution_traces"
     }
 }

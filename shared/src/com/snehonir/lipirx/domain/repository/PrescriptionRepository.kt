@@ -32,4 +32,7 @@ interface PrescriptionRepository {
     fun saveProviderModels(providerType: String, models: List<String>, flow: String = "")
     fun getProviderModels(providerType: String): List<String>
     fun getAllProviderModelsMap(): Map<String, List<String>>
+    fun saveAgentTrace(turnNumber: Int, agentType: String, provider: String, modelName: String, reasoning: String, feedbackPrompt: String = "", itemCount: Int, executionTimeMs: Long, isSuccess: Boolean, errorMessage: String = "", flow: String = "")
+    fun getAgentTraces(limit: Int = 100, flow: String = ""): List<com.snehonir.lipirx.data.local.AgentExecutionTraceEntity>
+    fun clearAgentTraces(flow: String = "")
 }

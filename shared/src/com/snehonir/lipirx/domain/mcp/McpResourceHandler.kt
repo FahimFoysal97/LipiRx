@@ -38,6 +38,12 @@ class McpResourceHandler(
                 name = "AI Provider Configuration",
                 description = "Active AI provider configurations and assigned models",
                 mimeType = "application/json"
+            ),
+            McpResource(
+                uri = URI_AGENT_TRACES,
+                name = "AgentOps Forensic Execution Traces",
+                description = "SQLite forensic execution traces for supervisor reasoning steps and tool calls",
+                mimeType = "application/json"
             )
         )
     }
@@ -48,6 +54,7 @@ class McpResourceHandler(
             val contentJson = when (uri.trim()) {
                 URI_SCAN_HISTORY -> readScanHistory()
                 URI_PROVIDER_CONFIG -> readProviderConfig()
+                URI_AGENT_TRACES -> readAgentTraces()
                 else -> throw IllegalArgumentException("Unknown MCP Resource URI: '$uri'")
             }
 
@@ -85,9 +92,15 @@ class McpResourceHandler(
         return jsonParser.encodeToString(dto)
     }
 
+    private fun readAgentTraces(): String {
+        val traces = database.getAgentTraces(limit = 100, flow = "MCP -> readAgentTraces")
+        return jsonParser.encodeToString(traces)
+    }
+
     companion object {
         private const val TAG = "McpResourceHandler"
         const val URI_SCAN_HISTORY = "lipirx://history/scans"
         const val URI_PROVIDER_CONFIG = "lipirx://config/providers"
+        const val URI_AGENT_TRACES = "lipirx://history/traces"
     }
 }

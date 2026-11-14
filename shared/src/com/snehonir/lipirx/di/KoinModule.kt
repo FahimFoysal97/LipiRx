@@ -107,7 +107,7 @@ val sharedModule = module {
 
     // Model Context Protocol (MCP) Server & Handlers
     single { McpResourceHandler(database = get(), jsonParser = get()) }
-    single { McpToolHandler(rxAgentTools = get(), jsonParser = get()) }
+    single { McpToolHandler(rxAgentTools = get(), database = get(), jsonParser = get()) }
     single { LipiRxMcpServer(resourceHandler = get(), toolHandler = get(), jsonParser = get()) }
 
     // Use Cases
