@@ -81,6 +81,7 @@ fun ImagePreviewAndProcessView(
     onRetake: () -> Unit,
     onChange: () -> Unit,
     onClear: () -> Unit,
+    onViewTelemetry: (() -> Unit)? = null
 ) {
     var showModelBottomSheet by remember { mutableStateOf(false) }
 
@@ -237,6 +238,7 @@ fun ImagePreviewAndProcessView(
             onProviderTabSelected = onProviderTabSelected,
             onSaveProviderConfig = onSaveProviderConfig,
             onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
+            onViewTelemetry = onViewTelemetry,
             onDismiss = { showModelBottomSheet = false }
         )
     }

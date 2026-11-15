@@ -33,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -54,7 +53,6 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun EmptyStateView(
     selectedModel: String,
-    availableModels: List<String>,
     apiKey: String = "",
     geminiApiKey: String = "",
     groqApiKey: String = "",
@@ -70,16 +68,15 @@ fun EmptyStateView(
     onToggleMcpServer: (Boolean) -> Unit = {},
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
-    historyList: List<PrescriptionHistoryEntity> = emptyList(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (com.snehonir.lipirx.domain.model.OnDeviceStrategy) -> Unit = {},
-    onModelSelected: (String) -> Unit,
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
     onHistoryClick: (() -> Unit)? = null,
+    onViewTelemetry: (() -> Unit)? = null
 ) {
     var showModelBottomSheet by remember { mutableStateOf(false) }
 
@@ -269,6 +266,7 @@ fun EmptyStateView(
             onProviderTabSelected = onProviderTabSelected,
             onSaveProviderConfig = onSaveProviderConfig,
             onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
+            onViewTelemetry = onViewTelemetry,
             onDismiss = { showModelBottomSheet = false }
         )
     }
@@ -280,9 +278,7 @@ fun EmptyStateViewPreview() {
     LipiRxTheme {
         EmptyStateView(
             selectedModel = "gemini-2.0-flash",
-            availableModels = listOf("gemini-2.0-flash", "gemini-1.5-pro"),
             providerType = "gemini",
-            onModelSelected = {},
             onTakePhoto = {},
             onChooseGallery = {}
         )

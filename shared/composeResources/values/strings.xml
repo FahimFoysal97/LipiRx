@@ -7,6 +7,18 @@
     <string name="header_history">Scan History</string>
     <string name="header_ai_studio">AI &amp; MCP Studio</string>
 
+    <!-- AgentOps Telemetry Dashboard -->
+    <string name="telemetry_title">AgentOps Telemetry Dashboard</string>
+    <string name="telemetry_subtitle">Real-time forensic trace audit of multi-agent runs</string>
+    <string name="metric_total_latency">Total Latency</string>
+    <string name="metric_success_rate">Success Rate</string>
+    <string name="metric_total_hops">Total Hops</string>
+    <string name="header_trace_history">Execution Trace History</string>
+    <string name="btn_view_telemetry">View AgentOps Telemetry</string>
+    <string name="telemetry_empty_title">No Agent Traces Logged</string>
+    <string name="telemetry_empty_subtitle">Execute a prescription scan or run a benchmark to record supervisor turns &amp; tool traces.</string>
+    <string name="btn_run_sample_benchmark">Run Benchmark Evaluation</string>
+
     <!-- Scan Empty State -->
     <string name="scan_title">Scan Prescription</string>
     <string name="scan_subtitle">Upload or capture a prescription to extract handwritten medicines and audit safety.</string>

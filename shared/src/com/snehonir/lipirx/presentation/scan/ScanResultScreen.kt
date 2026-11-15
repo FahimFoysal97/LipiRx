@@ -24,10 +24,13 @@ import com.snehonir.lipirx.presentation.scan.components.HistoryScreen
 import com.snehonir.lipirx.presentation.scan.components.ImagePreviewAndProcessView
 import com.snehonir.lipirx.presentation.scan.components.LoadingView
 import com.snehonir.lipirx.presentation.scan.components.MedicineListView
+import com.snehonir.lipirx.presentation.telemetry.AgentTelemetryScreen
+import com.snehonir.lipirx.presentation.telemetry.AgentTraceViewModel
 import com.snehonir.lipirx.ui.BackHandler
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import io.github.aakira.napier.Napier
+import org.koin.compose.koinInject
 
 private const val TAG = "ScanResultScreen"
 
@@ -45,6 +48,7 @@ private sealed interface ScanScreenMode {
     data object Loading : ScanScreenMode
     data object Results : ScanScreenMode
     data object History : ScanScreenMode
+    data object Telemetry : ScanScreenMode
 }
 
 @Composable
@@ -55,6 +59,7 @@ fun ScanResultScreen(
     Napier.d("[$flow] Rendering ScanResultScreen composable", tag = TAG)
 
     val uiState by viewModel.uiState.collectAsState()
+    val traceViewModel: AgentTraceViewModel = koinInject()
 
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
@@ -67,11 +72,15 @@ fun ScanResultScreen(
 
     var showViewer by remember { mutableStateOf(false) }
     var showHistoryScreen by remember { mutableStateOf(false) }
+    var showTelemetryScreen by remember { mutableStateOf(false) }
 
-    val isBackHandlerEnabled = showHistoryScreen || uiState.selectedHistoryItem != null || uiState.medicines.isNotEmpty() || uiState.capturedImageByteArray != null
+    val isBackHandlerEnabled = showTelemetryScreen || showHistoryScreen || uiState.selectedHistoryItem != null || uiState.medicines.isNotEmpty() || uiState.capturedImageByteArray != null
 
     BackHandler(enabled = isBackHandlerEnabled) {
         when {
+            showTelemetryScreen -> {
+                showTelemetryScreen = false
+            }
             uiState.selectedHistoryItem != null -> {
                 viewModel.clearSelectedHistoryRecord(flow = "$flow -> BackHandler.clearSelectedHistoryRecord")
                 showHistoryScreen = true
@@ -89,6 +98,7 @@ fun ScanResultScreen(
     }
 
     val currentScreenMode: ScanScreenMode = when {
+        showTelemetryScreen -> ScanScreenMode.Telemetry
         showHistoryScreen -> ScanScreenMode.History
         uiState.isLoading -> ScanScreenMode.Loading
         uiState.selectedHistoryItem != null || uiState.medicines.isNotEmpty() -> ScanScreenMode.Results
@@ -111,6 +121,13 @@ fun ScanResultScreen(
                 label = "scanState",
             ) { mode ->
                 when (mode) {
+                    is ScanScreenMode.Telemetry -> {
+                        AgentTelemetryScreen(
+                            viewModel = traceViewModel,
+                            onClose = { showTelemetryScreen = false }
+                        )
+                    }
+
                     is ScanScreenMode.History -> {
                         HistoryScreen(
                             historyList = uiState.historyList,
@@ -131,7 +148,6 @@ fun ScanResultScreen(
                     is ScanScreenMode.Empty -> {
                         EmptyStateView(
                             selectedModel = uiState.selectedModel,
-                            availableModels = uiState.availableModels,
                             apiKey = uiState.apiKey,
                             geminiApiKey = uiState.geminiApiKey,
                             groqApiKey = uiState.groqApiKey,
@@ -149,7 +165,6 @@ fun ScanResultScreen(
                             },
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
-                            historyList = uiState.historyList,
                             onAgentProviderSelected = { agent, prov ->
                                 viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
                             },
@@ -165,8 +180,9 @@ fun ScanResultScreen(
                             onSelectOnDeviceStrategy = { strat ->
                                 viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
                             },
-                            onModelSelected = { model ->
-                                viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")
+                            onViewTelemetry = {
+                                traceViewModel.loadAgentTraces(flow = "$flow -> ScanResultScreen.onViewTelemetry")
+                                showTelemetryScreen = true
                             },
                             onTakePhoto = { imagePicker.launchCamera() },
                             onChooseGallery = { imagePicker.launchGallery() },
@@ -213,6 +229,10 @@ fun ScanResultScreen(
                             },
                             onSelectOnDeviceStrategy = { strat ->
                                 viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
+                            },
+                            onViewTelemetry = {
+                                traceViewModel.loadAgentTraces(flow = "$flow -> ScanResultScreen.onViewTelemetry")
+                                showTelemetryScreen = true
                             },
                             onZoom = { showViewer = true },
                             onAnalyze = {

@@ -56,9 +56,8 @@ import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.resources.Res
-import com.snehonir.lipirx.resources.btn_clear
-import com.snehonir.lipirx.resources.btn_paste
 import com.snehonir.lipirx.resources.btn_save_config
+import com.snehonir.lipirx.resources.btn_view_telemetry
 import com.snehonir.lipirx.resources.configure_key_to_load_models
 import com.snehonir.lipirx.resources.content_desc_select_strategy
 import com.snehonir.lipirx.resources.label_api_key
@@ -75,15 +74,24 @@ import com.snehonir.lipirx.resources.placeholder_paste_key
 import com.snehonir.lipirx.resources.section_mcp
 import com.snehonir.lipirx.resources.section_mcp_endpoint
 import com.snehonir.lipirx.resources.section_on_device
-import com.snehonir.lipirx.resources.section_per_agent
 import com.snehonir.lipirx.resources.section_per_agent_assignments
 import com.snehonir.lipirx.resources.section_provider_settings
 import com.snehonir.lipirx.resources.studio_subtitle
 import com.snehonir.lipirx.resources.studio_title
 import com.snehonir.lipirx.ui.theme.Lipi
-import com.snehonir.lipirx.ui.theme.icons.*
-import org.jetbrains.compose.resources.stringResource
+import com.snehonir.lipirx.ui.theme.icons.ApiKeyVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.McpEndpointVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.McpServerVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
+import com.snehonir.lipirx.ui.theme.icons.OnDeviceStrategyVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.PasteVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.PipelineMatrixVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.ProviderSelectVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.ProviderSettingsVectorIcon
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +117,7 @@ fun ModelSelectionBottomSheet(
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
+    onViewTelemetry: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -381,6 +390,40 @@ fun ModelSelectionBottomSheet(
                             uncheckedBorderColor = Lipi.SwitchOffBorder
                         )
                     )
+                }
+            }
+
+            if (onViewTelemetry != null) {
+                Surface(
+                    onClick = {
+                        dismissWithAnimation {
+                            onViewTelemetry()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Lipi.PrimaryContainer,
+                    border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = PipelineMatrixVectorIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = Lipi.Primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(Res.string.btn_view_telemetry),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Primary
+                        )
+                    }
                 }
             }
 

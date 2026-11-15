@@ -20,6 +20,7 @@ import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
 import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
 import com.snehonir.lipirx.presentation.scan.ScanViewModel
+import com.snehonir.lipirx.presentation.telemetry.AgentTraceViewModel
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
@@ -123,6 +124,13 @@ val sharedModule = module {
             processPrescriptionUseCase = get(),
             getScanHistoryUseCase = get(),
             manageProviderConfigUseCase = get()
+        )
+    }
+
+    factory {
+        AgentTraceViewModel(
+            database = get(),
+            rxAgentEvaluator = get()
         )
     }
 }
