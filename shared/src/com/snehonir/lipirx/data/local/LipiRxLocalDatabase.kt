@@ -16,7 +16,22 @@ import io.github.aakira.napier.Napier
 class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepository {
 
     init {
+        ensureTablesExist()
+    }
+
+    private fun ensureTablesExist() {
         runCatching {
+            driver.execute(
+                identifier = null,
+                sql = """
+                    CREATE TABLE IF NOT EXISTS PrescriptionHistory (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        scannedAt INTEGER NOT NULL,
+                        medicineSummary TEXT NOT NULL
+                    );
+                """.trimIndent(),
+                parameters = 0
+            )
             driver.execute(
                 identifier = null,
                 sql = """
@@ -40,7 +55,27 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
                 """.trimIndent(),
                 parameters = 0
             )
-            Napier.d("Guaranteed AppConfig and DispensedHistory tables exist in SQLite database", tag = TAG)
+            driver.execute(
+                identifier = null,
+                sql = """
+                    CREATE TABLE IF NOT EXISTS AgentExecutionTrace (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp INTEGER NOT NULL,
+                        turnNumber INTEGER NOT NULL,
+                        agentType TEXT NOT NULL,
+                        provider TEXT NOT NULL,
+                        modelName TEXT NOT NULL,
+                        reasoning TEXT NOT NULL,
+                        feedbackPrompt TEXT,
+                        itemCount INTEGER NOT NULL,
+                        executionTimeMs INTEGER NOT NULL,
+                        isSuccess INTEGER NOT NULL,
+                        errorMessage TEXT
+                    );
+                """.trimIndent(),
+                parameters = 0
+            )
+            Napier.d("Guaranteed PrescriptionHistory, AppConfig, DispensedHistory, and AgentExecutionTrace tables exist in SQLite database", tag = TAG)
         }.onFailure { ex ->
             Napier.w("Failed to ensure tables exist in SQLite database: ${ex.message}", throwable = ex, tag = TAG)
         }
@@ -454,7 +489,7 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
     ) {
         val currentTime = getPlatformEpochMillis()
         Napier.d("[$flow] Inserting AgentExecutionTrace into SQLite: turn=$turnNumber, agent=$agentType, provider=$provider, success=$isSuccess", tag = TAG)
-        runCatching {
+        val doInsert = {
             driver.execute(
                 identifier = null,
                 sql = """
@@ -475,14 +510,27 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
                 bindLong(9, if (isSuccess) 1L else 0L)
                 bindString(10, errorMessage)
             }
+        }
+
+        runCatching {
+            doInsert()
         }.onFailure { ex ->
-            Napier.w("[$flow -> Warning] Failed to insert AgentExecutionTrace into SQLite: ${ex.message}", throwable = ex, tag = TAG)
+            if (ex.message?.contains("no such table", ignoreCase = true) == true) {
+                runCatching {
+                    ensureTablesExist()
+                    doInsert()
+                }.onFailure { retryEx ->
+                    Napier.w("[$flow -> Warning] Failed to insert AgentExecutionTrace into SQLite after retry: ${retryEx.message}", throwable = retryEx, tag = TAG)
+                }
+            } else {
+                Napier.w("[$flow -> Warning] Failed to insert AgentExecutionTrace into SQLite: ${ex.message}", throwable = ex, tag = TAG)
+            }
         }
     }
 
     override fun getAgentTraces(limit: Int, flow: String): List<AgentExecutionTraceEntity> {
         Napier.d("[$flow] Querying SELECT AgentExecutionTrace from SQLite...", tag = TAG)
-        return runCatching {
+        val queryBlock = {
             driver.executeQuery(
                 identifier = null,
                 sql = "SELECT id, timestamp, turnNumber, agentType, provider, modelName, reasoning, feedbackPrompt, itemCount, executionTimeMs, isSuccess, errorMessage FROM AgentExecutionTrace ORDER BY id DESC LIMIT ?",
@@ -512,17 +560,38 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
             ) {
                 bindLong(0, limit.toLong())
             }.value
+        }
+
+        return runCatching {
+            queryBlock()
+        }.recoverCatching { ex ->
+            if (ex.message?.contains("no such table", ignoreCase = true) == true) {
+                ensureTablesExist()
+                queryBlock()
+            } else {
+                throw ex
+            }
         }.getOrElse { emptyList() }
     }
 
     override fun clearAgentTraces(flow: String) {
         Napier.d("[$flow] Deleting all records from AgentExecutionTrace table in SQLite", tag = TAG)
-        runCatching {
+        val doDelete = {
             driver.execute(
                 identifier = null,
                 sql = "DELETE FROM AgentExecutionTrace",
                 parameters = 0
             )
+        }
+        runCatching {
+            doDelete()
+        }.onFailure { ex ->
+            if (ex.message?.contains("no such table", ignoreCase = true) == true) {
+                runCatching {
+                    ensureTablesExist()
+                    doDelete()
+                }
+            }
         }
     }
 
