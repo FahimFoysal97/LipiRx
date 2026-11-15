@@ -24,7 +24,8 @@ class LipiRxMcpServer(
             dispatchMethod(request)
         }.getOrElse { ex ->
             Napier.e("[$TAG -> Execution Error] Method '${request.method}' failed: ${ex.message}", throwable = ex, tag = TAG)
-            buildErrorResponse(request.id, McpError.INTERNAL_ERROR, "Internal error: ${ex.message}")
+            val errorCode = if (ex is IllegalArgumentException) McpError.INVALID_PARAMS else McpError.INTERNAL_ERROR
+            buildErrorResponse(request.id, errorCode, "Execution error: ${ex.message}")
         }
     }
 
