@@ -27,32 +27,42 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - Configurable **Agent Settings Matrix** allowing developers to assign specific providers and models per agent (including `📱 On-Device SLM`).
     - Dynamic 5-step analysis UI (`LoadingView`) showing live Supervisor reasoning, progress checklist, and per-agent execution timing logs.
 
-2. **Embedded Model Context Protocol (MCP) & OS Integration**:
+2. **Dedicated Full-Screen Settings Screen**:
+    - Replaced bottom-sheet modal with a dedicated full-screen `SettingsScreen` with predictive back navigation.
+    - Standardized top navigation header across all screens (`SettingsScreen`, `HistoryScreen`, `AgentTelemetryScreen`) using a shared `AppHeader` component.
+
+3. **Per-Scan Accordion AgentOps Telemetry Dashboard**:
+    - Grouped raw execution traces into **Per-Scan Session Accordion Cards** (`TelemetryScanSession`), displaying pipeline duration (formatted in hours, minutes, seconds, and milliseconds via localized string resources), total hops, extracted item count, pass/fail status, and AI Engine summary (`Gemini • gemini-2.0-flash` or `Multi-Provider (Gemini, OpenAI)`).
+    - Single-card accordion expansion behavior (folded by default; opening one scan card automatically collapses any open card) revealing detailed in-card per-turn agent reasoning and diagnostics.
+
+4. **Embedded Model Context Protocol (MCP) & OS Integration**:
     - JSON-RPC 2.0 server (`LipiRxMcpServer`) and local HTTP listener (`McpHttpServer` on port `8080`).
     - Exposes SQLDelight prescription history (`lipirx://history/scans`), provider configurations (`lipirx://config/providers`), and SQLite AgentOps forensic traces (`lipirx://history/traces`) as MCP Resources.
     - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit, `get_agent_execution_traces`, and `eval_run_benchmark`) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
 
-3. **Production AgentOps Forensic Execution Tracing**:
-    - SQLite table (`AgentExecutionTrace`) automatically recording every supervisor turn and worker tool execution with timestamps, provider/model metadata, reasoning steps, feedback prompts, execution durations (ms), item counts, and error status.
+5. **Production AgentOps Forensic Execution Tracing**:
+    - SQLite table (`AgentExecutionTrace`) automatically recording every supervisor turn and worker tool execution with timestamps, provider/model metadata, reasoning steps, feedback prompts, execution durations, item counts, and error status.
+    - `LipiRxLocalDatabase` guarantees all tables exist on initialization (`init { ensureTablesExist() }`) with automatic fallback retry handling.
 
-4. **Automated Multi-Agent Evaluation & Regression Testing Harness**:
+6. **Automated Multi-Agent Evaluation & Regression Testing Harness**:
     - `RxAgentEvaluator` executes the pipeline against golden benchmark test cases (`RxEvalTestCase`), computing extraction accuracy %, turn counts, and latency.
     - Exposes on-device evaluation runner via MCP Tool `eval_run_benchmark` (`http://localhost:8080/lipirx/mcp`).
 
-5. **Multi-Provider & Edge Vision AI Engine**:
+7. **Multi-Provider & Edge Vision AI Engine**:
     - **Google Gemini**: Dynamic model discovery via Gemini REST API (`gemini-2.0-flash`, etc.).
     - **Groq**: High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
     - **OpenAI**: Integration with OpenAI Vision models (`gpt-4o`, etc.).
     - **Custom Endpoint**: Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
     - **On-Device SLM**: Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage.
 
-6. **Scan History & Local Storage Management**:
+8. **Scan History & Local Storage Management**:
     - SQLDelight SQLite storage saving prescription scan history and cross-session episodic dispensing memory.
-    - Interactive `HistoryScreen` supporting single-item deletion (with confirmation dialog) and bulk **Clear All** removal.
+    - Interactive `HistoryScreen` supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
 
-7. **Safety & UX Controls**:
+9. **Safety & UX Controls**:
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
     - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
+    - **Complete Resource Localization**: Extracted all UI strings and duration units into `composeResources/values/strings.xml`.
     - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
 
 ---
@@ -249,13 +259,23 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   └── usecase/
             │       └── ProcessPrescriptionUseCase.kt # Use case dispatching directly to KoogRxSupervisorEngine
             └── presentation/
-                └── scan/
-                    ├── model/
-                    │   └── Alternative.kt           # UI alternative brand model
-                    ├── ScanContract.kt              # ScanUiState & ScanUiEvent contracts
-                    ├── ScanViewModel.kt             # MVVM ViewModel managing scan lifecycle
-                    ├── ScanResultScreen.kt          # Main screen composable
-                    └── components/                  # UI View components
+                ├── scan/
+                │   ├── model/
+                │   │   └── Alternative.kt           # UI alternative brand model
+                │   ├── ScanContract.kt              # ScanUiState & ScanUiEvent contracts
+                │   ├── ScanViewModel.kt             # MVVM ViewModel managing scan lifecycle
+                │   ├── ScanResultScreen.kt          # Main screen composable
+                │   └── components/                  # UI View components
+                │       ├── AppHeader.kt             # Shared AppHeader top bar component (in Components.kt)
+                │       ├── SettingsScreen.kt        # Dedicated full-screen Settings UI
+                │       ├── HistoryScreen.kt         # Scan History list UI with bulk clear
+                │       ├── EmptyStateView.kt        # Home scan upload view
+                │       ├── LoadingView.kt           # 5-step live multi-agent analysis UI
+                │       ├── ImagePreviewAndProcessView.kt # Prescription photo & pipeline summary UI
+                │       └── MedicineListView.kt      # Extracted medicine list & pharmacist sign-off UI
+                └── telemetry/
+                    ├── AgentTraceViewModel.kt       # Telemetry trace ViewModel
+                    └── AgentTelemetryScreen.kt      # AgentOps per-scan accordion telemetry UI
 ```
 
 ---
@@ -264,7 +284,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 
 ### 🔑 Setting Up AI Providers & On-Device Strategy
 1. Launch **LipiRx** on your Android device.
-2. Tap the **AI Engine & MCP Studio** card on the home or preview screen.
+2. Tap the **Settings** icon on the top header or preview screen.
 3. Configure your API keys for your preferred cloud providers (**`🤖 Gemini`**, **`⚡ Groq`**, **`🌐 OpenAI`**, or **`🛠️ Custom URL`**) or select your **On-Device AI & Fallback Strategy** (**`Hybrid Fallback`**, **`On-Device First`**, **`On-Device Only`**, or **`Cloud Only`**).
 4. Customize agent assignments and models in the **Per-Agent AI Assignments** matrix.
 
@@ -322,12 +342,11 @@ The project includes CLI wrappers `kotlin` (macOS/Linux) and `kotlin.bat` (Windo
 ## ⚠️ Disclaimer (Reminder)
 
 LipiRx is an educational/learning project, not a business or production product, and not a substitute for professional medical or pharmaceutical judgment. AI output can be wrong. Use it cautiously and entirely at your own responsibility — the author is not responsible for any issues arising from its use.
- 
+
 ---
- 
+
 ## 📄 License
- 
+
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
- 
+
 The software is provided "as is", without warranty of any kind. Third-party libraries used in this project (Koog, Koin, Ktor, SQLDelight, LiteRT-LM, etc.) are subject to their own licenses.
- 
