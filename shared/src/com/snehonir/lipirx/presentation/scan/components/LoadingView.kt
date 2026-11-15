@@ -115,7 +115,7 @@ fun LoadingView(
     val defaultSubtitle = stringResource(Res.string.loading_default_subtitle)
     val status = statusText.ifBlank { defaultSubtitle }
     val currentAgentName = stringResource(currentAgent.displayNameRes)
-    val doneCount = activeStep.coerceIn(0, total)
+    val doneCount = (activeStep + 1).coerceIn(1, total)
 
     Box(
         modifier = Modifier
@@ -304,7 +304,7 @@ private fun SegScannerCard(
 
         Box(
             modifier = Modifier
-                .size(160.dp, 214.dp)
+                .size(200.dp, 270.dp)
                 .shadow(
                     elevation = 20.dp,
                     shape = shape,

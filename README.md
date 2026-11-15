@@ -25,41 +25,45 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 
 1. **Supervisor-Driven Multi-Agent Orchestration (JetBrains Koog)**:
     - Configurable **Agent Settings Matrix** allowing developers to assign specific providers and models per agent (including `📱 On-Device SLM`).
-    - Dynamic 5-step analysis UI (`LoadingView`) showing live Supervisor reasoning, progress checklist, and per-agent execution timing logs.
+    - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`decision.reasoning`), per-agent task completion percentages (`0% → 100%`), active agent name banners, and execution timing logs.
 
-2. **Dedicated Full-Screen Settings Screen**:
-    - Replaced bottom-sheet modal with a dedicated full-screen `SettingsScreen` with predictive back navigation.
-    - Standardized top navigation header across all screens (`SettingsScreen`, `HistoryScreen`, `AgentTelemetryScreen`) using a shared `AppHeader` component.
+2. **Self-Healing Agent Execution Wrapper (`SelfHealingAgentExecutor`)**:
+    - Automatically catches `SerializationException` and JSON formatting errors from non-deterministic worker agent outputs, generates targeted schema repair prompts, and retries execution up to 2 times.
 
-3. **Per-Scan Accordion AgentOps Telemetry Dashboard**:
+3. **Dedicated Full-Screen Settings Screen & Shared Header**:
+    - Dedicated full-screen `SettingsScreen` with predictive back navigation.
+    - Standardized top navigation header across all secondary screens using a shared `AppHeader` component.
+
+4. **Per-Scan Accordion AgentOps Telemetry Dashboard**:
     - Grouped raw execution traces into **Per-Scan Session Accordion Cards** (`TelemetryScanSession`), displaying pipeline duration (formatted in hours, minutes, seconds, and milliseconds via localized string resources), total hops, extracted item count, pass/fail status, and AI Engine summary (`Gemini • gemini-2.0-flash` or `Multi-Provider (Gemini, OpenAI)`).
-    - Single-card accordion expansion behavior (folded by default; opening one scan card automatically collapses any open card) revealing detailed in-card per-turn agent reasoning and diagnostics.
+    - Single-card accordion expansion behavior revealing detailed in-card per-turn agent reasoning and diagnostics.
+    - Permanent **"Run Benchmark"** action bar in the telemetry header for instant evaluation triggers.
 
-4. **Embedded Model Context Protocol (MCP) & OS Integration**:
+5. **Embedded Model Context Protocol (MCP) & OS Integration**:
     - JSON-RPC 2.0 server (`LipiRxMcpServer`) and local HTTP listener (`McpHttpServer` on port `8080`).
     - Exposes SQLDelight prescription history (`lipirx://history/scans`), provider configurations (`lipirx://config/providers`), and SQLite AgentOps forensic traces (`lipirx://history/traces`) as MCP Resources.
     - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit, `get_agent_execution_traces`, and `eval_run_benchmark`) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
 
-5. **Production AgentOps Forensic Execution Tracing**:
+6. **Production AgentOps Forensic Execution Tracing**:
     - SQLite table (`AgentExecutionTrace`) automatically recording every supervisor turn and worker tool execution with timestamps, provider/model metadata, reasoning steps, feedback prompts, execution durations, item counts, and error status.
     - `LipiRxLocalDatabase` guarantees all tables exist on initialization (`init { ensureTablesExist() }`) with automatic fallback retry handling.
 
-6. **Automated Multi-Agent Evaluation & Regression Testing Harness**:
+7. **Automated Multi-Agent Evaluation & Regression Testing Harness**:
     - `RxAgentEvaluator` executes the pipeline against golden benchmark test cases (`RxEvalTestCase`), computing extraction accuracy %, turn counts, and latency.
     - Exposes on-device evaluation runner via MCP Tool `eval_run_benchmark` (`http://localhost:8080/lipirx/mcp`).
 
-7. **Multi-Provider & Edge Vision AI Engine**:
+8. **Multi-Provider & Edge Vision AI Engine**:
     - **Google Gemini**: Dynamic model discovery via Gemini REST API (`gemini-2.0-flash`, etc.).
     - **Groq**: High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
     - **OpenAI**: Integration with OpenAI Vision models (`gpt-4o`, etc.).
     - **Custom Endpoint**: Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
     - **On-Device SLM**: Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage.
 
-8. **Scan History & Local Storage Management**:
+9. **Scan History & Local Storage Management**:
     - SQLDelight SQLite storage saving prescription scan history and cross-session episodic dispensing memory.
     - Interactive `HistoryScreen` supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
 
-9. **Safety & UX Controls**:
+10. **Safety & UX Controls**:
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
     - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
     - **Complete Resource Localization**: Extracted all UI strings and duration units into `composeResources/values/strings.xml`.
@@ -232,6 +236,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   │   │   └── SafetyAuditDto.kt
             │   │   │   ├── KoogRxSupervisorEngine.kt # Koog Multi-Agent Supervisor Engine
             │   │   │   └── RxAgentTools.kt           # Type-safe Koog Agent Tools
+            │   │   ├── SelfHealingAgentExecutor.kt  # Autonomous JSON self-healing execution wrapper
             │   │   ├── AgentExecutionRecord.kt      # Agent execution history record
             │   │   ├── SupervisorState.kt           # Supervisor orchestration state
             │   │   ├── SupervisorDecision.kt        # Supervisor decision model
@@ -244,6 +249,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   ├── eval/                            # Evaluation & Regression Testing Harness
             │   │   ├── RxEvalTestCase.kt            # Golden benchmark test case model
             │   │   ├── EvalMetrics.kt               # Accuracy, latency & summary report DTOs
+            │   │   ├── SelfHealingDiagnosticRunner.kt # Self-healing diagnostic runner
             │   │   └── RxAgentEvaluator.kt          # On-device evaluation suite runner
             │   ├── mcp/                             # Model Context Protocol (MCP) Engine
             │   │   ├── LipiRxMcpServer.kt           # Main JSON-RPC 2.0 MCP Protocol Handler
@@ -270,7 +276,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
                 │       ├── SettingsScreen.kt        # Dedicated full-screen Settings UI
                 │       ├── HistoryScreen.kt         # Scan History list UI with bulk clear
                 │       ├── EmptyStateView.kt        # Home scan upload view
-                │       ├── LoadingView.kt           # 5-step live multi-agent analysis UI
+                │       ├── LoadingView.kt           # Live multi-agent analysis UI with per-agent task progress
                 │       ├── ImagePreviewAndProcessView.kt # Prescription photo & pipeline summary UI
                 │       └── MedicineListView.kt      # Extracted medicine list & pharmacist sign-off UI
                 └── telemetry/
@@ -315,7 +321,7 @@ To run local models offline:
 1. Download a `.litertlm` model file (e.g., `Qwen3-0.6B.litertlm` from Hugging Face `litert-community`).
 2. Push the file to your device storage via `adb`:
    ```bash
-   adb push Qwen3-0.6B.litertlm /sdcard/Android/data/com.snehonir.lipirx/files/model.litertlm
+   adb push Qwen3-0.6B.litertlm /sdcard/Android/data/com.snehonir/lipirx/files/model.litertlm
    ```
 
 ### 🔨 Building & Running
