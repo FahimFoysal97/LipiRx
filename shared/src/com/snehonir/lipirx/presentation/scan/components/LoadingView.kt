@@ -1,11 +1,13 @@
 package com.snehonir.lipirx.presentation.scan.components
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -73,7 +75,6 @@ import org.jetbrains.compose.resources.stringResource
  * a single "now" card, and a quiet Stop button.
  * Same parameters as LoadingView, so it can be swapped in with a one-line change.
  */
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun LoadingView(
     imageByteArray: ByteArray? = null,
@@ -106,10 +107,10 @@ fun LoadingView(
         label = "breathe",
     )
 
-    val animatedProgress by animateFloatAsState(
-        targetValue = percent / 100f,
+    val animatedPercent by animateIntAsState(
+        targetValue = percent,
         animationSpec = tween(500, easing = FastOutSlowInEasing),
-        label = "agentProgress",
+        label = "percentText",
     )
 
     val defaultSubtitle = stringResource(Res.string.loading_default_subtitle)
@@ -154,9 +155,12 @@ fun LoadingView(
                     repeat(total) { i ->
                         SegmentBar(
                             modifier = Modifier.weight(1f),
-                            isCompleted = i < activeStep,
-                            isActive = i == activeStep,
-                            progress = { animatedProgress },
+                            target = when {
+                                i < activeStep -> 1f
+                                i == activeStep -> percent / 100f
+                                else -> 0f
+                            },
+                            isReached = i <= activeStep,
                         )
                     }
                 }
@@ -179,17 +183,23 @@ fun LoadingView(
                                     .drawBehind { drawCircle(Lipi.Primary.copy(alpha = breathe.value)) }
                             )
                             Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = currentAgentName,
+                            Crossfade(
+                                targetState = currentAgentName,
                                 modifier = Modifier.weight(1f),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Lipi.Ink,
-                                maxLines = 1,
-                            )
+                                animationSpec = tween(300),
+                                label = "agentName",
+                            ) { name ->
+                                Text(
+                                    text = name,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Lipi.Ink,
+                                    maxLines = 1,
+                                )
+                            }
                             Surface(shape = CircleShape, color = Lipi.PrimaryContainer) {
                                 Text(
-                                    text = "$percent%",
+                                    text = "$animatedPercent%",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Lipi.OnPrimaryContainer,
@@ -219,12 +229,18 @@ fun LoadingView(
                                 tint = Lipi.Muted,
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "$doneCount / $total",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Lipi.Muted,
-                            )
+                            Crossfade(
+                                targetState = "$doneCount / $total",
+                                animationSpec = tween(300),
+                                label = "stepCount",
+                            ) { count ->
+                                Text(
+                                    text = count,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Lipi.Muted,
+                                )
+                            }
                         }
                     }
                 }
@@ -252,31 +268,34 @@ fun LoadingView(
     }
 }
 
+/** One step of the progress bar. Its fill and track color animate whenever the state changes. */
 @Composable
 private fun SegmentBar(
     modifier: Modifier,
-    isCompleted: Boolean,
-    isActive: Boolean,
-    progress: () -> Float,
+    target: Float,
+    isReached: Boolean,
 ) {
+    val fill = animateFloatAsState(
+        targetValue = target.coerceIn(0f, 1f),
+        animationSpec = tween(450, easing = FastOutSlowInEasing),
+        label = "segmentFill",
+    )
+    val track by animateColorAsState(
+        targetValue = if (isReached) Lipi.PrimaryContainer else Lipi.CardBorder,
+        animationSpec = tween(300),
+        label = "segmentTrack",
+    )
+
     Box(
         modifier = modifier
             .height(6.dp)
             .clip(CircleShape)
-            .background(
-                when {
-                    isCompleted -> Lipi.Primary
-                    isActive -> Lipi.PrimaryContainer
-                    else -> Lipi.CardBorder
-                }
-            )
+            .background(track)
             .drawBehind {
-                if (isActive) {
-                    drawRect(
-                        color = Lipi.Primary,
-                        size = Size(size.width * progress().coerceIn(0f, 1f), size.height),
-                    )
-                }
+                drawRect(
+                    color = Lipi.Primary,
+                    size = Size(size.width * fill.value, size.height),
+                )
             }
     )
 }
@@ -357,17 +376,15 @@ private fun SegScannerCard(
                 val len = 22.dp.toPx()
                 val sw = 3.dp.toPx()
                 val c = Lipi.Primary
-                val l = inset
-                val t = inset
                 val r = size.width - inset
                 val b = size.height - inset
 
-                drawLine(c, Offset(l, t), Offset(l + len, t), sw, StrokeCap.Round)
-                drawLine(c, Offset(l, t), Offset(l, t + len), sw, StrokeCap.Round)
-                drawLine(c, Offset(r, t), Offset(r - len, t), sw, StrokeCap.Round)
-                drawLine(c, Offset(r, t), Offset(r, t + len), sw, StrokeCap.Round)
-                drawLine(c, Offset(l, b), Offset(l + len, b), sw, StrokeCap.Round)
-                drawLine(c, Offset(l, b), Offset(l, b - len), sw, StrokeCap.Round)
+                drawLine(c, Offset(inset, inset), Offset(inset + len, inset), sw, StrokeCap.Round)
+                drawLine(c, Offset(inset, inset), Offset(inset, inset + len), sw, StrokeCap.Round)
+                drawLine(c, Offset(r, inset), Offset(r - len, inset), sw, StrokeCap.Round)
+                drawLine(c, Offset(r, inset), Offset(r, inset + len), sw, StrokeCap.Round)
+                drawLine(c, Offset(inset, b), Offset(inset + len, b), sw, StrokeCap.Round)
+                drawLine(c, Offset(inset, b), Offset(inset, b - len), sw, StrokeCap.Round)
                 drawLine(c, Offset(r, b), Offset(r - len, b), sw, StrokeCap.Round)
                 drawLine(c, Offset(r, b), Offset(r, b - len), sw, StrokeCap.Round)
             }
