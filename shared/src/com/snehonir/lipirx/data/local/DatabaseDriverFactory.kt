@@ -14,7 +14,7 @@ val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
     override val version: Long = 1
 
     override fun create(driver: SqlDriver): QueryResult.Value<Unit> {
-        Napier.d("Creating PrescriptionHistory, AppConfig, and DispensedHistory tables in SQLite database", tag = "LipiRxSchema")
+        Napier.d("Creating PrescriptionHistory, AppConfig, DispensedHistory, and AgentExecutionTrace tables in SQLite database", tag = "LipiRxSchema")
         driver.execute(
             identifier = null,
             sql = """
