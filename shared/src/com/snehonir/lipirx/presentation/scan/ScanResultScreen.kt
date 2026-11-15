@@ -228,10 +228,10 @@ fun ScanResultScreen(
 
                     is ScanScreenMode.Loading -> {
                         LoadingView(
-                            selectedModel = uiState.selectedModel,
                             imageByteArray = uiState.capturedImageByteArray,
                             activeStep = uiState.loadingStep,
                             statusText = uiState.loadingStatusText,
+                            agentProgressPercent = uiState.activeAgentProgressPercent,
                             onStopAnalysis = {
                                 viewModel.stopAnalysis(flow = "$flow -> ScanResultScreen.onStopAnalysis")
                             }

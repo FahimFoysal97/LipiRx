@@ -605,10 +605,13 @@ class ScanViewModel(
                 customUrl = customUrl,
                 onProgress = { step, statusText ->
                     Napier.d("[$flow -> Progress] Step $step: $statusText", tag = TAG)
+                    val agent = RxAgentType.entries.getOrNull(step) ?: RxAgentType.SUPERVISOR
                     _uiState.update {
                         it.copy(
                             loadingStep = step,
-                            loadingStatusText = statusText
+                            loadingStatusText = statusText,
+                            currentAgent = agent,
+                            activeAgentProgressPercent = 50
                         )
                     }
                 }
@@ -617,11 +620,13 @@ class ScanViewModel(
             val result = processPrescriptionUseCase.executePipeline(
                 input = input,
                 agentConfigs = state.agentConfigs,
-                onProgress = { step ->
+                onProgress = { agentType ->
                     _uiState.update {
                         it.copy(
-                            loadingStep = step.stepIndex,
-                            loadingStatusText = step.statusText
+                            loadingStep = agentType.ordinal,
+                            loadingStatusText = agentType.id,
+                            currentAgent = agentType,
+                            activeAgentProgressPercent = 100
                         )
                     }
                 }

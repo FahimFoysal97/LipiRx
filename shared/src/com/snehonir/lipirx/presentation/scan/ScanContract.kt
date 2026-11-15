@@ -15,6 +15,8 @@ data class ScanUiState(
     val isLoading: Boolean = false,
     val loadingStep: Int = 0,
     val loadingStatusText: String = "",
+    val activeAgentProgressPercent: Int = 0,
+    val currentAgent: RxAgentType = RxAgentType.SUPERVISOR,
     val capturedImageByteArray: ByteArray? = null,
     val medicines: ImmutableList<MedicineItem> = persistentListOf(),
     val isSuspendedForApproval: Boolean = false,
@@ -60,6 +62,8 @@ data class ScanUiState(
         if (isLoading != other.isLoading) return false
         if (loadingStep != other.loadingStep) return false
         if (loadingStatusText != other.loadingStatusText) return false
+        if (activeAgentProgressPercent != other.activeAgentProgressPercent) return false
+        if (currentAgent != other.currentAgent) return false
         if (capturedImageByteArray != null) {
             if (other.capturedImageByteArray == null) return false
             if (!capturedImageByteArray.contentEquals(other.capturedImageByteArray)) return false
@@ -93,6 +97,8 @@ data class ScanUiState(
         var result = isLoading.hashCode()
         result = 31 * result + loadingStep.hashCode()
         result = 31 * result + loadingStatusText.hashCode()
+        result = 31 * result + activeAgentProgressPercent.hashCode()
+        result = 31 * result + currentAgent.hashCode()
         result = 31 * result + (capturedImageByteArray?.contentHashCode() ?: 0)
         result = 31 * result + medicines.hashCode()
         result = 31 * result + isSuspendedForApproval.hashCode()

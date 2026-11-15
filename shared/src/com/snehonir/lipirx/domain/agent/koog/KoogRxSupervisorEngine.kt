@@ -11,7 +11,6 @@ import com.snehonir.lipirx.domain.agent.SupervisorState
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
-import com.snehonir.lipirx.domain.model.ProcessingStep
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.data.local.getPlatformEpochMillis
 import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
@@ -28,9 +27,10 @@ class KoogRxSupervisorEngine(
         input: TranscriptionInput,
         initialItems: List<MedicineItem> = emptyList(),
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-        onProgress: (step: ProcessingStep) -> Unit = {}
+        onProgress: (agentType: RxAgentType) -> Unit = {}
     ): Result<OrchestrationResult> {
         Napier.d("[$TAG] Starting JetBrains Koog Multi-Agent Supervisor Engine...", tag = TAG)
+        onProgress(RxAgentType.SUPERVISOR)
 
         val supervisorRuntime = resolveRuntimeConfig(
             agentType = RxAgentType.SUPERVISOR,
@@ -68,7 +68,7 @@ class KoogRxSupervisorEngine(
             }
 
             val targetAgentType = decision.nextAgent
-            onProgress(mapAgentToProcessingStep(targetAgentType))
+            onProgress(targetAgentType)
 
             val supervisorRecord = AgentExecutionRecord(
                 agentType = RxAgentType.SUPERVISOR,
@@ -198,7 +198,7 @@ class KoogRxSupervisorEngine(
             )
         }
 
-        onProgress(ProcessingStep.COMPLETE)
+        onProgress(RxAgentType.SAFETY_AUDITOR)
 
         return Result.success(
             OrchestrationResult(
@@ -258,16 +258,6 @@ class KoogRxSupervisorEngine(
         val generics = state.items.map { it.genericName }.filter { it.isNotBlank() }
         val memoryContext = database.getEpisodicMemoryContext(generics)
         return if (memoryContext.isNotBlank()) state.copy(episodicMemory = memoryContext) else state
-    }
-
-    private fun mapAgentToProcessingStep(agentType: RxAgentType): ProcessingStep {
-        return when (agentType) {
-            RxAgentType.TRANSCRIPTION -> ProcessingStep.READING_HANDWRITING
-            RxAgentType.ENTITY_PARSER -> ProcessingStep.MATCHING_BRANDS
-            RxAgentType.GENERIC_SUBSTITUTE -> ProcessingStep.FINDING_SIMILAR
-            RxAgentType.SAFETY_AUDITOR -> ProcessingStep.COMPLETE
-            RxAgentType.SUPERVISOR -> ProcessingStep.ENCODING
-        }
     }
 
     private data class RuntimeConfig(

@@ -7,7 +7,6 @@ import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.agent.koog.KoogRxSupervisorEngine
 import com.snehonir.lipirx.domain.model.AiProvider
-import com.snehonir.lipirx.domain.model.ProcessingStep
 
 class ProcessPrescriptionUseCase(
     private val koogSupervisorEngine: KoogRxSupervisorEngine,
@@ -16,7 +15,7 @@ class ProcessPrescriptionUseCase(
     suspend fun executePipeline(
         input: TranscriptionInput,
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-        onProgress: (step: ProcessingStep) -> Unit = {}
+        onProgress: (agentType: RxAgentType) -> Unit = {}
     ): Result<OrchestrationResult> {
         return koogSupervisorEngine.runOrchestration(
             input = input,
