@@ -129,21 +129,77 @@ class RxAgentEvaluator(
         fun getDefaultBenchmarkCases(): List<RxEvalTestCase> {
             return listOf(
                 RxEvalTestCase(
-                    id = "BENCH_001_PARSING_AND_SUBSTITUTES",
-                    description = "Benchmark multi-agent entity parsing, generic matching, and safety audit",
+                    id = "BENCH_001_ACUTE_INFECTION_AND_GASTRITIS",
+                    description = "Benchmark multi-agent entity parsing, generic matching, and safety audit for antibiotic + PPI",
                     input = TranscriptionInput(
                         imageByteArray = ByteArray(0),
                         selectedModel = AiProvider.Gemini.defaultModel,
                         provider = AiProvider.Gemini
                     ),
                     initialItems = listOf(
-                        MedicineItem(medicineName = "Tab Napa 500mg", schedule = "1+0+1", units = 10, unitType = "tablets"),
-                        MedicineItem(medicineName = "Cap Maxpro 20mg", schedule = "1+0+0", units = 14, unitType = "capsules")
+                        MedicineItem(medicineName = "Tab Ciprocin 500mg", schedule = "1+0+1", units = 14, unitType = "tablets"),
+                        MedicineItem(medicineName = "Cap Seclo 20mg", schedule = "1+0+1", units = 14, unitType = "capsules")
                     ),
                     expectedItemsCount = 2,
                     expectedMedicines = listOf(
-                        ExpectedMedicine(brandName = "Napa", expectedStrength = "500mg", expectedGeneric = "Paracetamol"),
-                        ExpectedMedicine(brandName = "Maxpro", expectedStrength = "20mg", expectedGeneric = "Esomeprazole")
+                        ExpectedMedicine(brandName = "Ciprocin", expectedStrength = "500mg", expectedGeneric = "Ciprofloxacin"),
+                        ExpectedMedicine(brandName = "Seclo", expectedStrength = "20mg", expectedGeneric = "Omeprazole")
+                    ),
+                    maxAllowedTurns = 6,
+                    allowPharmacistSuspension = true
+                ),
+                RxEvalTestCase(
+                    id = "BENCH_002_HYPERTENSION_AND_DIABETES",
+                    description = "Benchmark chronic care refill matching for Losartan and Metformin",
+                    input = TranscriptionInput(
+                        imageByteArray = ByteArray(0),
+                        selectedModel = AiProvider.Gemini.defaultModel,
+                        provider = AiProvider.Gemini
+                    ),
+                    initialItems = listOf(
+                        MedicineItem(medicineName = "Tab Osartan 50mg", schedule = "1+0+0", units = 30, unitType = "tablets"),
+                        MedicineItem(medicineName = "Tab Comet 500mg", schedule = "1+0+1", units = 60, unitType = "tablets")
+                    ),
+                    expectedItemsCount = 2,
+                    expectedMedicines = listOf(
+                        ExpectedMedicine(brandName = "Osartan", expectedStrength = "50mg", expectedGeneric = "Losartan"),
+                        ExpectedMedicine(brandName = "Comet", expectedStrength = "500mg", expectedGeneric = "Metformin")
+                    ),
+                    maxAllowedTurns = 6,
+                    allowPharmacistSuspension = true
+                ),
+                RxEvalTestCase(
+                    id = "BENCH_003_PAIN_AND_SAFETY_AUDIT",
+                    description = "Benchmark dosage safety audit for high-volume Paracetamol prescription",
+                    input = TranscriptionInput(
+                        imageByteArray = ByteArray(0),
+                        selectedModel = AiProvider.Gemini.defaultModel,
+                        provider = AiProvider.Gemini
+                    ),
+                    initialItems = listOf(
+                        MedicineItem(medicineName = "Tab Napa Extra 500mg", schedule = "2+2+2+2", units = 100, unitType = "tablets")
+                    ),
+                    expectedItemsCount = 1,
+                    expectedMedicines = listOf(
+                        ExpectedMedicine(brandName = "Napa", expectedStrength = "500mg", expectedGeneric = "Paracetamol")
+                    ),
+                    maxAllowedTurns = 6,
+                    allowPharmacistSuspension = true
+                ),
+                RxEvalTestCase(
+                    id = "BENCH_004_PEDIATRIC_SYRUP",
+                    description = "Benchmark pediatric liquid dosage form and Cetirizine antihistamine matching",
+                    input = TranscriptionInput(
+                        imageByteArray = ByteArray(0),
+                        selectedModel = AiProvider.Gemini.defaultModel,
+                        provider = AiProvider.Gemini
+                    ),
+                    initialItems = listOf(
+                        MedicineItem(medicineName = "Syr Alatrol 5mg/5ml", schedule = "1 tsp daily", units = 1, unitType = "bottle", dosageForm = "syrup")
+                    ),
+                    expectedItemsCount = 1,
+                    expectedMedicines = listOf(
+                        ExpectedMedicine(brandName = "Alatrol", expectedStrength = "5mg/5ml", expectedGeneric = "Cetirizine")
                     ),
                     maxAllowedTurns = 6,
                     allowPharmacistSuspension = true
