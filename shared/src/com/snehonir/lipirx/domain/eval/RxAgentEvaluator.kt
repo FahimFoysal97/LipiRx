@@ -13,6 +13,7 @@ class RxAgentEvaluator(
         testCases: List<RxEvalTestCase> = RxGoldenDataset.testSuites
     ): EvalSummaryReport {
         Napier.i("[$TAG] Starting Automated Multi-Agent Evaluation Suite (${testCases.size} test cases)...", tag = TAG)
+        SelfHealingDiagnosticRunner.runDiagnostic()
         val metricsList = mutableListOf<EvalMetrics>()
 
         for (testCase in testCases) {

@@ -8,6 +8,7 @@ import com.snehonir.lipirx.data.remote.GeminiAiService
 import com.snehonir.lipirx.data.remote.GroqAiService
 import com.snehonir.lipirx.data.remote.OpenAiAiService
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
+import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
 import com.snehonir.lipirx.domain.agent.koog.KoogRxSupervisorEngine
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
 import com.snehonir.lipirx.domain.eval.RxAgentEvaluator
@@ -90,6 +91,7 @@ val sharedModule = module {
     single { get<PrescriptionRepository>() as LipiRxLocalDatabase }
 
     // JetBrains Koog Multi-Agent Architecture Components
+    single { SelfHealingAgentExecutor(maxRetries = 2) }
     single { RxSupervisorAgent(aiService = get(), jsonParser = get()) }
 
     single {
@@ -103,7 +105,8 @@ val sharedModule = module {
         KoogRxSupervisorEngine(
             rxSupervisorAgent = get(),
             rxAgentTools = get(),
-            database = get()
+            database = get(),
+            selfHealingExecutor = get()
         )
     }
 

@@ -14,13 +14,15 @@ import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.ProcessingStep
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.data.local.getPlatformEpochMillis
+import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
 import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
 import io.github.aakira.napier.Napier
 
 class KoogRxSupervisorEngine(
     private val rxSupervisorAgent: RxSupervisorAgent,
     private val rxAgentTools: RxAgentTools,
-    private val database: LipiRxLocalDatabase
+    private val database: LipiRxLocalDatabase,
+    private val selfHealingExecutor: SelfHealingAgentExecutor = SelfHealingAgentExecutor()
 ) {
     suspend fun runOrchestration(
         input: TranscriptionInput,
@@ -109,7 +111,20 @@ class KoogRxSupervisorEngine(
             )
 
             val agentStartTime = getPlatformEpochMillis()
-            val newItemsResult = executeToolForAgent(targetAgentType, input, state.items, toolParams)
+            val newItemsResult = selfHealingExecutor.executeWithSelfHealing(targetAgentType.id) { repairPrompt ->
+                val currentParams = if (repairPrompt.isNotBlank()) {
+                    toolParams.copy(
+                        feedbackPrompt = if (toolParams.feedbackPrompt.isNotBlank()) {
+                            "${toolParams.feedbackPrompt}\n$repairPrompt"
+                        } else {
+                            repairPrompt
+                        }
+                    )
+                } else {
+                    toolParams
+                }
+                executeToolForAgent(targetAgentType, input, state.items, currentParams)
+            }
             val agentTimeMs = getPlatformEpochMillis() - agentStartTime
 
             database.saveAgentTrace(

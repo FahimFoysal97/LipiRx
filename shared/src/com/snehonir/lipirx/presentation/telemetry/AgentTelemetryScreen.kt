@@ -149,6 +149,18 @@ fun AgentTelemetryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Row 1: Section Title
+        Text(
+            text = stringResource(Res.string.header_trace_history),
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = Lipi.Ink,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Row 2: Action Bar (Run Benchmark & Clear Traces buttons)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -156,12 +168,39 @@ fun AgentTelemetryScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(Res.string.header_trace_history),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Ink
-            )
+            if (state.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Lipi.Primary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Surface(
+                    onClick = { viewModel.runSampleBenchmarkTest() },
+                    shape = CircleShape,
+                    color = Lipi.PrimaryContainer,
+                    border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(Res.string.btn_run_sample_benchmark),
+                            modifier = Modifier.size(14.dp),
+                            tint = Lipi.OnPrimaryContainer
+                        )
+                        Text(
+                            text = stringResource(Res.string.btn_run_sample_benchmark),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.OnPrimaryContainer
+                        )
+                    }
+                }
+            }
 
             if (state.traces.isNotEmpty()) {
                 Surface(
@@ -171,19 +210,19 @@ fun AgentTelemetryScreen(
                     border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.3f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = stringResource(Res.string.btn_clear_history),
-                            modifier = Modifier.size(13.dp),
+                            modifier = Modifier.size(14.dp),
                             tint = Lipi.Error
                         )
                         Text(
                             text = stringResource(Res.string.btn_clear_traces),
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Lipi.Error
                         )

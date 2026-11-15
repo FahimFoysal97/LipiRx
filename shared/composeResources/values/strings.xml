@@ -18,6 +18,7 @@
     <string name="telemetry_empty_title">No Agent Traces Logged</string>
     <string name="telemetry_empty_subtitle">Execute a prescription scan or run a benchmark to record supervisor turns &amp; tool traces.</string>
     <string name="btn_run_sample_benchmark">Run Benchmark Evaluation</string>
+    <string name="btn_run_benchmark_short">Run Benchmark</string>
     <string name="btn_clear_traces">Clear Traces</string>
     <string name="status_passed">PASSED</string>
     <string name="status_failed">FAILED</string>
