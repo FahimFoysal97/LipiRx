@@ -18,6 +18,22 @@
     <string name="telemetry_empty_title">No Agent Traces Logged</string>
     <string name="telemetry_empty_subtitle">Execute a prescription scan or run a benchmark to record supervisor turns &amp; tool traces.</string>
     <string name="btn_run_sample_benchmark">Run Benchmark Evaluation</string>
+    <string name="btn_clear_traces">Clear Traces</string>
+    <string name="status_passed">PASSED</string>
+    <string name="status_failed">FAILED</string>
+    <string name="label_hops">Hops</string>
+    <string name="label_items">Items</string>
+    <string name="label_turn_breakdown">Per-Agent Turn Breakdown</string>
+    <string name="label_turn_number">Turn %1$d</string>
+    <string name="saved_scans_count">%1$d Saved Scans</string>
+    <string name="cd_expand">Expand</string>
+    <string name="cd_collapse">Collapse</string>
+    <string name="label_turn_failed">%1$d turn(s) failed</string>
+    <string name="unit_hours">%1$dh</string>
+    <string name="unit_minutes">%1$dm</string>
+    <string name="unit_seconds">%1$ds</string>
+    <string name="unit_millis">%1$dms</string>
+    <string name="label_multi_provider">Multi-Provider (%1$s)</string>
 
     <!-- Scan Empty State -->
     <string name="scan_title">Scan Prescription</string>

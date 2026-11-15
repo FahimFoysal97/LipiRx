@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
@@ -57,6 +56,8 @@ import com.snehonir.lipirx.resources.history_empty_title
 import com.snehonir.lipirx.resources.history_title
 import com.snehonir.lipirx.ui.theme.Lipi
 import org.jetbrains.compose.resources.stringResource
+
+import com.snehonir.lipirx.resources.saved_scans_count
 
 @Composable
 fun HistoryScreen(
@@ -109,7 +110,7 @@ fun HistoryScreen(
                             tint = Lipi.Primary
                         )
                         Text(
-                            text = "${historyList.size} Saved Scans",
+                            text = stringResource(Res.string.saved_scans_count, historyList.size),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Lipi.OnPrimaryContainer
