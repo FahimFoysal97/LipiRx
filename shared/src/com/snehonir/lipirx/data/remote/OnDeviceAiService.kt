@@ -91,6 +91,19 @@ class OnDeviceAiService(
         )
     }
 
+    override suspend fun streamContent(
+        promptText: String,
+        selectedModel: String,
+        providedApiKey: String,
+        customUrl: String,
+        flow: String,
+        onToken: (String) -> Unit
+    ): Result<String> {
+        val res = processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
+        res.onSuccess { onToken(it) }
+        return res
+    }
+
     private fun parseMedicineItemsFromText(rawText: String): Result<List<MedicineItem>> {
         val cleaned = cleanJson(rawText)
 

@@ -30,4 +30,13 @@ interface PrescriptionAiService {
         customUrl: String = "",
         flow: String = "App -> PrescriptionAiService.processTextPrompt"
     ): Result<String>
+
+    suspend fun streamContent(
+        promptText: String,
+        selectedModel: String,
+        providedApiKey: String = "",
+        customUrl: String = "",
+        flow: String = "App -> PrescriptionAiService.streamContent",
+        onToken: (String) -> Unit = {}
+    ): Result<String>
 }

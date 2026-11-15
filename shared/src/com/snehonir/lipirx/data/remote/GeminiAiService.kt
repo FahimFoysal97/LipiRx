@@ -178,6 +178,41 @@ class GeminiAiService(
         }
     }
 
+    override suspend fun streamContent(
+        promptText: String,
+        selectedModel: String,
+        providedApiKey: String,
+        customUrl: String,
+        flow: String,
+        onToken: (String) -> Unit
+    ): Result<String> {
+        return try {
+            val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
+            val cleanModel = selectedModel.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).ifBlank { provider.defaultModel }
+            val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:streamGenerateContent?key=$targetApiKey"
+
+            val requestPayload = GeminiRequest(
+                contents = listOf(
+                    Content(
+                        role = "user",
+                        parts = listOf(Part(text = promptText))
+                    )
+                )
+            )
+
+            val requestJson = jsonParser.encodeToString(requestPayload)
+            val responseText: String = httpClient.post(endpoint) {
+                contentType(ContentType.Application.Json)
+                setBody(requestJson)
+            }.body()
+
+            onToken(responseText)
+            Result.success(responseText)
+        } catch (ex: Throwable) {
+            Result.failure(ex)
+        }
+    }
+
     private suspend fun executeGeminiPostCall(
         endpoint: String,
         requestPayload: GeminiRequest,

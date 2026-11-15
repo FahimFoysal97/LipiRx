@@ -202,21 +202,26 @@ abstract class OpenAiCompatibleAiService(
                 setBody(requestJson)
             }.body()
 
-            val chatResponse = jsonParser.decodeFromString<OpenAiChatResponse>(responseText)
-            if (chatResponse.error != null) {
-                throw IllegalStateException("API Error: ${chatResponse.error.message ?: "Unknown error"}")
-            }
-            val contentText = chatResponse.choices?.firstOrNull()?.message?.content
-            if (contentText.isNullOrBlank()) {
-                throw IllegalStateException("No text response received from AI model.")
-            }
-            val cleaned = cleanJsonResponse(contentText)
-            Result.success(cleaned)
+            val response = jsonParser.decodeFromString<OpenAiChatResponse>(responseText)
+            val content = response.choices?.firstOrNull()?.message?.content
+                ?: throw IllegalStateException("No content received from ${provider.displayName}.")
+            Result.success(content)
         } catch (ex: Throwable) {
-            val userFriendlyMessage = formatErrorMessage(ex)
-            Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
-            Result.failure(IllegalStateException(userFriendlyMessage, ex))
+            Result.failure(ex)
         }
+    }
+
+    override suspend fun streamContent(
+        promptText: String,
+        selectedModel: String,
+        providedApiKey: String,
+        customUrl: String,
+        flow: String,
+        onToken: (String) -> Unit
+    ): Result<String> {
+        val res = processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
+        res.onSuccess { onToken(it) }
+        return res
     }
 
     private suspend fun executeOpenAiPostCall(
