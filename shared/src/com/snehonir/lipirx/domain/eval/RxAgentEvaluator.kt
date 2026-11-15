@@ -22,7 +22,8 @@ class RxAgentEvaluator(
 
             val result = supervisorEngine.runOrchestration(
                 input = testCase.input,
-                initialItems = testCase.initialItems
+                initialItems = testCase.initialItems,
+                agentConfigs = testCase.agentConfigs
             )
             val duration = getPlatformEpochMillis() - startTime
 

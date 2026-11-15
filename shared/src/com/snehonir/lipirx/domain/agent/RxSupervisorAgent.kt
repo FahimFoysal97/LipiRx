@@ -5,6 +5,7 @@ import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.ClinicalApprovalReasons
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
+import org.jetbrains.compose.resources.getString
 
 class RxSupervisorAgent(
     private val aiService: CompositeAiService? = null,
@@ -23,13 +24,13 @@ class RxSupervisorAgent(
 
         if (canExecuteAiService(provider, apiKey, customUrl)) {
             executeSupervisorLlmLoop(state, provider, selectedModel, apiKey, customUrl)?.let { decision ->
-                Napier.d("[$agentName -> LLM Decision] Next: ${decision.nextAgent?.displayName ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${decision.reasoning}", tag = TAG)
+                Napier.d("[$agentName -> LLM Decision] Next: ${decision.nextAgent?.id ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${decision.reasoning}", tag = TAG)
                 return decision
             }
         }
 
         val fallback = getFallbackDecision(state)
-        Napier.d("[$agentName -> Rule Fallback] Next: ${fallback.nextAgent?.displayName ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${fallback.reasoning}", tag = TAG)
+        Napier.d("[$agentName -> Rule Fallback] Next: ${fallback.nextAgent?.id ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${fallback.reasoning}", tag = TAG)
         return fallback
     }
 
@@ -78,7 +79,7 @@ class RxSupervisorAgent(
         return null
     }
 
-    private fun parseAndValidateDecision(rawText: String, state: SupervisorState): Result<SupervisorDecision> {
+    private suspend fun parseAndValidateDecision(rawText: String, state: SupervisorState): Result<SupervisorDecision> {
         val cleanedJson = cleanJson(rawText)
         val decodedResult = runCatching { jsonParser.decodeFromString<SupervisorDecisionDto>(cleanedJson) }
 
@@ -91,7 +92,7 @@ class RxSupervisorAgent(
         return Result.success(decision)
     }
 
-    private fun mapDtoToDecision(dto: SupervisorDecisionDto, state: SupervisorState): SupervisorDecision {
+    private suspend fun mapDtoToDecision(dto: SupervisorDecisionDto, state: SupervisorState): SupervisorDecision {
         if (dto.isSuspendedForApproval == true) {
             return SupervisorDecision(
                 nextAgent = null,
@@ -111,7 +112,7 @@ class RxSupervisorAgent(
                 SupervisorDecision(
                     nextAgent = targetAgent,
                     isFinished = false,
-                    reasoning = dto.reasoning ?: SupervisorConstants.reasonTaskAssigned(targetAgent.displayName),
+                    reasoning = dto.reasoning ?: SupervisorConstants.reasonTaskAssigned(getString(targetAgent.displayNameRes)),
                     feedbackPrompt = dto.feedbackPrompt ?: ""
                 )
             }
@@ -164,7 +165,7 @@ class RxSupervisorAgent(
         if (state.history.isNotEmpty()) {
             appendLine("- Execution History:")
             state.history.forEach { record ->
-                appendLine("  * Agent ${record.agentType.displayName}: Reason='${record.reasoning}', OutputItems=${record.itemCount}")
+                appendLine("  * Agent ${record.agentType.id}: Reason='${record.reasoning}', OutputItems=${record.itemCount}")
             }
         }
         appendLine()

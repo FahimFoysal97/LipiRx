@@ -1,5 +1,7 @@
 package com.snehonir.lipirx.domain.eval
 
+import com.snehonir.lipirx.domain.agent.AgentConfig
+import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.model.MedicineItem
 import kotlinx.serialization.Serializable
@@ -16,6 +18,7 @@ data class RxEvalTestCase(
     val description: String,
     val input: TranscriptionInput,
     val initialItems: List<MedicineItem> = emptyList(),
+    val agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     val expectedItemsCount: Int,
     val expectedMedicines: List<ExpectedMedicine>,
     val maxAllowedTurns: Int = 6,

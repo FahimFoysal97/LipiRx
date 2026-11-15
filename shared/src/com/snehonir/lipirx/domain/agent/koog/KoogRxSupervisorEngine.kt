@@ -33,8 +33,6 @@ class KoogRxSupervisorEngine(
         val supervisorRuntime = resolveRuntimeConfig(
             agentType = RxAgentType.SUPERVISOR,
             agentConfigs = agentConfigs,
-            defaultProvider = AiProvider.Gemini,
-            defaultModel = AiProvider.Gemini.defaultModel,
             fallbackApiKey = input.providedApiKey,
             fallbackCustomUrl = input.customUrl
         )
@@ -80,8 +78,8 @@ class KoogRxSupervisorEngine(
 
             database.saveAgentTrace(
                 turnNumber = state.turnCount + 1,
-                agentType = RxAgentType.SUPERVISOR.displayName,
-                provider = supervisorRuntime.provider.displayName,
+                agentType = RxAgentType.SUPERVISOR.id,
+                provider = supervisorRuntime.provider.id,
                 modelName = supervisorRuntime.model,
                 reasoning = decision.reasoning,
                 feedbackPrompt = decision.feedbackPrompt,
@@ -95,8 +93,6 @@ class KoogRxSupervisorEngine(
             val workerRuntime = resolveRuntimeConfig(
                 agentType = targetAgentType,
                 agentConfigs = agentConfigs,
-                defaultProvider = targetAgentType.defaultProvider,
-                defaultModel = targetAgentType.defaultModel,
                 fallbackApiKey = input.providedApiKey,
                 fallbackCustomUrl = input.customUrl
             )
@@ -118,8 +114,8 @@ class KoogRxSupervisorEngine(
 
             database.saveAgentTrace(
                 turnNumber = state.turnCount + 1,
-                agentType = targetAgentType.displayName,
-                provider = workerRuntime.provider.displayName,
+                agentType = targetAgentType.id,
+                provider = workerRuntime.provider.id,
                 modelName = workerRuntime.model,
                 reasoning = decision.reasoning,
                 feedbackPrompt = decision.feedbackPrompt,
@@ -226,14 +222,14 @@ class KoogRxSupervisorEngine(
     private fun resolveRuntimeConfig(
         agentType: RxAgentType,
         agentConfigs: Map<RxAgentType, AgentConfig>,
-        defaultProvider: AiProvider,
-        defaultModel: String,
         fallbackApiKey: String,
         fallbackCustomUrl: String
     ): RuntimeConfig {
-        val config = agentConfigs[agentType]
-        val provider = config?.provider ?: defaultProvider
-        val model = config?.selectedModel?.ifBlank { provider.defaultModel } ?: defaultModel
+        val config = agentConfigs[agentType] ?: database.getAgentConfig(agentType)
+        val provider = config.provider
+        val savedProviderModel = database.getLastSelectedModel(provider, flow = "KoogEngine -> getLastSelectedModel")
+            .ifBlank { provider.defaultModel }
+        val model = config.selectedModel.ifBlank { savedProviderModel }
         val apiKey = database.getApiKeyForProvider(provider.id).ifBlank { fallbackApiKey }
         val customUrl = when (provider) {
             AiProvider.Custom -> database.getProviderConfig().customUrl.ifBlank { fallbackCustomUrl }

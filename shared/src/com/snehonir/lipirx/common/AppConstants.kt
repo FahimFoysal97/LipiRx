@@ -26,7 +26,7 @@ object AppConstants {
     const val BYTES_PER_MB = 1024L * 1024L
 
     const val GEMINI_DEFAULT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
-    const val GEMINI_DEFAULT_MODEL = "gemini-2.0-flash"
+    const val GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
 
     const val GROQ_DEFAULT_ENDPOINT = "https://api.groq.com/openai/v1/models"
     const val GROQ_CHAT_COMPLETIONS_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"

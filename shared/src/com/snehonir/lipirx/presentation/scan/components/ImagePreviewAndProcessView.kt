@@ -43,19 +43,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun ImagePreviewAndProcessView(
     imageByteArray: ByteArray,
     selectedModel: String,
-    availableModels: List<String>,
     apiKey: String = "",
     geminiApiKey: String = "",
     groqApiKey: String = "",
@@ -72,21 +71,17 @@ fun ImagePreviewAndProcessView(
     onToggleMcpServer: (Boolean) -> Unit = {},
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     providerModelsMap: Map<String, List<String>> = emptyMap(),
-    historyList: List<PrescriptionHistoryEntity> = emptyList(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
-    onModelSelected: (String) -> Unit,
     onZoom: () -> Unit,
     onAnalyze: () -> Unit,
     onRetake: () -> Unit,
     onChange: () -> Unit,
     onClear: () -> Unit,
-    onHistoryClick: (() -> Unit)? = null,
 ) {
-    val imageSizeKb = imageByteArray.size / 1024
     var showModelBottomSheet by remember { mutableStateOf(false) }
 
     Column(
@@ -320,7 +315,7 @@ private fun PipelineSummaryCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = agentType.displayName,
+                        text = stringResource(agentType.displayNameRes),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Lipi.Muted

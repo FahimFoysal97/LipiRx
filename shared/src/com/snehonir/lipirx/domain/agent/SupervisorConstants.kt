@@ -1,5 +1,7 @@
 package com.snehonir.lipirx.domain.agent
 
+import org.jetbrains.compose.resources.StringResource
+
 object SupervisorConstants {
     const val AGENT_NAME = "Rx Supervisor Manager Agent"
 

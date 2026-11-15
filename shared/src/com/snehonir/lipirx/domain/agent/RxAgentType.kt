@@ -1,60 +1,73 @@
 package com.snehonir.lipirx.domain.agent
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.agent_entity_parser_desc
+import com.snehonir.lipirx.resources.agent_entity_parser_name
+import com.snehonir.lipirx.resources.agent_generic_substitute_desc
+import com.snehonir.lipirx.resources.agent_generic_substitute_name
+import com.snehonir.lipirx.resources.agent_safety_auditor_desc
+import com.snehonir.lipirx.resources.agent_safety_auditor_name
+import com.snehonir.lipirx.resources.agent_supervisor_desc
+import com.snehonir.lipirx.resources.agent_supervisor_name
+import com.snehonir.lipirx.resources.agent_transcription_desc
+import com.snehonir.lipirx.resources.agent_transcription_name
 import com.snehonir.lipirx.ui.theme.icons.GenericSubstituteAgentVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.MedicalParserAgentVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.SafetyAuditorAgentVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.SupervisorAgentVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.VisionOcrAgentVectorIcon
+import org.jetbrains.compose.resources.StringResource
 
 enum class RxAgentType(
     val id: String,
-    val displayName: String,
-    val description: String,
+    val displayNameRes: StringResource,
+    val descriptionRes: StringResource,
     val icon: ImageVector,
-    val defaultProvider: AiProvider,
-    val defaultModel: String
+    val defaultProvider: AiProvider = AiProvider.Gemini,
+    val defaultModel: String = AppConstants.GEMINI_DEFAULT_MODEL
 ) {
     SUPERVISOR(
         id = "supervisor",
-        displayName = "Manager / Supervisor Agent",
-        description = "Evaluates workspace state and dynamically orchestrates worker agents",
+        displayNameRes = Res.string.agent_supervisor_name,
+        descriptionRes = Res.string.agent_supervisor_desc,
         icon = SupervisorAgentVectorIcon,
         defaultProvider = AiProvider.Gemini,
-        defaultModel = "gemini-2.0-flash"
+        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
     ),
     TRANSCRIPTION(
         id = "transcription",
-        displayName = "Vision Handwriting OCR",
-        description = "Reads handwritten doctor text from prescription photo",
+        displayNameRes = Res.string.agent_transcription_name,
+        descriptionRes = Res.string.agent_transcription_desc,
         icon = VisionOcrAgentVectorIcon,
         defaultProvider = AiProvider.Gemini,
-        defaultModel = "gemini-2.0-flash"
+        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
     ),
     ENTITY_PARSER(
         id = "entity_parser",
-        displayName = "Medical Entity Parser",
-        description = "Parses brand names, dosage forms, and schedules",
+        displayNameRes = Res.string.agent_entity_parser_name,
+        descriptionRes = Res.string.agent_entity_parser_desc,
         icon = MedicalParserAgentVectorIcon,
         defaultProvider = AiProvider.Gemini,
-        defaultModel = "gemini-1.5-pro"
+        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
     ),
     GENERIC_SUBSTITUTE(
         id = "generic_substitute",
-        displayName = "Generic & Substitute Finder",
-        description = "Matches generic compositions and BD brand substitutes",
+        displayNameRes = Res.string.agent_generic_substitute_name,
+        descriptionRes = Res.string.agent_generic_substitute_desc,
         icon = GenericSubstituteAgentVectorIcon,
-        defaultProvider = AiProvider.Groq,
-        defaultModel = "llama-3.2-90b-vision-instruct"
+        defaultProvider = AiProvider.Gemini,
+        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
     ),
     SAFETY_AUDITOR(
         id = "safety_auditor",
-        displayName = "Patient Safety Auditor",
-        description = "Audits dosage safety and flags unreadable items",
+        displayNameRes = Res.string.agent_safety_auditor_name,
+        descriptionRes = Res.string.agent_safety_auditor_desc,
         icon = SafetyAuditorAgentVectorIcon,
-        defaultProvider = AiProvider.OpenAi,
-        defaultModel = "gpt-4o-mini"
+        defaultProvider = AiProvider.Gemini,
+        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
     );
 
     companion object {

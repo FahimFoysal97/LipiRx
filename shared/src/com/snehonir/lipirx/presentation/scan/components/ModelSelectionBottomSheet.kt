@@ -431,14 +431,14 @@ fun ModelSelectionBottomSheet(
                                 tint = Lipi.Primary
                             )
                             Text(
-                                text = agentType.displayName,
+                                text = stringResource(agentType.displayNameRes),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Lipi.Ink
                             )
                         }
                         Text(
-                            text = agentType.description,
+                            text = stringResource(agentType.descriptionRes),
                             fontSize = 11.sp,
                             color = Lipi.Muted
                         )

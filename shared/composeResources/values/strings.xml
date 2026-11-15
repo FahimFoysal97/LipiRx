@@ -15,6 +15,18 @@
     <string name="btn_take_photo">Take Photo</string>
     <string name="btn_choose_gallery">Choose Gallery</string>
 
+    <!-- Agent Display Names & Descriptions -->
+    <string name="agent_supervisor_name">Manager / Supervisor Agent</string>
+    <string name="agent_supervisor_desc">Evaluates workspace state and dynamically orchestrates worker agents</string>
+    <string name="agent_transcription_name">Vision Handwriting OCR</string>
+    <string name="agent_transcription_desc">Reads handwritten doctor text from prescription photo</string>
+    <string name="agent_entity_parser_name">Medical Entity Parser</string>
+    <string name="agent_entity_parser_desc">Parses brand names, dosage forms, and schedules</string>
+    <string name="agent_generic_substitute_name">Generic &amp; Substitute Finder</string>
+    <string name="agent_generic_substitute_desc">Matches generic compositions and BD brand substitutes</string>
+    <string name="agent_safety_auditor_name">Patient Safety Auditor</string>
+    <string name="agent_safety_auditor_desc">Audits dosage safety and flags unreadable items</string>
+
     <!-- Processing & Loading -->
     <string name="loading_title">Processing Prescription...</string>
     <string name="loading_analyzing_title">Analyzing Prescription</string>

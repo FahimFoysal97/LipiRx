@@ -181,7 +181,6 @@ fun ScanResultScreen(
                         ImagePreviewAndProcessView(
                             imageByteArray = mode.byteArray,
                             selectedModel = uiState.selectedModel,
-                            availableModels = uiState.availableModels,
                             apiKey = uiState.apiKey,
                             geminiApiKey = uiState.geminiApiKey,
                             groqApiKey = uiState.groqApiKey,
@@ -200,7 +199,6 @@ fun ScanResultScreen(
                             },
                             agentConfigs = uiState.agentConfigs,
                             providerModelsMap = uiState.providerModelsMap,
-                            historyList = uiState.historyList,
                             onAgentProviderSelected = { agent, prov ->
                                 viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
                             },
@@ -216,9 +214,6 @@ fun ScanResultScreen(
                             onSelectOnDeviceStrategy = { strat ->
                                 viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
                             },
-                            onModelSelected = { model ->
-                                viewModel.selectModel(model, flow = "$flow -> ScanResultScreen.selectModel")
-                            },
                             onZoom = { showViewer = true },
                             onAnalyze = {
                                 viewModel.processSelectedImage(flow = "$flow -> ScanResultScreen.onProcessClick")
@@ -227,10 +222,6 @@ fun ScanResultScreen(
                             onChange = { imagePicker.launchGallery() },
                             onClear = {
                                 viewModel.clearSelectedImage(flow = "$flow -> ScanResultScreen.onClearClick")
-                            },
-                            onHistoryClick = {
-                                viewModel.loadHistoryList(flow = "$flow -> ScanResultScreen.onHistoryClick")
-                                showHistoryScreen = true
                             }
                         )
                     }
