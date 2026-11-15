@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -45,46 +46,36 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
-import com.snehonir.lipirx.domain.model.AiProvider
-import com.snehonir.lipirx.domain.model.OnDeviceStrategy
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_analyze_prescription
+import com.snehonir.lipirx.resources.btn_cancel
+import com.snehonir.lipirx.resources.btn_change
+import com.snehonir.lipirx.resources.btn_clear
+import com.snehonir.lipirx.resources.btn_configure
+import com.snehonir.lipirx.resources.btn_retake
+import com.snehonir.lipirx.resources.btn_show_less
+import com.snehonir.lipirx.resources.btn_show_more
+import com.snehonir.lipirx.resources.content_desc_prescription
+import com.snehonir.lipirx.resources.header_settings
+import com.snehonir.lipirx.resources.hint_zoom_pan
+import com.snehonir.lipirx.resources.title_analysis_notice
+import com.snehonir.lipirx.resources.title_prescription_preview
 import com.snehonir.lipirx.ui.theme.Lipi
-import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun ImagePreviewAndProcessView(
     imageByteArray: ByteArray,
-    selectedModel: String,
-    apiKey: String = "",
-    geminiApiKey: String = "",
-    groqApiKey: String = "",
-    openaiApiKey: String = "",
-    customApiKey: String = "",
-    providerType: String = "gemini",
-    customUrl: String = "",
-    apiKeyError: String? = null,
-    apiKeySuccess: String? = null,
     errorMessage: String? = null,
-    isTestingApiKey: Boolean = false,
-    onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
-    isMcpServerEnabled: Boolean = false,
-    onToggleMcpServer: (Boolean) -> Unit = {},
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-    providerModelsMap: Map<String, List<String>> = emptyMap(),
-    onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
-    onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
-    onProviderTabSelected: (String) -> Unit = {},
-    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
-    onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
     onZoom: () -> Unit,
     onAnalyze: () -> Unit,
     onRetake: () -> Unit,
     onChange: () -> Unit,
     onClear: () -> Unit,
-    onViewTelemetry: (() -> Unit)? = null
+    onOpenSettings: (() -> Unit)? = null,
+    onOpenAiStudio: (() -> Unit)? = onOpenSettings
 ) {
-    var showModelBottomSheet by remember { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -94,8 +85,8 @@ fun ImagePreviewAndProcessView(
     ) {
         AppHeader(
             onBack = onClear,
-            backContentDescription = "Back",
-            title = "Prescription Preview"
+            backContentDescription = stringResource(Res.string.btn_cancel),
+            title = stringResource(Res.string.title_prescription_preview)
         )
 
         if (!errorMessage.isNullOrBlank()) {
@@ -125,7 +116,7 @@ fun ImagePreviewAndProcessView(
                             tint = Lipi.OnAmber
                         )
                         Text(
-                            text = "Analysis Notice / Error",
+                            text = stringResource(Res.string.title_analysis_notice),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Lipi.OnAmber,
@@ -133,7 +124,7 @@ fun ImagePreviewAndProcessView(
                         )
                         if (isLongError) {
                             Text(
-                                text = if (isErrorExpanded) "Show less" else "Show more",
+                                text = if (isErrorExpanded) stringResource(Res.string.btn_show_less) else stringResource(Res.string.btn_show_more),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Lipi.OnAmber
@@ -164,7 +155,7 @@ fun ImagePreviewAndProcessView(
         ) {
             AsyncImage(
                 model = imageByteArray,
-                contentDescription = "Selected prescription",
+                contentDescription = stringResource(Res.string.content_desc_prescription),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(12.dp)
@@ -185,7 +176,7 @@ fun ImagePreviewAndProcessView(
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
                     Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
-                    Text("Tap photo to zoom & pan", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    Text(stringResource(Res.string.hint_zoom_pan), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
         }
@@ -198,49 +189,21 @@ fun ImagePreviewAndProcessView(
         ) {
             PipelineSummaryCard(
                 agentConfigs = agentConfigs,
-                onClick = { showModelBottomSheet = true }
+                onClick = { (onOpenSettings ?: onOpenAiStudio)?.invoke() }
             )
 
             PrimaryButton(
-                text = "Analyze Prescription",
+                text = stringResource(Res.string.btn_analyze_prescription),
                 icon = Icons.Default.PlayArrow,
                 onClick = onAnalyze
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SecondaryButton("Retake", Icons.Default.Refresh, onRetake, Modifier.weight(1f), fontSize = 13)
-                SecondaryButton("Change", Icons.Default.Search, onChange, Modifier.weight(1f), fontSize = 13)
-                SecondaryButton("Clear", Icons.Default.Clear, onClear, Modifier.weight(1f), contentColor = Lipi.Error, fontSize = 13)
+                SecondaryButton(stringResource(Res.string.btn_retake), Icons.Default.Refresh, onRetake, Modifier.weight(1f), fontSize = 13)
+                SecondaryButton(stringResource(Res.string.btn_change), Icons.Default.Search, onChange, Modifier.weight(1f), fontSize = 13)
+                SecondaryButton(stringResource(Res.string.btn_clear), Icons.Default.Clear, onClear, Modifier.weight(1f), contentColor = Lipi.Error, fontSize = 13)
             }
         }
-    }
-
-    if (showModelBottomSheet) {
-        ModelSelectionBottomSheet(
-            selectedModel = selectedModel,
-            apiKey = apiKey,
-            geminiApiKey = geminiApiKey,
-            groqApiKey = groqApiKey,
-            openaiApiKey = openaiApiKey,
-            customApiKey = customApiKey,
-            providerType = providerType,
-            customUrl = customUrl,
-            apiKeyError = apiKeyError,
-            apiKeySuccess = apiKeySuccess,
-            isTestingApiKey = isTestingApiKey,
-            onDeviceStrategy = onDeviceStrategy,
-            isMcpServerEnabled = isMcpServerEnabled,
-            onToggleMcpServer = onToggleMcpServer,
-            agentConfigs = agentConfigs,
-            providerModelsMap = providerModelsMap,
-            onAgentProviderSelected = onAgentProviderSelected,
-            onAgentModelSelected = onAgentModelSelected,
-            onProviderTabSelected = onProviderTabSelected,
-            onSaveProviderConfig = onSaveProviderConfig,
-            onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
-            onViewTelemetry = onViewTelemetry,
-            onDismiss = { showModelBottomSheet = false }
-        )
     }
 }
 
@@ -278,14 +241,14 @@ private fun PipelineSummaryCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = MultiAgentPipelineIcon,
+                            imageVector = Icons.Default.Settings,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = Lipi.Primary
                         )
                     }
                     Text(
-                        text = "AI & MCP Studio",
+                        text = stringResource(Res.string.header_settings),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Lipi.Ink
@@ -296,7 +259,7 @@ private fun PipelineSummaryCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text("Configure", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Primary)
+                    Text(stringResource(Res.string.btn_configure), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Primary)
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
                         contentDescription = null,

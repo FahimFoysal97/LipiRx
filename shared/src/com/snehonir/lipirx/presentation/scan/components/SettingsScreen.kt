@@ -7,18 +7,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
@@ -26,24 +29,21 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
@@ -56,6 +56,7 @@ import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_save_config
 import com.snehonir.lipirx.resources.btn_view_telemetry
 import com.snehonir.lipirx.resources.configure_key_to_load_models
@@ -83,19 +84,16 @@ import com.snehonir.lipirx.ui.theme.icons.ApiKeyVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.McpEndpointVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.McpServerVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
 import com.snehonir.lipirx.ui.theme.icons.OnDeviceStrategyVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.PasteVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.PipelineMatrixVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.ProviderSelectVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.ProviderSettingsVectorIcon
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModelSelectionBottomSheet(
+fun SettingsScreen(
     selectedModel: String,
     apiKey: String = "",
     geminiApiKey: String = "",
@@ -118,11 +116,8 @@ fun ModelSelectionBottomSheet(
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
     onViewTelemetry: (() -> Unit)? = null,
-    onDismiss: () -> Unit
+    onClose: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState()
-    val scope = rememberCoroutineScope()
-
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
 
@@ -141,60 +136,27 @@ fun ModelSelectionBottomSheet(
 
     val displayKeyText = remember(inputKey) { formatMaskedApiKey(inputKey) }
 
-    fun dismissWithAnimation(onComplete: () -> Unit = {}) {
-        scope.launch {
-            sheetState.hide()
-        }.invokeOnCompletion {
-            if (!sheetState.isVisible) {
-                onDismiss()
-                onComplete()
-            }
-        }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = { dismissWithAnimation() },
-        sheetState = sheetState,
-        containerColor = Color.White,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Lipi.Background)
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
+        AppHeader(
+            onBack = onClose,
+            backContentDescription = stringResource(Res.string.btn_cancel),
+            title = stringResource(Res.string.studio_title),
+            subtitle = stringResource(Res.string.studio_subtitle)
+        )
+
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.88f)
-                .padding(horizontal = 24.dp, vertical = 12.dp)
-                .verticalScroll(rememberScrollState())
-                .navigationBarsPadding(),
+                .fillMaxSize()
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .background(Lipi.PrimaryContainer, RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = MultiAgentPipelineIcon,
-                            contentDescription = null,
-                            modifier = Modifier.size(22.dp),
-                            tint = Lipi.Primary
-                        )
-                    }
-                    Column {
-                        Text(stringResource(Res.string.studio_title), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Lipi.Ink)
-                        Text(stringResource(Res.string.studio_subtitle), fontSize = 12.sp, color = Lipi.Muted)
-                    }
-                }
-            }
 
             // --- ON-DEVICE AI EXECUTION STRATEGY ---
             Row(
@@ -396,9 +358,7 @@ fun ModelSelectionBottomSheet(
             if (onViewTelemetry != null) {
                 Surface(
                     onClick = {
-                        dismissWithAnimation {
-                            onViewTelemetry()
-                        }
+                        onViewTelemetry()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
@@ -1088,9 +1048,66 @@ fun ModelSelectionBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
+}
+
+@Deprecated(
+    message = "Use SettingsScreen as a full screen composable instead",
+    replaceWith = ReplaceWith("SettingsScreen")
+)
+@Composable
+fun ModelSelectionBottomSheet(
+    selectedModel: String,
+    apiKey: String = "",
+    geminiApiKey: String = "",
+    groqApiKey: String = "",
+    openaiApiKey: String = "",
+    customApiKey: String = "",
+    providerType: String = "gemini",
+    customUrl: String = "",
+    apiKeyError: String? = null,
+    apiKeySuccess: String? = null,
+    isTestingApiKey: Boolean = false,
+    onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
+    isMcpServerEnabled: Boolean = false,
+    onToggleMcpServer: (Boolean) -> Unit = {},
+    agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
+    providerModelsMap: Map<String, List<String>> = emptyMap(),
+    onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
+    onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
+    onProviderTabSelected: (String) -> Unit = {},
+    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
+    onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
+    onViewTelemetry: (() -> Unit)? = null,
+    onDismiss: () -> Unit
+) {
+    SettingsScreen(
+        selectedModel = selectedModel,
+        apiKey = apiKey,
+        geminiApiKey = geminiApiKey,
+        groqApiKey = groqApiKey,
+        openaiApiKey = openaiApiKey,
+        customApiKey = customApiKey,
+        providerType = providerType,
+        customUrl = customUrl,
+        apiKeyError = apiKeyError,
+        apiKeySuccess = apiKeySuccess,
+        isTestingApiKey = isTestingApiKey,
+        onDeviceStrategy = onDeviceStrategy,
+        isMcpServerEnabled = isMcpServerEnabled,
+        onToggleMcpServer = onToggleMcpServer,
+        agentConfigs = agentConfigs,
+        providerModelsMap = providerModelsMap,
+        onAgentProviderSelected = onAgentProviderSelected,
+        onAgentModelSelected = onAgentModelSelected,
+        onProviderTabSelected = onProviderTabSelected,
+        onSaveProviderConfig = onSaveProviderConfig,
+        onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
+        onViewTelemetry = onViewTelemetry,
+        onClose = onDismiss
+    )
 }
 
 private fun formatMaskedApiKey(key: String): String {

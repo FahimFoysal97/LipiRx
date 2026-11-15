@@ -24,6 +24,7 @@ import com.snehonir.lipirx.presentation.scan.components.HistoryScreen
 import com.snehonir.lipirx.presentation.scan.components.ImagePreviewAndProcessView
 import com.snehonir.lipirx.presentation.scan.components.LoadingView
 import com.snehonir.lipirx.presentation.scan.components.MedicineListView
+import com.snehonir.lipirx.presentation.scan.components.SettingsScreen
 import com.snehonir.lipirx.presentation.telemetry.AgentTelemetryScreen
 import com.snehonir.lipirx.presentation.telemetry.AgentTraceViewModel
 import com.snehonir.lipirx.ui.BackHandler
@@ -49,6 +50,7 @@ private sealed interface ScanScreenMode {
     data object Results : ScanScreenMode
     data object History : ScanScreenMode
     data object Telemetry : ScanScreenMode
+    data object Settings : ScanScreenMode
 }
 
 @Composable
@@ -73,11 +75,15 @@ fun ScanResultScreen(
     var showViewer by remember { mutableStateOf(false) }
     var showHistoryScreen by remember { mutableStateOf(false) }
     var showTelemetryScreen by remember { mutableStateOf(false) }
+    var showSettingsScreen by remember { mutableStateOf(false) }
 
-    val isBackHandlerEnabled = showTelemetryScreen || showHistoryScreen || uiState.selectedHistoryItem != null || uiState.medicines.isNotEmpty() || uiState.capturedImageByteArray != null
+    val isBackHandlerEnabled = showSettingsScreen || showTelemetryScreen || showHistoryScreen || uiState.selectedHistoryItem != null || uiState.medicines.isNotEmpty() || uiState.capturedImageByteArray != null
 
     BackHandler(enabled = isBackHandlerEnabled) {
         when {
+            showSettingsScreen -> {
+                showSettingsScreen = false
+            }
             showTelemetryScreen -> {
                 showTelemetryScreen = false
             }
@@ -98,6 +104,7 @@ fun ScanResultScreen(
     }
 
     val currentScreenMode: ScanScreenMode = when {
+        showSettingsScreen -> ScanScreenMode.Settings
         showTelemetryScreen -> ScanScreenMode.Telemetry
         showHistoryScreen -> ScanScreenMode.History
         uiState.isLoading -> ScanScreenMode.Loading
@@ -121,6 +128,50 @@ fun ScanResultScreen(
                 label = "scanState",
             ) { mode ->
                 when (mode) {
+                    is ScanScreenMode.Settings -> {
+                        SettingsScreen(
+                            selectedModel = uiState.selectedModel,
+                            apiKey = uiState.apiKey,
+                            geminiApiKey = uiState.geminiApiKey,
+                            groqApiKey = uiState.groqApiKey,
+                            openaiApiKey = uiState.openaiApiKey,
+                            customApiKey = uiState.customApiKey,
+                            providerType = uiState.providerType,
+                            customUrl = uiState.customUrl,
+                            apiKeyError = uiState.apiKeyError,
+                            apiKeySuccess = uiState.apiKeySuccess,
+                            isTestingApiKey = uiState.isTestingApiKey,
+                            onDeviceStrategy = uiState.onDeviceStrategy,
+                            isMcpServerEnabled = uiState.isMcpServerEnabled,
+                            onToggleMcpServer = { enabled ->
+                                viewModel.onMcpServerToggled(enabled, flow = "$flow -> ScanResultScreen.onToggleMcpServer")
+                            },
+                            agentConfigs = uiState.agentConfigs,
+                            providerModelsMap = uiState.providerModelsMap,
+                            onAgentProviderSelected = { agent, prov ->
+                                viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
+                            },
+                            onAgentModelSelected = { agent, model ->
+                                viewModel.onAgentModelSelected(agent, model, flow = "$flow -> ScanResultScreen.onAgentModelSelected")
+                            },
+                            onProviderTabSelected = { type ->
+                                viewModel.onProviderTabSelected(type, flow = "$flow -> ScanResultScreen.onProviderTabSelected")
+                            },
+                            onSaveProviderConfig = { type, url, key, model ->
+                                viewModel.saveAndTestProviderConfig(type, url, key, model, flow = "$flow -> ScanResultScreen.saveAndTestProviderConfig")
+                            },
+                            onSelectOnDeviceStrategy = { strat ->
+                                viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
+                            },
+                            onViewTelemetry = {
+                                traceViewModel.loadAgentTraces(flow = "$flow -> ScanResultScreen.onViewTelemetry")
+                                showSettingsScreen = false
+                                showTelemetryScreen = true
+                            },
+                            onClose = { showSettingsScreen = false }
+                        )
+                    }
+
                     is ScanScreenMode.Telemetry -> {
                         AgentTelemetryScreen(
                             viewModel = traceViewModel,
@@ -147,43 +198,7 @@ fun ScanResultScreen(
 
                     is ScanScreenMode.Empty -> {
                         EmptyStateView(
-                            selectedModel = uiState.selectedModel,
-                            apiKey = uiState.apiKey,
-                            geminiApiKey = uiState.geminiApiKey,
-                            groqApiKey = uiState.groqApiKey,
-                            openaiApiKey = uiState.openaiApiKey,
-                            customApiKey = uiState.customApiKey,
-                            providerType = uiState.providerType,
-                            customUrl = uiState.customUrl,
-                            apiKeyError = uiState.apiKeyError,
-                            apiKeySuccess = uiState.apiKeySuccess,
-                            isTestingApiKey = uiState.isTestingApiKey,
-                            onDeviceStrategy = uiState.onDeviceStrategy,
-                            isMcpServerEnabled = uiState.isMcpServerEnabled,
-                            onToggleMcpServer = { enabled ->
-                                viewModel.onMcpServerToggled(enabled, flow = "$flow -> ScanResultScreen.onToggleMcpServer")
-                            },
-                            agentConfigs = uiState.agentConfigs,
-                            providerModelsMap = uiState.providerModelsMap,
-                            onAgentProviderSelected = { agent, prov ->
-                                viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
-                            },
-                            onAgentModelSelected = { agent, model ->
-                                viewModel.onAgentModelSelected(agent, model, flow = "$flow -> ScanResultScreen.onAgentModelSelected")
-                            },
-                            onProviderTabSelected = { type ->
-                                viewModel.onProviderTabSelected(type, flow = "$flow -> ScanResultScreen.onProviderTabSelected")
-                            },
-                            onSaveProviderConfig = { type, url, key, model ->
-                                viewModel.saveAndTestProviderConfig(type, url, key, model, flow = "$flow -> ScanResultScreen.saveAndTestProviderConfig")
-                            },
-                            onSelectOnDeviceStrategy = { strat ->
-                                viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
-                            },
-                            onViewTelemetry = {
-                                traceViewModel.loadAgentTraces(flow = "$flow -> ScanResultScreen.onViewTelemetry")
-                                showTelemetryScreen = true
-                            },
+                            onOpenSettings = { showSettingsScreen = true },
                             onTakePhoto = { imagePicker.launchCamera() },
                             onChooseGallery = { imagePicker.launchGallery() },
                             onHistoryClick = {
@@ -196,44 +211,9 @@ fun ScanResultScreen(
                     is ScanScreenMode.ImageSelected -> {
                         ImagePreviewAndProcessView(
                             imageByteArray = mode.byteArray,
-                            selectedModel = uiState.selectedModel,
-                            apiKey = uiState.apiKey,
-                            geminiApiKey = uiState.geminiApiKey,
-                            groqApiKey = uiState.groqApiKey,
-                            openaiApiKey = uiState.openaiApiKey,
-                            customApiKey = uiState.customApiKey,
-                            providerType = uiState.providerType,
-                            customUrl = uiState.customUrl,
-                            apiKeyError = uiState.apiKeyError,
-                            apiKeySuccess = uiState.apiKeySuccess,
                             errorMessage = uiState.errorMessage,
-                            isTestingApiKey = uiState.isTestingApiKey,
-                            onDeviceStrategy = uiState.onDeviceStrategy,
-                            isMcpServerEnabled = uiState.isMcpServerEnabled,
-                            onToggleMcpServer = { enabled ->
-                                viewModel.onMcpServerToggled(enabled, flow = "$flow -> ScanResultScreen.onToggleMcpServer")
-                            },
                             agentConfigs = uiState.agentConfigs,
-                            providerModelsMap = uiState.providerModelsMap,
-                            onAgentProviderSelected = { agent, prov ->
-                                viewModel.onAgentProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentProviderSelected")
-                            },
-                            onAgentModelSelected = { agent, model ->
-                                viewModel.onAgentModelSelected(agent, model, flow = "$flow -> ScanResultScreen.onAgentModelSelected")
-                            },
-                            onProviderTabSelected = { type ->
-                                viewModel.onProviderTabSelected(type, flow = "$flow -> ScanResultScreen.onProviderTabSelected")
-                            },
-                            onSaveProviderConfig = { type, url, key, model ->
-                                viewModel.saveAndTestProviderConfig(type, url, key, model, flow = "$flow -> ScanResultScreen.saveAndTestProviderConfig")
-                            },
-                            onSelectOnDeviceStrategy = { strat ->
-                                viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
-                            },
-                            onViewTelemetry = {
-                                traceViewModel.loadAgentTraces(flow = "$flow -> ScanResultScreen.onViewTelemetry")
-                                showTelemetryScreen = true
-                            },
+                            onOpenSettings = { showSettingsScreen = true },
                             onZoom = { showViewer = true },
                             onAnalyze = {
                                 viewModel.processSelectedImage(flow = "$flow -> ScanResultScreen.onProcessClick")

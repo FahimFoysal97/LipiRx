@@ -2,7 +2,6 @@ package com.snehonir.lipirx.presentation.telemetry
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,13 +15,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
@@ -35,7 +32,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.data.local.entity.AgentExecutionTraceEntity
+import com.snehonir.lipirx.presentation.scan.components.AppHeader
 import com.snehonir.lipirx.presentation.scan.components.PrimaryButton
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_clear_history
@@ -54,6 +51,7 @@ import com.snehonir.lipirx.resources.metric_total_hops
 import com.snehonir.lipirx.resources.metric_total_latency
 import com.snehonir.lipirx.resources.telemetry_empty_subtitle
 import com.snehonir.lipirx.resources.telemetry_empty_title
+import com.snehonir.lipirx.resources.telemetry_subtitle
 import com.snehonir.lipirx.resources.telemetry_title
 import com.snehonir.lipirx.ui.theme.Lipi
 import org.jetbrains.compose.resources.stringResource
@@ -72,69 +70,13 @@ fun AgentTelemetryScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        // Top Navigation Header Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = onClose),
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Lipi.CardBorder)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = stringResource(Res.string.telemetry_title),
-                            modifier = Modifier.size(20.dp),
-                            tint = Lipi.Ink
-                        )
-                    }
-                }
-
-                Text(
-                    text = stringResource(Res.string.telemetry_title),
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Lipi.Ink
-                )
-            }
-
-            if (state.traces.isNotEmpty()) {
-                Surface(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .clickable { viewModel.clearAllTraces() },
-                    shape = CircleShape,
-                    color = Lipi.Error.copy(alpha = 0.08f),
-                    border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.2f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(Res.string.btn_clear_history),
-                            modifier = Modifier.size(14.dp),
-                            tint = Lipi.Error
-                        )
-                    }
-                }
-            }
-        }
+        // App Header
+        AppHeader(
+            onBack = onClose,
+            backContentDescription = stringResource(Res.string.telemetry_title),
+            title = stringResource(Res.string.telemetry_title),
+            subtitle = stringResource(Res.string.telemetry_subtitle)
+        )
 
         // Metrics Summary Row
         Row(
@@ -162,13 +104,48 @@ fun AgentTelemetryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = stringResource(Res.string.header_trace_history),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = Lipi.Ink,
-            modifier = Modifier.padding(horizontal = 20.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(Res.string.header_trace_history),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Lipi.Ink
+            )
+
+            if (state.traces.isNotEmpty()) {
+                Surface(
+                    onClick = { viewModel.clearAllTraces() },
+                    shape = CircleShape,
+                    color = Lipi.Error.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(Res.string.btn_clear_history),
+                            modifier = Modifier.size(13.dp),
+                            tint = Lipi.Error
+                        )
+                        Text(
+                            text = "Clear Traces",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Error
+                        )
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 

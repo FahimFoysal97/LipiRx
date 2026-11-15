@@ -156,7 +156,7 @@ private suspend fun executeToolForAgent(
 ```
 
 ### Step 4: UI (automatic)
-`ModelSelectionBottomSheet.kt` iterates over `RxAgentType.entries` and renders provider and model selection per agent tool. No manual UI change is needed.
+`SettingsScreen.kt` iterates over `RxAgentType.entries` and renders provider and model selection per agent tool. No manual UI change is needed.
 
 ---
 

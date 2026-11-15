@@ -5,7 +5,7 @@
     <!-- Navigation & Headers -->
     <string name="header_subtitle">AI Prescription Scanning &amp; Audit Engine</string>
     <string name="header_history">Scan History</string>
-    <string name="header_ai_studio">AI &amp; MCP Studio</string>
+    <string name="header_settings">Settings</string>
 
     <!-- AgentOps Telemetry Dashboard -->
     <string name="telemetry_title">AgentOps Telemetry Dashboard</string>
@@ -109,14 +109,25 @@
     <string name="btn_cancel">Cancel</string>
     <string name="zoom_hint">Pinch up to 6x · Double-tap to toggle 100% / 250%</string>
 
+    <!-- Image Preview Actions -->
+    <string name="title_prescription_preview">Prescription Preview</string>
+    <string name="title_analysis_notice">Analysis Notice / Error</string>
+    <string name="btn_show_more">Show more</string>
+    <string name="btn_show_less">Show less</string>
+    <string name="hint_zoom_pan">Tap photo to zoom &amp; pan</string>
+    <string name="btn_analyze_prescription">Analyze Prescription</string>
+    <string name="btn_retake">Retake</string>
+    <string name="btn_change">Change</string>
+    <string name="btn_configure">Configure</string>
+
     <!-- Content Descriptions & Placeholders -->
     <string name="content_desc_prescription">Prescription Photo</string>
     <string name="content_desc_stop_analysis">Stop Analysis</string>
     <string name="content_desc_select_strategy">Select Strategy</string>
     <string name="placeholder_paste_key">Tap \'Paste\' to insert key...</string>
 
-    <!-- Bottom Sheet & Studio -->
-    <string name="studio_title">AI Engine &amp; MCP Studio</string>
+    <!-- Settings -->
+    <string name="studio_title">Settings</string>
     <string name="studio_subtitle">Configure multi-agent pipeline, MCP server &amp; provider keys</string>
     <string name="section_on_device">On-Device Strategy</string>
     <string name="section_mcp">Model Context Protocol (MCP)</string>

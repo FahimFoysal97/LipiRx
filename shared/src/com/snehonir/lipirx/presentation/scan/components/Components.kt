@@ -62,6 +62,7 @@ fun AppHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -96,17 +97,21 @@ fun AppHeader(
             }
 
             if (subtitle != null) {
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text(
                         text = title,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Lipi.Ink
+                        color = Lipi.Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = subtitle,
                         fontSize = 12.sp,
-                        color = Lipi.Muted
+                        color = Lipi.Muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             } else {
@@ -114,10 +119,15 @@ fun AppHeader(
                     text = title,
                     fontSize = if (onBack != null) 20.sp else 18.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Lipi.Ink
+                    color = Lipi.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
             }
         }
+
+        Spacer(modifier = Modifier.width(8.dp))
 
         Row(
             verticalAlignment = Alignment.CenterVertically,

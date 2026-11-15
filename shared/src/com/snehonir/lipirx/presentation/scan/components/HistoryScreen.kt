@@ -2,7 +2,6 @@ package com.snehonir.lipirx.presentation.scan.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,77 +76,14 @@ fun HistoryScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        // Top Navigation Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = onClose),
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Lipi.CardBorder)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = stringResource(Res.string.history_title),
-                            modifier = Modifier.size(20.dp),
-                            tint = Lipi.Ink
-                        )
-                    }
-                }
+        // App Header
+        AppHeader(
+            onBack = onClose,
+            backContentDescription = stringResource(Res.string.history_title),
+            title = stringResource(Res.string.history_title)
+        )
 
-                Text(
-                    text = stringResource(Res.string.history_title),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Lipi.Ink
-                )
-            }
-
-            if (historyList.isNotEmpty()) {
-                Surface(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable { showClearAllConfirm = true },
-                    shape = RoundedCornerShape(20.dp),
-                    color = Lipi.Error.copy(alpha = 0.08f),
-                    border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.2f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(Res.string.btn_clear_history),
-                            modifier = Modifier.size(15.dp),
-                            tint = Lipi.Danger
-                        )
-                        Text(
-                            text = stringResource(Res.string.btn_clear_history),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Lipi.Danger
-                        )
-                    }
-                }
-            }
-        }
-
-        // Sub-Header Stats Bar
+        // Sub-Header Stats Bar with Delete All button
         if (historyList.isNotEmpty()) {
             Row(
                 modifier = Modifier
@@ -177,6 +113,32 @@ fun HistoryScreen(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Lipi.OnPrimaryContainer
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = { showClearAllConfirm = true },
+                    shape = CircleShape,
+                    color = Lipi.Error.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(Res.string.btn_clear_history),
+                            modifier = Modifier.size(13.dp),
+                            tint = Lipi.Danger
+                        )
+                        Text(
+                            text = stringResource(Res.string.btn_clear_history),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Danger
                         )
                     }
                 }

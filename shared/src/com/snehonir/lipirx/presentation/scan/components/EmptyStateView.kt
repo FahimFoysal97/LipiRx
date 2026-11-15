@@ -16,12 +16,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,53 +30,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.snehonir.lipirx.domain.agent.AgentConfig
-import com.snehonir.lipirx.domain.agent.RxAgentType
-import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_choose_gallery
 import com.snehonir.lipirx.resources.btn_take_photo
 import com.snehonir.lipirx.resources.empty_description
 import com.snehonir.lipirx.resources.empty_headline
-import com.snehonir.lipirx.resources.header_ai_studio
 import com.snehonir.lipirx.resources.header_history
+import com.snehonir.lipirx.resources.header_settings
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import com.snehonir.lipirx.ui.theme.icons.CameraVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.GalleryVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.MultiAgentPipelineIcon
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun EmptyStateView(
-    selectedModel: String,
-    apiKey: String = "",
-    geminiApiKey: String = "",
-    groqApiKey: String = "",
-    openaiApiKey: String = "",
-    customApiKey: String = "",
-    providerType: String = "gemini",
-    customUrl: String = "",
-    apiKeyError: String? = null,
-    apiKeySuccess: String? = null,
-    isTestingApiKey: Boolean = false,
-    onDeviceStrategy: com.snehonir.lipirx.domain.model.OnDeviceStrategy = com.snehonir.lipirx.domain.model.OnDeviceStrategy.HYBRID_FALLBACK,
-    isMcpServerEnabled: Boolean = false,
-    onToggleMcpServer: (Boolean) -> Unit = {},
-    agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-    providerModelsMap: Map<String, List<String>> = emptyMap(),
-    onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
-    onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
-    onProviderTabSelected: (String) -> Unit = {},
-    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
-    onSelectOnDeviceStrategy: (com.snehonir.lipirx.domain.model.OnDeviceStrategy) -> Unit = {},
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
     onHistoryClick: (() -> Unit)? = null,
-    onViewTelemetry: (() -> Unit)? = null
+    onOpenSettings: (() -> Unit)? = null,
+    onOpenAiStudio: (() -> Unit)? = onOpenSettings
 ) {
-    var showModelBottomSheet by remember { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -231,9 +202,9 @@ fun EmptyStateView(
                 )
 
                 SecondaryButton(
-                    text = stringResource(Res.string.header_ai_studio),
-                    icon = MultiAgentPipelineIcon,
-                    onClick = { showModelBottomSheet = true },
+                    text = stringResource(Res.string.header_settings),
+                    icon = Icons.Default.Settings,
+                    onClick = { (onOpenSettings ?: onOpenAiStudio)?.invoke() },
                     modifier = Modifier.weight(1f),
                     contentColor = Lipi.Ink
                 )
@@ -242,34 +213,6 @@ fun EmptyStateView(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
-
-    if (showModelBottomSheet) {
-        ModelSelectionBottomSheet(
-            selectedModel = selectedModel,
-            apiKey = apiKey,
-            geminiApiKey = geminiApiKey,
-            groqApiKey = groqApiKey,
-            openaiApiKey = openaiApiKey,
-            customApiKey = customApiKey,
-            providerType = providerType,
-            customUrl = customUrl,
-            apiKeyError = apiKeyError,
-            apiKeySuccess = apiKeySuccess,
-            isTestingApiKey = isTestingApiKey,
-            onDeviceStrategy = onDeviceStrategy,
-            isMcpServerEnabled = isMcpServerEnabled,
-            onToggleMcpServer = onToggleMcpServer,
-            agentConfigs = agentConfigs,
-            providerModelsMap = providerModelsMap,
-            onAgentProviderSelected = onAgentProviderSelected,
-            onAgentModelSelected = onAgentModelSelected,
-            onProviderTabSelected = onProviderTabSelected,
-            onSaveProviderConfig = onSaveProviderConfig,
-            onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
-            onViewTelemetry = onViewTelemetry,
-            onDismiss = { showModelBottomSheet = false }
-        )
-    }
 }
 
 @Preview
@@ -277,8 +220,6 @@ fun EmptyStateView(
 fun EmptyStateViewPreview() {
     LipiRxTheme {
         EmptyStateView(
-            selectedModel = "gemini-2.0-flash",
-            providerType = "gemini",
             onTakePhoto = {},
             onChooseGallery = {}
         )
