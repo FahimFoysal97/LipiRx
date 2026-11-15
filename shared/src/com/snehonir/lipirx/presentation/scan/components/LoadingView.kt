@@ -12,12 +12,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,10 +36,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -71,20 +68,25 @@ import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Segmented layout: scanner, one segmented progress bar (one segment per agent),
+ * a single "now" card, and a quiet Stop button.
+ * Same parameters as LoadingView, so it can be swapped in with a one-line change.
+ */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun LoadingView(
     imageByteArray: ByteArray? = null,
     activeStep: Int = 1,
     statusText: String = "",
     agentProgressPercent: Int = 0,
-    onStopAnalysis: () -> Unit = {}
+    currentAgent: RxAgentType = RxAgentType.entries.getOrNull(activeStep) ?: RxAgentType.SUPERVISOR,
+    onStopAnalysis: () -> Unit = {},
 ) {
-    val agents = RxAgentType.ALL
+    val total = RxAgentType.ALL.size
     val percent = agentProgressPercent.coerceIn(0, 100)
 
-    // One shared transition drives every looping animation. The values are passed as State
-    // and only read in draw scopes, so these loops never trigger recomposition.
-    val infinite = rememberInfiniteTransition(label = "loading")
+    val infinite = rememberInfiniteTransition(label = "segmentedLoading")
     val scan = infinite.animateFloat(
         initialValue = 0.05f,
         targetValue = 0.95f,
@@ -97,6 +99,12 @@ fun LoadingView(
         animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
         label = "pulse",
     )
+    val breathe = infinite.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "breathe",
+    )
 
     val animatedProgress by animateFloatAsState(
         targetValue = percent / 100f,
@@ -105,12 +113,14 @@ fun LoadingView(
     )
 
     val defaultSubtitle = stringResource(Res.string.loading_default_subtitle)
+    val status = statusText.ifBlank { defaultSubtitle }
+    val currentAgentName = stringResource(currentAgent.displayNameRes)
+    val doneCount = activeStep.coerceIn(0, total)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Lipi.Background)
-            // soft brand glow at the top of the screen
             .drawBehind {
                 drawRect(
                     Brush.radialGradient(
@@ -125,7 +135,6 @@ fun LoadingView(
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val minHeight = maxHeight
-            // Scrolls on small screens / large font sizes, centered when there's room.
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -133,129 +142,96 @@ fun LoadingView(
                     .padding(horizontal = 20.dp, vertical = 16.dp)
                     .heightIn(min = minHeight - 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
             ) {
-                ScannerCard(imageByteArray = imageByteArray, scan = scan, pulse = pulse)
+                SegScannerCard(imageByteArray = imageByteArray, scan = scan, pulse = pulse)
 
-                // Timeline stepper
+                // One segment per agent: done = solid, active = filling, waiting = empty.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    repeat(total) { i ->
+                        SegmentBar(
+                            modifier = Modifier.weight(1f),
+                            isCompleted = i < activeStep,
+                            isActive = i == activeStep,
+                            progress = { animatedProgress },
+                        )
+                    }
+                }
+
+                // The single "now" card
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
                     color = Color.White,
                     border = BorderStroke(1.dp, Lipi.CardBorder),
                 ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
-                        agents.forEachIndexed { i, agent ->
-                            val isCompleted = i < activeStep
-                            val isActive = i == activeStep
-                            val isLast = i == agents.lastIndex
-
-                            Row(
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(IntrinsicSize.Min),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                // Node + connector
-                                Column(
-                                    modifier = Modifier.width(26.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    StepNode(
-                                        index = i,
-                                        isCompleted = isCompleted,
-                                        isActive = isActive,
-                                        pulse = pulse,
-                                    )
-                                    if (!isLast) {
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(vertical = 4.dp)
-                                                .width(2.dp)
-                                                .weight(1f)
-                                                .clip(CircleShape)
-                                                .background(if (isCompleted) Lipi.Primary else Lipi.CardBorder)
-                                        )
-                                    }
-                                }
-
-                                // Label + trailing state
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(bottom = if (isLast) 0.dp else 14.dp),
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .heightIn(min = 26.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            text = stringResource(agent.displayNameRes),
-                                            modifier = Modifier.weight(1f),
-                                            fontSize = 14.sp,
-                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                                            color = if (isActive) Lipi.Ink else Lipi.Muted,
-                                        )
-                                        when {
-                                            isActive -> Surface(shape = CircleShape, color = Lipi.PrimaryContainer) {
-                                                Text(
-                                                    text = "$percent%",
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    color = Lipi.OnPrimaryContainer,
-                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                                                )
-                                            }
-                                            isCompleted -> Text(
-                                                text = "Done",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Lipi.Primary.copy(alpha = 0.8f),
-                                            )
-                                        }
-                                    }
-                                    if (isActive) {
-                                        Crossfade(
-                                            targetState = statusText.ifBlank { defaultSubtitle },
-                                            animationSpec = tween(300),
-                                            label = "status",
-                                        ) { text ->
-                                            Text(
-                                                text = text,
-                                                fontSize = 12.sp,
-                                                lineHeight = 17.sp,
-                                                color = Lipi.Muted,
-                                            )
-                                        }
-                                        Spacer(Modifier.height(8.dp))
-                                        LinearProgressIndicator(
-                                            progress = { animatedProgress },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(8.dp)
-                                                .clip(CircleShape),
-                                            color = Lipi.Primary,
-                                            trackColor = Lipi.PrimaryContainer,
-                                        )
-                                    }
-                                }
+                                    .size(8.dp)
+                                    .drawBehind { drawCircle(Lipi.Primary.copy(alpha = breathe.value)) }
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = currentAgentName,
+                                modifier = Modifier.weight(1f),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.Ink,
+                                maxLines = 1,
+                            )
+                            Surface(shape = CircleShape, color = Lipi.PrimaryContainer) {
+                                Text(
+                                    text = "$percent%",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Lipi.OnPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                                )
                             }
+                        }
+
+                        Crossfade(
+                            targetState = status,
+                            animationSpec = tween(300),
+                            label = "status",
+                        ) { text ->
+                            Text(
+                                text = text,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp,
+                                color = Lipi.Muted,
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = Lipi.Muted,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "$doneCount / $total",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Lipi.Muted,
+                            )
                         }
                     }
                 }
 
-                // Stop
-                OutlinedButton(
+                TextButton(
                     onClick = onStopAnalysis,
-                    modifier = Modifier.height(44.dp),
-                    shape = CircleShape,
-                    border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.35f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Lipi.Error.copy(alpha = 0.08f),
-                        contentColor = Lipi.Error,
-                    ),
+                    colors = ButtonDefaults.textButtonColors(contentColor = Lipi.Error),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -276,9 +252,38 @@ fun LoadingView(
     }
 }
 
+@Composable
+private fun SegmentBar(
+    modifier: Modifier,
+    isCompleted: Boolean,
+    isActive: Boolean,
+    progress: () -> Float,
+) {
+    Box(
+        modifier = modifier
+            .height(6.dp)
+            .clip(CircleShape)
+            .background(
+                when {
+                    isCompleted -> Lipi.Primary
+                    isActive -> Lipi.PrimaryContainer
+                    else -> Lipi.CardBorder
+                }
+            )
+            .drawBehind {
+                if (isActive) {
+                    drawRect(
+                        color = Lipi.Primary,
+                        size = Size(size.width * progress().coerceIn(0f, 1f), size.height),
+                    )
+                }
+            }
+    )
+}
+
 /** The prescription "paper" with a viewfinder frame and a sweeping scan beam. */
 @Composable
-private fun ScannerCard(
+private fun SegScannerCard(
     imageByteArray: ByteArray?,
     scan: State<Float>,
     pulse: State<Float>,
@@ -286,8 +291,7 @@ private fun ScannerCard(
     val shape = RoundedCornerShape(22.dp)
 
     Box(contentAlignment = Alignment.Center) {
-        // breathing halo behind the card
-        Canvas(modifier = Modifier.size(240.dp, 290.dp)) {
+        Canvas(modifier = Modifier.size(230.dp, 280.dp)) {
             val strength = 0.14f + 0.10f * (1f - pulse.value)
             drawRect(
                 Brush.radialGradient(
@@ -300,7 +304,7 @@ private fun ScannerCard(
 
         Box(
             modifier = Modifier
-                .size(168.dp, 224.dp)
+                .size(160.dp, 214.dp)
                 .shadow(
                     elevation = 20.dp,
                     shape = shape,
@@ -319,10 +323,9 @@ private fun ScannerCard(
                     contentScale = ContentScale.Crop,
                 )
             } else {
-                PaperIllustration(128.dp, 172.dp)
+                PaperIllustration(124.dp, 166.dp)
             }
 
-            // scan beam + viewfinder corners
             Canvas(modifier = Modifier.matchParentSize()) {
                 val y = size.height * scan.value
                 val glow = 44.dp.toPx()
@@ -359,16 +362,12 @@ private fun ScannerCard(
                 val r = size.width - inset
                 val b = size.height - inset
 
-                // top-left
                 drawLine(c, Offset(l, t), Offset(l + len, t), sw, StrokeCap.Round)
                 drawLine(c, Offset(l, t), Offset(l, t + len), sw, StrokeCap.Round)
-                // top-right
                 drawLine(c, Offset(r, t), Offset(r - len, t), sw, StrokeCap.Round)
                 drawLine(c, Offset(r, t), Offset(r, t + len), sw, StrokeCap.Round)
-                // bottom-left
                 drawLine(c, Offset(l, b), Offset(l + len, b), sw, StrokeCap.Round)
                 drawLine(c, Offset(l, b), Offset(l, b - len), sw, StrokeCap.Round)
-                // bottom-right
                 drawLine(c, Offset(r, b), Offset(r - len, b), sw, StrokeCap.Round)
                 drawLine(c, Offset(r, b), Offset(r, b - len), sw, StrokeCap.Round)
             }
@@ -376,70 +375,67 @@ private fun ScannerCard(
     }
 }
 
-/** Completed = check, active = pulsing dot, pending = step number. */
+@Preview(name = "Step 0 - Manager Supervisor")
 @Composable
-private fun StepNode(
-    index: Int,
-    isCompleted: Boolean,
-    isActive: Boolean,
-    pulse: State<Float>,
-) {
-    Box(
-        modifier = Modifier
-            .size(26.dp)
-            .drawBehind {
-                if (isActive) {
-                    drawCircle(
-                        color = Lipi.Primary.copy(alpha = 0.30f * (1f - pulse.value)),
-                        radius = size.minDimension / 2f * (1f + 0.7f * pulse.value),
-                    )
-                }
-            }
-            .clip(CircleShape)
-            .background(
-                when {
-                    isCompleted -> Lipi.Primary
-                    isActive -> Lipi.PrimaryContainer
-                    else -> Lipi.Background
-                }
-            )
-            .then(
-                if (!isCompleted && !isActive) Modifier.border(1.dp, Lipi.CardBorder, CircleShape)
-                else Modifier
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        when {
-            isCompleted -> Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = Color.White,
-            )
-            isActive -> Box(
-                modifier = Modifier
-                    .size(9.dp)
-                    .clip(CircleShape)
-                    .background(Lipi.Primary)
-            )
-            else -> Text(
-                text = "${index + 1}",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Muted,
-            )
-        }
+fun LoadingViewSupervisorPreview() {
+    LipiRxTheme {
+        LoadingView(
+            activeStep = 0,
+            statusText = "Manager Agent evaluating workspace state...",
+            agentProgressPercent = 25,
+            currentAgent = RxAgentType.SUPERVISOR
+        )
     }
 }
 
-@Preview
+@Preview(name = "Step 1 - Vision OCR")
 @Composable
 fun LoadingViewVisionOcrPreview() {
     LipiRxTheme {
         LoadingView(
-            activeStep = 3,
+            activeStep = 1,
             statusText = "Reading handwriting & Vision OCR...",
-            agentProgressPercent = 65
+            agentProgressPercent = 65,
+            currentAgent = RxAgentType.TRANSCRIPTION
+        )
+    }
+}
+
+@Preview(name = "Step 2 - Entity Parser")
+@Composable
+fun LoadingViewEntityParserPreview() {
+    LipiRxTheme {
+        LoadingView(
+            activeStep = 2,
+            statusText = "Parsing brand names, dosages & schedules...",
+            agentProgressPercent = 45,
+            currentAgent = RxAgentType.ENTITY_PARSER
+        )
+    }
+}
+
+@Preview(name = "Step 3 - Generic Substitute Finder")
+@Composable
+fun LoadingViewSubstitutePreview() {
+    LipiRxTheme {
+        LoadingView(
+            activeStep = 3,
+            statusText = "Matching DGDA composition & BD brand substitutes...",
+            agentProgressPercent = 80,
+            currentAgent = RxAgentType.GENERIC_SUBSTITUTE
+        )
+    }
+}
+
+@Preview(name = "Step 4 - Safety Auditor")
+@Composable
+fun LoadingViewSafetyAuditorPreview() {
+    LipiRxTheme {
+        LoadingView(
+            activeStep = 4,
+            statusText = "Auditing clinical dosage safety & interaction risks...",
+            agentProgressPercent = 95,
+            currentAgent = RxAgentType.SAFETY_AUDITOR
         )
     }
 }

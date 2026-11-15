@@ -27,10 +27,10 @@ class KoogRxSupervisorEngine(
         input: TranscriptionInput,
         initialItems: List<MedicineItem> = emptyList(),
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-        onProgress: (agentType: RxAgentType) -> Unit = {}
+        onProgress: (agentType: RxAgentType, reasoning: String) -> Unit = { _, _ -> }
     ): Result<OrchestrationResult> {
         Napier.d("[$TAG] Starting JetBrains Koog Multi-Agent Supervisor Engine...", tag = TAG)
-        onProgress(RxAgentType.SUPERVISOR)
+        onProgress(RxAgentType.SUPERVISOR, "Manager Agent evaluating workspace state & initiating orchestration...")
 
         val supervisorRuntime = resolveRuntimeConfig(
             agentType = RxAgentType.SUPERVISOR,
@@ -68,7 +68,7 @@ class KoogRxSupervisorEngine(
             }
 
             val targetAgentType = decision.nextAgent
-            onProgress(targetAgentType)
+            onProgress(targetAgentType, decision.reasoning)
 
             val supervisorRecord = AgentExecutionRecord(
                 agentType = RxAgentType.SUPERVISOR,
@@ -198,7 +198,7 @@ class KoogRxSupervisorEngine(
             )
         }
 
-        onProgress(RxAgentType.SAFETY_AUDITOR)
+        onProgress(RxAgentType.SAFETY_AUDITOR, "Finalizing clinical safety audit & pharmacist review gate...")
 
         return Result.success(
             OrchestrationResult(

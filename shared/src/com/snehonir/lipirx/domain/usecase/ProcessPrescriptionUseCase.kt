@@ -15,7 +15,7 @@ class ProcessPrescriptionUseCase(
     suspend fun executePipeline(
         input: TranscriptionInput,
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-        onProgress: (agentType: RxAgentType) -> Unit = {}
+        onProgress: (agentType: RxAgentType, reasoning: String) -> Unit = { _, _ -> }
     ): Result<OrchestrationResult> {
         return koogSupervisorEngine.runOrchestration(
             input = input,

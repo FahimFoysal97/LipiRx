@@ -620,11 +620,11 @@ class ScanViewModel(
             val result = processPrescriptionUseCase.executePipeline(
                 input = input,
                 agentConfigs = state.agentConfigs,
-                onProgress = { agentType ->
+                onProgress = { agentType, reasoning ->
                     _uiState.update {
                         it.copy(
                             loadingStep = agentType.ordinal,
-                            loadingStatusText = agentType.id,
+                            loadingStatusText = reasoning.ifBlank { "Agent active..." },
                             currentAgent = agentType,
                             activeAgentProgressPercent = 100
                         )

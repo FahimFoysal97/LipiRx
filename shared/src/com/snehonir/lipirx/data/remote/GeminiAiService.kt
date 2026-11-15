@@ -189,7 +189,7 @@ class GeminiAiService(
         return try {
             val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
             val cleanModel = selectedModel.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).ifBlank { provider.defaultModel }
-            val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$cleanModel:streamGenerateContent?key=$targetApiKey"
+            val endpoint = "${AppConstants.GEMINI_DEFAULT_ENDPOINT}/$cleanModel:streamGenerateContent?key=$targetApiKey"
 
             val requestPayload = GeminiRequest(
                 contents = listOf(

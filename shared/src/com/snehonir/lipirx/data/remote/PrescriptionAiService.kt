@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.data.remote
 
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
@@ -18,7 +19,7 @@ interface PrescriptionAiService {
         selectedModel: String,
         providedApiKey: String = "",
         customUrl: String = "",
-        mimeType: String = "image/jpeg",
+        mimeType: String = AppConstants.MIME_TYPE_JPEG,
         flow: String = "App -> PrescriptionAiService.processPrescriptionImage",
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>>
