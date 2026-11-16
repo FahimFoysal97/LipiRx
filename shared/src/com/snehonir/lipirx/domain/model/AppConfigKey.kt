@@ -27,6 +27,8 @@ enum class AppConfigKey(val key: String) {
 
         fun keyForAgentProvider(agentType: RxAgentType): String = "agent_provider_${agentType.id}"
         fun keyForAgentModel(agentType: RxAgentType): String = "agent_model_${agentType.id}"
+        fun keyForAgentFallbackProvider(agentType: RxAgentType): String = "agent_fallback_provider_${agentType.id}"
+        fun keyForAgentFallbackModel(agentType: RxAgentType): String = "agent_fallback_model_${agentType.id}"
         fun keyForProviderModel(provider: AiProvider): String = "last_selected_model_${provider.id}"
     }
 }

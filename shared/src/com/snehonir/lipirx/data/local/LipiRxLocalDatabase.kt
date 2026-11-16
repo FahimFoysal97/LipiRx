@@ -397,12 +397,16 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
         agentType: RxAgentType,
         provider: AiProvider,
         modelName: String,
+        fallbackProvider: AiProvider?,
+        fallbackModel: String,
         flow: String
     ) {
         val providerKey = AppConfigKey.keyForAgentProvider(agentType)
         val modelKey = AppConfigKey.keyForAgentModel(agentType)
+        val fallbackProviderKey = AppConfigKey.keyForAgentFallbackProvider(agentType)
+        val fallbackModelKey = AppConfigKey.keyForAgentFallbackModel(agentType)
 
-        Napier.d("[$flow] Saving agent config: agent=${agentType.id}, provider=${provider.id}, model=$modelName", tag = TAG)
+        Napier.d("[$flow] Saving agent config: agent=${agentType.id}, provider=${provider.id}, model=$modelName, fallbackProv=${fallbackProvider?.id}, fallbackModel=$fallbackModel", tag = TAG)
 
         runCatching {
             driver.execute(
@@ -424,6 +428,28 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
                     bindString(1, modelName.trim())
                 }
             }
+
+            if (fallbackProvider != null) {
+                driver.execute(
+                    identifier = null,
+                    sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                    parameters = 2
+                ) {
+                    bindString(0, fallbackProviderKey)
+                    bindString(1, fallbackProvider.id)
+                }
+            }
+
+            if (fallbackModel.isNotBlank()) {
+                driver.execute(
+                    identifier = null,
+                    sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+                    parameters = 2
+                ) {
+                    bindString(0, fallbackModelKey)
+                    bindString(1, fallbackModel.trim())
+                }
+            }
         }.onFailure { ex ->
             Napier.w("[$flow -> Warning] Failed to save agent config into SQLite: ${ex.message}", throwable = ex, tag = TAG)
         }
@@ -432,15 +458,23 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
     override fun getAgentConfig(agentType: RxAgentType): AgentConfig {
         val providerKey = AppConfigKey.keyForAgentProvider(agentType)
         val modelKey = AppConfigKey.keyForAgentModel(agentType)
+        val fallbackProviderKey = AppConfigKey.keyForAgentFallbackProvider(agentType)
+        val fallbackModelKey = AppConfigKey.keyForAgentFallbackModel(agentType)
 
         val rawProviderId = getConfigValue(providerKey)
         val provider = if (rawProviderId.isNotBlank()) AiProvider.fromId(rawProviderId) else agentType.defaultProvider
         val modelName = getConfigValue(modelKey).ifBlank { agentType.defaultModel }
 
+        val rawFallbackProviderId = getConfigValue(fallbackProviderKey)
+        val fallbackProvider = if (rawFallbackProviderId.isNotBlank()) AiProvider.fromId(rawFallbackProviderId) else null
+        val fallbackModel = getConfigValue(fallbackModelKey)
+
         return AgentConfig(
             agentType = agentType,
             provider = provider,
-            selectedModel = modelName
+            selectedModel = modelName,
+            fallbackProvider = fallbackProvider,
+            fallbackModel = fallbackModel
         )
     }
 

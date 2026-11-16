@@ -155,6 +155,12 @@ fun ScanResultScreen(
                             onAgentModelSelected = { agent, model ->
                                 viewModel.onAgentModelSelected(agent, model, flow = "$flow -> ScanResultScreen.onAgentModelSelected")
                             },
+                            onAgentFallbackProviderSelected = { agent, prov ->
+                                viewModel.onAgentFallbackProviderSelected(agent, prov, flow = "$flow -> ScanResultScreen.onAgentFallbackProviderSelected")
+                            },
+                            onAgentFallbackModelSelected = { agent, model ->
+                                viewModel.onAgentFallbackModelSelected(agent, model, flow = "$flow -> ScanResultScreen.onAgentFallbackModelSelected")
+                            },
                             onProviderTabSelected = { type ->
                                 viewModel.onProviderTabSelected(type, flow = "$flow -> ScanResultScreen.onProviderTabSelected")
                             },

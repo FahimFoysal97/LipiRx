@@ -9,5 +9,7 @@ data class ToolExecutionParams(
     val apiKey: String = "",
     val customUrl: String = "",
     val feedbackPrompt: String = "",
-    val memoryContext: String = ""
+    val memoryContext: String = "",
+    val fallbackProvider: String = "",
+    val fallbackModel: String = ""
 )

@@ -54,8 +54,8 @@ class ManageProviderConfigUseCase(
         return repository.getAllAgentConfigs()
     }
 
-    fun saveAgentConfig(agentType: RxAgentType, provider: AiProvider, modelName: String = "", flow: String = "") {
-        repository.saveAgentConfig(agentType, provider, modelName, flow)
+    fun saveAgentConfig(agentType: RxAgentType, provider: AiProvider, modelName: String = "", fallbackProvider: AiProvider? = null, fallbackModel: String = "", flow: String = "") {
+        repository.saveAgentConfig(agentType, provider, modelName, fallbackProvider, fallbackModel, flow)
     }
 
     fun saveProviderModels(providerType: String, models: List<String>, flow: String = "") {
