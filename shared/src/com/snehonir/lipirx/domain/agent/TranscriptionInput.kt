@@ -10,6 +10,8 @@ data class TranscriptionInput(
     val providedApiKey: String = "",
     val customUrl: String = "",
     val mimeType: String = AppConstants.MIME_TYPE_JPEG,
+    val fallbackProvider: AiProvider? = null,
+    val fallbackModel: String = "",
     val onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
 ) {
     override fun equals(other: Any?): Boolean {
@@ -20,7 +22,9 @@ data class TranscriptionInput(
                 provider == otherInput.provider &&
                 providedApiKey == otherInput.providedApiKey &&
                 customUrl == otherInput.customUrl &&
-                mimeType == otherInput.mimeType
+                mimeType == otherInput.mimeType &&
+                fallbackProvider == otherInput.fallbackProvider &&
+                fallbackModel == otherInput.fallbackModel
     }
 
     override fun hashCode(): Int {
@@ -30,6 +34,8 @@ data class TranscriptionInput(
         result = 31 * result + providedApiKey.hashCode()
         result = 31 * result + customUrl.hashCode()
         result = 31 * result + mimeType.hashCode()
+        result = 31 * result + (fallbackProvider?.hashCode() ?: 0)
+        result = 31 * result + fallbackModel.hashCode()
         return result
     }
 }

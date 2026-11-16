@@ -21,6 +21,8 @@ class RxAgentTools(
             provider = input.provider,
             customUrl = input.customUrl,
             mimeType = input.mimeType,
+            fallbackProvider = input.fallbackProvider,
+            fallbackModel = input.fallbackModel,
             flow = "Koog -> VisionOCRTool",
             onProgress = input.onProgress
         )
@@ -98,6 +100,8 @@ class RxAgentTools(
                 providedApiKey = params.apiKey,
                 provider = provider,
                 customUrl = params.customUrl,
+                fallbackProvider = AiProvider.fromId(params.fallbackProvider),
+                fallbackModel = params.fallbackModel,
                 flow = "Koog -> EntityParsingTool (Attempt ${attempts + 1})"
             )
             if (result.isFailure) break
@@ -156,6 +160,8 @@ class RxAgentTools(
                 providedApiKey = params.apiKey,
                 provider = provider,
                 customUrl = params.customUrl,
+                fallbackProvider = AiProvider.fromId(params.fallbackProvider),
+                fallbackModel = params.fallbackModel,
                 flow = "Koog -> GenericSubstituteTool (Attempt ${attempts + 1})"
             )
             if (result.isFailure) break
@@ -197,6 +203,8 @@ class RxAgentTools(
                 providedApiKey = params.apiKey,
                 provider = provider,
                 customUrl = params.customUrl,
+                fallbackProvider = AiProvider.fromId(params.fallbackProvider),
+                fallbackModel = params.fallbackModel,
                 flow = "Koog -> SafetyAuditTool (Attempt ${attempts + 1})"
             )
             if (result.isFailure) break

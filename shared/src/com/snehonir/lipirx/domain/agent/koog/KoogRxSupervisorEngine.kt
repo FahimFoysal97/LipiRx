@@ -108,7 +108,9 @@ class KoogRxSupervisorEngine(
                 apiKey = workerRuntime.apiKey,
                 customUrl = workerRuntime.customUrl,
                 feedbackPrompt = decision.feedbackPrompt,
-                memoryContext = state.episodicMemory
+                memoryContext = state.episodicMemory,
+                fallbackProvider = workerRuntime.fallbackProvider.id,
+                fallbackModel = workerRuntime.fallbackModel
             )
 
             val agentStartTime = getPlatformEpochMillis()
@@ -226,7 +228,9 @@ class KoogRxSupervisorEngine(
                     provider = AiProvider.fromId(params.provider),
                     selectedModel = params.model,
                     providedApiKey = params.apiKey,
-                    customUrl = params.customUrl
+                    customUrl = params.customUrl,
+                    fallbackProvider = AiProvider.fromId(params.fallbackProvider),
+                    fallbackModel = params.fallbackModel
                 )
             )
             RxAgentType.ENTITY_PARSER -> rxAgentTools.executeEntityParsing(items, params)

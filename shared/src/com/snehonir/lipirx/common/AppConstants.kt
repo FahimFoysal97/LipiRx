@@ -25,7 +25,7 @@ object AppConstants {
         EXTENSION_LITETRLM,
         EXTENSION_TFLITE,
         EXTENSION_BIN,
-        EXTENSION_GGUF
+        EXTENSION_GGUF,
     )
 
     const val UNIT_KB = "KB"
@@ -60,6 +60,8 @@ object AppConstants {
     const val DEFAULT_MCP_URL = "http://localhost:8080/lipirx/mcp"
 
     const val MAX_SUPERVISOR_TURNS = 6
+    const val MAX_CLOUD_RETRIES = 3
+    const val CLOUD_RETRY_DELAY_MILLIS = 500L
     const val HTTP_TIMEOUT_MILLIS = 60_000L
 
     const val EVAL_ACCURACY_THRESHOLD = 0.8f

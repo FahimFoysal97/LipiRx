@@ -1,10 +1,12 @@
 package com.snehonir.lipirx.data.remote
 
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.delay
 
 class CompositeAiService(
     private val services: Map<AiProvider, PrescriptionAiService>
@@ -32,42 +34,68 @@ class CompositeAiService(
         customUrl: String = "",
         mimeType: String = "image/jpeg",
         strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
+        fallbackProvider: AiProvider? = null,
+        fallbackModel: String = "",
         flow: String = "App -> CompositeAiService.processPrescriptionImage",
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>> {
         val primaryService = getService(provider)
-        val onDeviceService = services[AiProvider.OnDevice]
+        val targetFallbackProvider = fallbackProvider ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
+        val fallbackService = getService(targetFallbackProvider)
 
-        Napier.d("[$flow] Executing processPrescriptionImage with strategy '${strategy.id}' (Primary: ${provider.displayName})", tag = TAG)
+        Napier.d("[$flow] Executing processPrescriptionImage with strategy '${strategy.id}' (Primary: ${provider.displayName}, Fallback: ${targetFallbackProvider.displayName})", tag = TAG)
 
         return when (strategy) {
             OnDeviceStrategy.ON_DEVICE_ONLY -> {
-                val service = onDeviceService ?: primaryService
+                val service = services[AiProvider.OnDevice] ?: primaryService
                 service.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
             }
             OnDeviceStrategy.CLOUD_ONLY -> {
-                primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
+                executeWithCloudRetries(
+                    maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
+                    providerName = provider.displayName,
+                    flow = flow,
+                    onRetryProgress = { attempt, msg -> onProgress(1, msg) }
+                ) {
+                    primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
+                }
             }
             OnDeviceStrategy.ON_DEVICE_FIRST -> {
                 onProgress(0, "Executing On-Device SLM first...")
-                val localResult = onDeviceService?.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
-                if (localResult != null && localResult.isSuccess && localResult.getOrNull()?.isNotEmpty() == true) {
+                val localService = services[AiProvider.OnDevice] ?: fallbackService
+                val localResult = localService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
+                if (localResult.isSuccess && localResult.getOrNull()?.isNotEmpty() == true) {
                     localResult
                 } else {
                     Napier.w("[$flow -> Escalation] On-Device SLM incomplete or unavailable. Escalating to ${provider.displayName} Cloud AI...", tag = TAG)
                     onProgress(1, "Escalating to ${provider.displayName} Cloud AI...")
-                    primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
+                    executeWithCloudRetries(
+                        maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
+                        providerName = provider.displayName,
+                        flow = flow,
+                        onRetryProgress = { attempt, msg -> onProgress(1, msg) }
+                    ) {
+                        primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
+                    }
                 }
             }
             OnDeviceStrategy.HYBRID_FALLBACK -> {
-                val cloudResult = primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
+                val cloudResult = executeWithCloudRetries(
+                    maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
+                    providerName = provider.displayName,
+                    flow = flow,
+                    onRetryProgress = { attempt, msg -> onProgress(1, msg) }
+                ) {
+                    primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
+                }
+
                 if (cloudResult.isSuccess) {
                     cloudResult
                 } else {
-                    Napier.w("[$flow -> Fallback] ${provider.displayName} Cloud AI request failed (${cloudResult.exceptionOrNull()?.message}). Falling back to On-Device SLM...", tag = TAG)
-                    onProgress(1, "Cloud AI unavailable. Falling back to On-Device SLM...")
-                    onDeviceService?.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
-                        ?: cloudResult
+                    val targetModelName = fallbackModel.ifBlank { selectedModel }
+                    Napier.w("[$flow -> Fallback Triggered] ${provider.displayName} Cloud AI failed after ${AppConstants.MAX_CLOUD_RETRIES} attempts (${cloudResult.exceptionOrNull()?.message}). Falling back to ${targetFallbackProvider.displayName} ($targetModelName)...", tag = TAG)
+                    onProgress(1, "${provider.displayName} Cloud failed (${AppConstants.MAX_CLOUD_RETRIES} attempts). Falling back to ${targetFallbackProvider.displayName}...")
+                    fallbackService.processPrescriptionImage(imageByteArray, targetModelName, providedApiKey, customUrl, mimeType, flow, onProgress)
                 }
             }
         }
@@ -80,39 +108,89 @@ class CompositeAiService(
         provider: AiProvider = AiProvider.Gemini,
         customUrl: String = "",
         strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
+        fallbackProvider: AiProvider? = null,
+        fallbackModel: String = "",
         flow: String = "App -> CompositeAiService.processTextPrompt"
     ): Result<String> {
         val primaryService = getService(provider)
-        val onDeviceService = services[AiProvider.OnDevice]
+        val targetFallbackProvider = fallbackProvider ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
+        val fallbackService = getService(targetFallbackProvider)
 
         return when (strategy) {
             OnDeviceStrategy.ON_DEVICE_ONLY -> {
-                val service = onDeviceService ?: primaryService
+                val service = services[AiProvider.OnDevice] ?: primaryService
                 service.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
             }
             OnDeviceStrategy.CLOUD_ONLY -> {
-                primaryService.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
-            }
-            OnDeviceStrategy.ON_DEVICE_FIRST -> {
-                val localResult = onDeviceService?.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
-                if (localResult != null && localResult.isSuccess && localResult.getOrNull()?.isNotBlank() == true) {
-                    localResult
-                } else {
-                    Napier.w("[$flow -> Escalation] On-Device SLM text prompt unavailable. Escalating to ${provider.displayName} Cloud AI...", tag = TAG)
+                executeWithCloudRetries(
+                    maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
+                    providerName = provider.displayName,
+                    flow = flow
+                ) {
                     primaryService.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
                 }
             }
+            OnDeviceStrategy.ON_DEVICE_FIRST -> {
+                val localService = services[AiProvider.OnDevice] ?: fallbackService
+                val localResult = localService.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
+                if (localResult.isSuccess && localResult.getOrNull()?.isNotBlank() == true) {
+                    localResult
+                } else {
+                    Napier.w("[$flow -> Escalation] On-Device SLM text prompt unavailable. Escalating to ${provider.displayName} Cloud AI...", tag = TAG)
+                    executeWithCloudRetries(
+                        maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
+                        providerName = provider.displayName,
+                        flow = flow
+                    ) {
+                        primaryService.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
+                    }
+                }
+            }
             OnDeviceStrategy.HYBRID_FALLBACK -> {
-                val cloudResult = primaryService.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
+                val cloudResult = executeWithCloudRetries(
+                    maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
+                    providerName = provider.displayName,
+                    flow = flow
+                ) {
+                    primaryService.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
+                }
+
                 if (cloudResult.isSuccess) {
                     cloudResult
                 } else {
-                    Napier.w("[$flow -> Fallback] ${provider.displayName} Cloud AI text prompt failed. Falling back to On-Device SLM...", tag = TAG)
-                    onDeviceService?.processTextPrompt(promptText, selectedModel, providedApiKey, customUrl, flow)
-                        ?: cloudResult
+                    val targetModelName = fallbackModel.ifBlank { selectedModel }
+                    Napier.w("[$flow -> Fallback Triggered] ${provider.displayName} Cloud AI text prompt failed after ${AppConstants.MAX_CLOUD_RETRIES} attempts. Falling back to ${targetFallbackProvider.displayName} ($targetModelName)...", tag = TAG)
+                    fallbackService.processTextPrompt(promptText, targetModelName, providedApiKey, customUrl, flow)
                 }
             }
         }
+    }
+
+    private suspend fun <T> executeWithCloudRetries(
+        maxAttempts: Int = AppConstants.MAX_CLOUD_RETRIES,
+        providerName: String,
+        flow: String,
+        onRetryProgress: ((attempt: Int, errorMsg: String) -> Unit)? = null,
+        block: suspend () -> Result<T>
+    ): Result<T> {
+        var lastResult: Result<T>? = null
+        for (attempt in 1..maxAttempts) {
+            val result = block()
+            if (result.isSuccess) {
+                if (attempt > 1) {
+                    Napier.i("[$flow -> Cloud Retry Success] $providerName Cloud AI succeeded on attempt $attempt/$maxAttempts.", tag = TAG)
+                }
+                return result
+            }
+            lastResult = result
+            val errMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+            Napier.w("[$flow -> Attempt $attempt/$maxAttempts Failed] $providerName Cloud AI attempt $attempt/$maxAttempts failed: $errMsg", tag = TAG)
+            onRetryProgress?.invoke(attempt, "$providerName Cloud AI attempt $attempt/$maxAttempts failed: $errMsg")
+            if (attempt < maxAttempts) {
+                delay(AppConstants.CLOUD_RETRY_DELAY_MILLIS)
+            }
+        }
+        return lastResult ?: Result.failure(IllegalStateException("$providerName Cloud AI failed after $maxAttempts attempts."))
     }
 
     companion object {
