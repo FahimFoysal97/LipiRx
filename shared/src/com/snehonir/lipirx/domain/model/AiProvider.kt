@@ -52,6 +52,17 @@ sealed interface AiProvider {
         override val brandColor: Color = Color(0xFF00A67E)
     }
 
+    data object Claude : AiProvider {
+        override val id: String = "claude"
+        override val displayName: String = "Claude"
+        override val defaultEndpoint: String = AppConstants.CLAUDE_DEFAULT_ENDPOINT
+        override val defaultModel: String = AppConstants.CLAUDE_DEFAULT_MODEL
+        override val requiresCustomUrl: Boolean = false
+        override val requiresApiKey: Boolean = true
+        override val icon: ImageVector = SparkleVectorIcon
+        override val brandColor: Color = Color(0xFFD97706)
+    }
+
     data object Custom : AiProvider {
         override val id: String = "custom"
         override val displayName: String = "Custom URL"
@@ -75,11 +86,12 @@ sealed interface AiProvider {
     }
 
     companion object {
-        val ALL: List<AiProvider> = listOf(Gemini, Groq, OpenAi, Custom, OnDevice)
+        val ALL: List<AiProvider> = listOf(Gemini, Groq, OpenAi, Claude, Custom, OnDevice)
 
         fun fromId(id: String): AiProvider = when (id.trim().lowercase()) {
             Groq.id -> Groq
             OpenAi.id -> OpenAi
+            Claude.id -> Claude
             Custom.id -> Custom
             OnDevice.id -> OnDevice
             else -> Gemini

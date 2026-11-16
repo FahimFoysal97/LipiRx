@@ -52,6 +52,7 @@ class ScanViewModel(
         val geminiKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Gemini.id) }.getOrDefault("")
         val groqKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Groq.id) }.getOrDefault("")
         val openaiKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.OpenAi.id) }.getOrDefault("")
+        val claudeKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Claude.id) }.getOrDefault("")
         val customKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Custom.id) }.getOrDefault("")
 
         val config = runCatching {
@@ -79,6 +80,7 @@ class ScanViewModel(
                 geminiApiKey = geminiKey,
                 groqApiKey = groqKey,
                 openaiApiKey = openaiKey,
+                claudeApiKey = claudeKey,
                 customApiKey = customKey,
                 selectedModel = cleanModel,
                 isMcpServerEnabled = mcpEnabled,
@@ -88,18 +90,12 @@ class ScanViewModel(
             )
         }
 
-        val activeKey = when (providerObj) {
-            AiProvider.Groq -> groqKey
-            AiProvider.OpenAi -> openaiKey
-            AiProvider.Custom -> customKey
-            AiProvider.Gemini -> geminiKey
-            AiProvider.OnDevice -> ""
+        AiProvider.ALL.forEach { prov ->
+            val key = manageProviderConfigUseCase.getApiKeyForProvider(prov.id)
+            if (key.isNotBlank() || prov == AiProvider.OnDevice || prov == AiProvider.Custom) {
+                fetchModelsForProvider(prov, flow = "App -> ScanViewModel.init.${prov.displayName}")
+            }
         }
-
-        if (activeKey.isNotBlank() || providerObj != AiProvider.Gemini) {
-            fetchModels(flow = "App -> ScanViewModel.init")
-        }
-        fetchModelsForProvider(AiProvider.OnDevice, flow = "App -> ScanViewModel.init.OnDevice")
     }
 
     private fun loadProviderModelsMap(): ImmutableMap<String, ImmutableList<String>> {
@@ -370,6 +366,7 @@ class ScanViewModel(
                             val newGeminiKey = if (providerObj == AiProvider.Gemini) cleanKey else currentState.geminiApiKey
                             val newGroqKey = if (providerObj == AiProvider.Groq) cleanKey else currentState.groqApiKey
                             val newOpenAiKey = if (providerObj == AiProvider.OpenAi) cleanKey else currentState.openaiApiKey
+                            val newClaudeKey = if (providerObj == AiProvider.Claude) cleanKey else currentState.claudeApiKey
                             val newCustomKey = if (providerObj == AiProvider.Custom) cleanKey else currentState.customApiKey
 
                             val updatedProviderModels = currentState.providerModelsMap.toMutableMap()
@@ -381,6 +378,7 @@ class ScanViewModel(
                                 geminiApiKey = newGeminiKey,
                                 groqApiKey = newGroqKey,
                                 openaiApiKey = newOpenAiKey,
+                                claudeApiKey = newClaudeKey,
                                 customApiKey = newCustomKey,
                                 isTestingApiKey = false,
                                 apiKeyError = null,

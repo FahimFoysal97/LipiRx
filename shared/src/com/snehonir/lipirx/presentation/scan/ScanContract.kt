@@ -32,6 +32,7 @@ data class ScanUiState(
     val geminiApiKey: String = "",
     val groqApiKey: String = "",
     val openaiApiKey: String = "",
+    val claudeApiKey: String = "",
     val customApiKey: String = "",
     val apiKeyError: String? = null,
     val apiKeySuccess: String? = null,
@@ -47,6 +48,7 @@ data class ScanUiState(
         get() = when (provider) {
             AiProvider.Groq -> groqApiKey
             AiProvider.OpenAi -> openaiApiKey
+            AiProvider.Claude -> claudeApiKey
             AiProvider.Custom -> customApiKey
             AiProvider.Gemini -> geminiApiKey
             AiProvider.OnDevice -> geminiApiKey
@@ -83,6 +85,7 @@ data class ScanUiState(
         if (geminiApiKey != other.geminiApiKey) return false
         if (groqApiKey != other.groqApiKey) return false
         if (openaiApiKey != other.openaiApiKey) return false
+        if (claudeApiKey != other.claudeApiKey) return false
         if (customApiKey != other.customApiKey) return false
         if (apiKeyError != other.apiKeyError) return false
         if (apiKeySuccess != other.apiKeySuccess) return false
@@ -116,6 +119,7 @@ data class ScanUiState(
         result = 31 * result + geminiApiKey.hashCode()
         result = 31 * result + groqApiKey.hashCode()
         result = 31 * result + openaiApiKey.hashCode()
+        result = 31 * result + claudeApiKey.hashCode()
         result = 31 * result + customApiKey.hashCode()
         result = 31 * result + apiKeyError.hashCode()
         result = 31 * result + apiKeySuccess.hashCode()

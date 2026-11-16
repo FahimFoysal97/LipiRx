@@ -157,6 +157,7 @@
     <string name="label_custom_url">Custom Endpoint URL</string>
     <string name="label_custom_model">Custom Model Name</string>
     <string name="label_api_key">API Key</string>
+    <string name="label_claude_api_key">Claude API Key</string>
     <string name="label_model">Model:</string>
     <string name="no_local_models_found">No local models found on device storage.\nPush .litertlm file via adb to filesDir.</string>
     <string name="no_live_models_found">No live models found for %1$s.\nTap \'Save Provider Config\' below to verify key &amp; fetch models.</string>

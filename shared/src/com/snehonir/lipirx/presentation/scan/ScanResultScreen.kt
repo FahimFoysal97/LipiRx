@@ -135,6 +135,7 @@ fun ScanResultScreen(
                             geminiApiKey = uiState.geminiApiKey,
                             groqApiKey = uiState.groqApiKey,
                             openaiApiKey = uiState.openaiApiKey,
+                            claudeApiKey = uiState.claudeApiKey,
                             customApiKey = uiState.customApiKey,
                             providerType = uiState.providerType,
                             customUrl = uiState.customUrl,

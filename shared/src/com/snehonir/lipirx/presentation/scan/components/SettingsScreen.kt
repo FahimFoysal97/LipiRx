@@ -102,6 +102,7 @@ fun SettingsScreen(
     geminiApiKey: String = "",
     groqApiKey: String = "",
     openaiApiKey: String = "",
+    claudeApiKey: String = "",
     customApiKey: String = "",
     providerType: String = "gemini",
     customUrl: String = "",
@@ -131,6 +132,7 @@ fun SettingsScreen(
     val keyForSelectedProvider = when (selectedTabProvider) {
         "groq" -> groqApiKey.ifBlank { apiKey }
         "openai" -> openaiApiKey.ifBlank { apiKey }
+        "claude" -> claudeApiKey.ifBlank { apiKey }
         "custom" -> customApiKey.ifBlank { apiKey }
         else -> geminiApiKey.ifBlank { apiKey }
     }
@@ -1144,6 +1146,7 @@ fun ModelSelectionBottomSheet(
     geminiApiKey: String = "",
     groqApiKey: String = "",
     openaiApiKey: String = "",
+    claudeApiKey: String = "",
     customApiKey: String = "",
     providerType: String = "gemini",
     customUrl: String = "",
@@ -1171,6 +1174,7 @@ fun ModelSelectionBottomSheet(
         geminiApiKey = geminiApiKey,
         groqApiKey = groqApiKey,
         openaiApiKey = openaiApiKey,
+        claudeApiKey = claudeApiKey,
         customApiKey = customApiKey,
         providerType = providerType,
         customUrl = customUrl,

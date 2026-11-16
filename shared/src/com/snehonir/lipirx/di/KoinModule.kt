@@ -2,10 +2,12 @@ package com.snehonir.lipirx.di
 
 import com.snehonir.lipirx.data.local.DatabaseDriverFactory
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
+import com.snehonir.lipirx.data.remote.ClaudeAiService
 import com.snehonir.lipirx.data.remote.CompositeAiService
 import com.snehonir.lipirx.data.remote.CustomAiService
 import com.snehonir.lipirx.data.remote.GeminiAiService
 import com.snehonir.lipirx.data.remote.GroqAiService
+import com.snehonir.lipirx.data.remote.OnDeviceAiService
 import com.snehonir.lipirx.data.remote.OpenAiAiService
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
 import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
@@ -77,8 +79,9 @@ val sharedModule = module {
             AiProvider.Gemini to GeminiAiService(httpClient = client, jsonParser = json),
             AiProvider.Groq to GroqAiService(httpClient = client, jsonParser = json),
             AiProvider.OpenAi to OpenAiAiService(httpClient = client, jsonParser = json),
+            AiProvider.Claude to ClaudeAiService(httpClient = client, jsonParser = json),
             AiProvider.Custom to CustomAiService(httpClient = client, jsonParser = json),
-            AiProvider.OnDevice to com.snehonir.lipirx.data.remote.OnDeviceAiService(jsonParser = json)
+            AiProvider.OnDevice to OnDeviceAiService(jsonParser = json)
         )
 
         CompositeAiService(services)

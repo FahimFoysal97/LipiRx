@@ -373,6 +373,7 @@ abstract class OpenAiCompatibleAiService(
                 cleanId.startsWith("gpt-") || cleanId.startsWith("o1") || cleanId.startsWith("o3") || cleanId.startsWith("o4") || cleanId.startsWith("chatgpt-")
             }
 
+            AiProvider.Claude -> true
             AiProvider.Custom -> true
             AiProvider.OnDevice -> true
         }

@@ -36,6 +36,13 @@ object AppConstants {
     const val OPENAI_CHAT_COMPLETIONS_ENDPOINT = "https://api.openai.com/v1/chat/completions"
     const val OPENAI_DEFAULT_MODEL = "gpt-4o"
 
+    const val CLAUDE_DEFAULT_ENDPOINT = "https://api.anthropic.com/v1/messages"
+    const val CLAUDE_MODELS_ENDPOINT = "https://api.anthropic.com/v1/models"
+    const val CLAUDE_API_VERSION = "2023-06-01"
+    const val CLAUDE_HEADER_API_KEY = "x-api-key"
+    const val CLAUDE_HEADER_VERSION = "anthropic-version"
+    const val CLAUDE_DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
+
     const val CUSTOM_DEFAULT_MODEL = "custom-vision-model"
     const val ON_DEVICE_DEFAULT_MODEL = "gemini-nano-local"
 
