@@ -148,12 +148,15 @@ fun FullScreenImagePreviewDialog(
                     onClick = { animateZoomTo(1f) },
                     modifier = Modifier.height(44.dp),
                     shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Lipi.Ink),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Lipi.Surface,
+                        contentColor = Lipi.Ink
+                    ),
                     contentPadding = PaddingValues(horizontal = 16.dp),
                 ) {
-                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = Lipi.Ink)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(Res.string.btn_reset), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(Res.string.btn_reset), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
                 }
                 IconButton(
                     onClick = onDismiss,

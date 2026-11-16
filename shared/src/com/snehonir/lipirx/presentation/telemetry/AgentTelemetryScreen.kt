@@ -305,7 +305,7 @@ private fun MetricCard(title: String, value: String, modifier: Modifier = Modifi
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = Lipi.Surface,
         border = BorderStroke(1.dp, Lipi.CardBorder)
     ) {
         Column(
@@ -332,7 +332,7 @@ private fun ScanSessionCard(
         onClick = onToggleExpand,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = Color.White,
+        color = Lipi.Surface,
         border = BorderStroke(1.dp, if (isExpanded) Lipi.Primary.copy(alpha = 0.5f) else Lipi.CardBorder)
     ) {
         Column(

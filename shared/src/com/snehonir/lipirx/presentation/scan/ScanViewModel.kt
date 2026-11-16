@@ -12,6 +12,7 @@ import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
+import com.snehonir.lipirx.domain.model.ThemeMode
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
 import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
@@ -69,6 +70,7 @@ class ScanViewModel(
 
         val loadedProviderModelsMap = loadProviderModelsMap()
         val mcpEnabled = runCatching { manageProviderConfigUseCase.isMcpServerEnabled() }.getOrDefault(false)
+        val themeMode = ThemeMode.fromId(config.themeMode)
 
         _uiState.update {
             it.copy(
@@ -80,6 +82,7 @@ class ScanViewModel(
                 customApiKey = customKey,
                 selectedModel = cleanModel,
                 isMcpServerEnabled = mcpEnabled,
+                themeMode = themeMode,
                 agentConfigs = loadedAgentConfigs,
                 providerModelsMap = loadedProviderModelsMap
             )
@@ -435,6 +438,24 @@ class ScanViewModel(
             manageProviderConfigUseCase.saveMcpServerEnabled(enabled, flow = flow)
         }.onFailure { ex ->
             Napier.w("[$flow -> Warning] Failed to save MCP server enabled state: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    fun updateThemeMode(mode: ThemeMode, flow: String = "App -> ScanViewModel.updateThemeMode") {
+        Napier.i("[$flow] Updating theme mode preference to: ${mode.id}", tag = TAG)
+        _uiState.update { it.copy(themeMode = mode) }
+        runCatching {
+            val currentConfig = manageProviderConfigUseCase.getProviderConfig(flow)
+            manageProviderConfigUseCase.saveProviderConfig(
+                providerType = currentConfig.providerType,
+                customUrl = currentConfig.customUrl,
+                apiKey = currentConfig.apiKey,
+                modelName = currentConfig.modelName,
+                themeMode = mode.id,
+                flow = flow
+            )
+        }.onFailure { ex ->
+            Napier.e("[$flow -> Error] Failed to persist theme mode: ${ex.message}", throwable = ex, tag = TAG)
         }
     }
 

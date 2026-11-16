@@ -17,11 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
@@ -30,6 +28,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -43,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
@@ -55,6 +53,10 @@ import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
+import com.snehonir.lipirx.domain.model.ThemeMode
+import com.snehonir.lipirx.ui.theme.icons.DarkThemeVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.LightThemeVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.SystemThemeVectorIcon
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_save_config
@@ -72,6 +74,7 @@ import com.snehonir.lipirx.resources.no_live_models_found
 import com.snehonir.lipirx.resources.no_local_models_found
 import com.snehonir.lipirx.resources.on_device_info_banner
 import com.snehonir.lipirx.resources.placeholder_paste_key
+import com.snehonir.lipirx.resources.section_appearance_theme
 import com.snehonir.lipirx.resources.section_mcp
 import com.snehonir.lipirx.resources.section_mcp_endpoint
 import com.snehonir.lipirx.resources.section_on_device
@@ -115,6 +118,8 @@ fun SettingsScreen(
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onSelectThemeMode: (ThemeMode) -> Unit = {},
     onViewTelemetry: (() -> Unit)? = null,
     onClose: () -> Unit
 ) {
@@ -157,6 +162,81 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+
+            // --- APPEARANCE THEME ---
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = SystemThemeVectorIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(Res.string.section_appearance_theme),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = Lipi.Surface,
+                border = BorderStroke(1.dp, Lipi.CardBorder)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ThemeMode.entries.forEach { mode ->
+                        val isSelected = themeMode == mode
+                        val icon = when (mode) {
+                            ThemeMode.SYSTEM -> SystemThemeVectorIcon
+                            ThemeMode.DARK -> DarkThemeVectorIcon
+                            ThemeMode.LIGHT -> LightThemeVectorIcon
+                        }
+
+                        Surface(
+                            onClick = { onSelectThemeMode(mode) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) Lipi.PrimaryContainer else Color.Transparent,
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = if (isSelected) Lipi.Primary else Color.Transparent
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = mode.displayName,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isSelected) Lipi.Primary else Lipi.Muted
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = mode.displayName,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                    color = if (isSelected) Lipi.OnPrimaryContainer else Lipi.Muted,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             // --- ON-DEVICE AI EXECUTION STRATEGY ---
             Row(
@@ -232,7 +312,7 @@ fun SettingsScreen(
                     onDismissRequest = { showStrategyDropdown = false },
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
-                        .background(Color.White)
+                        .background(Lipi.Surface)
                 ) {
                     Column(
                         modifier = Modifier
@@ -474,7 +554,7 @@ fun SettingsScreen(
                                 onClick = { showProviderDropdown = !showProviderDropdown },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(10.dp),
-                                color = Color.White,
+                                color = Lipi.Surface,
                                 border = BorderStroke(1.dp, currentAssignedProvider.brandColor.copy(alpha = 0.5f))
                             ) {
                                 Row(
@@ -524,7 +604,7 @@ fun SettingsScreen(
                                 onDismissRequest = { showProviderDropdown = false },
                                 modifier = Modifier
                                     .fillMaxWidth(0.85f)
-                                    .background(Color.White)
+                                    .background(Lipi.Surface)
                             ) {
                                 Column(
                                     modifier = Modifier
@@ -593,7 +673,7 @@ fun SettingsScreen(
                                 onClick = { showModelDropdown = !showModelDropdown },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(10.dp),
-                                color = Color.White,
+                                color = Lipi.Surface,
                                 border = BorderStroke(
                                     width = 1.dp,
                                     color = if (liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor.copy(alpha = 0.5f) else Lipi.Error
@@ -640,7 +720,7 @@ fun SettingsScreen(
                                 onDismissRequest = { showModelDropdown = false },
                                 modifier = Modifier
                                     .fillMaxWidth(0.85f)
-                                    .background(Color.White)
+                                    .background(Lipi.Surface)
                             ) {
                                 Column(
                                     modifier = Modifier
@@ -764,7 +844,7 @@ fun SettingsScreen(
                             onClick = { showCardProviderDropdown = !showCardProviderDropdown },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            color = Color.White,
+                            color = Lipi.Surface,
                             border = BorderStroke(1.dp, activeCardProvider.brandColor.copy(alpha = 0.5f))
                         ) {
                             Row(
@@ -803,7 +883,7 @@ fun SettingsScreen(
                             onDismissRequest = { showCardProviderDropdown = false },
                             modifier = Modifier
                                 .fillMaxWidth(0.85f)
-                                .background(Color.White)
+                                .background(Lipi.Surface)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -1080,6 +1160,8 @@ fun ModelSelectionBottomSheet(
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onSelectThemeMode: (ThemeMode) -> Unit = {},
     onViewTelemetry: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
@@ -1105,6 +1187,8 @@ fun ModelSelectionBottomSheet(
         onProviderTabSelected = onProviderTabSelected,
         onSaveProviderConfig = onSaveProviderConfig,
         onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
+        themeMode = themeMode,
+        onSelectThemeMode = onSelectThemeMode,
         onViewTelemetry = onViewTelemetry,
         onClose = onDismiss
     )

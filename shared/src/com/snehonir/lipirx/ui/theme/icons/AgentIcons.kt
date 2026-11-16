@@ -1,10 +1,10 @@
 package com.snehonir.lipirx.ui.theme.icons
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
-import com.snehonir.lipirx.ui.theme.Lipi
 
 val SupervisorAgentVectorIcon: ImageVector = ImageVector.Builder(
     name = "SupervisorAgent",
@@ -13,7 +13,7 @@ val SupervisorAgentVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(12f, 2f)
         lineTo(4f, 6f)
         lineTo(4f, 12f)
@@ -44,7 +44,7 @@ val VisionOcrAgentVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(12f, 4.5f)
         curveTo(7f, 4.5f, 2.73f, 7.61f, 1f, 12f)
         curveTo(2.73f, 16.39f, 7f, 19.5f, 12f, 19.5f)
@@ -73,7 +73,7 @@ val MedicalParserAgentVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(21.41f, 11.58f)
         lineTo(12.41f, 2.58f)
         curveTo(12.05f, 2.22f, 11.55f, 2f, 11f, 2f)
@@ -104,7 +104,7 @@ val GenericSubstituteAgentVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(12f, 4f)
         lineTo(12f, 1f)
         lineTo(8f, 5f)
@@ -137,7 +137,7 @@ val SafetyAuditorAgentVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(12f, 1f)
         lineTo(3f, 5f)
         lineTo(3f, 11f)

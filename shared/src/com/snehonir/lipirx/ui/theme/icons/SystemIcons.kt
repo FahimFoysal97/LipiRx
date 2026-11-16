@@ -1,10 +1,10 @@
 package com.snehonir.lipirx.ui.theme.icons
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
-import com.snehonir.lipirx.ui.theme.Lipi
 
 val OnDeviceStrategyVectorIcon: ImageVector = ImageVector.Builder(
     name = "OnDeviceStrategy",
@@ -13,7 +13,7 @@ val OnDeviceStrategyVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(12f, 1f)
         lineTo(3f, 5f)
         lineTo(3f, 11f)
@@ -41,7 +41,7 @@ val McpServerVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(16f, 7f)
         lineTo(16f, 3f)
         lineTo(14f, 3f)
@@ -72,7 +72,7 @@ val PipelineMatrixVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(4f, 4f)
         lineTo(8f, 4f)
         lineTo(8f, 8f)
@@ -128,7 +128,7 @@ val ProviderSettingsVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(3f, 17f)
         verticalLineTo(19f)
         horizontalLineTo(9f)
@@ -187,7 +187,7 @@ val ApiKeyVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(12.65f, 10f)
         curveTo(11.83f, 7.67f, 9.61f, 6f, 7f, 6f)
         curveTo(3.69f, 6f, 1f, 8.69f, 1f, 12f)
@@ -217,7 +217,7 @@ val ProviderSelectVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(11.99f, 18.54f)
         lineTo(4.37f, 12.62f)
         lineTo(1.54f, 14.81f)
@@ -250,7 +250,7 @@ val McpEndpointVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(20f, 18f)
         curveTo(21.1f, 18f, 22f, 17.1f, 22f, 16f)
         lineTo(22f, 4f)

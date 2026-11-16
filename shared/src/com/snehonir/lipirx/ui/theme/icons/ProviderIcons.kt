@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
-import com.snehonir.lipirx.ui.theme.Lipi
 
 val SparkleVectorIcon: ImageVector = ImageVector.Builder(
     name = "GeminiSparkle",
@@ -133,7 +132,7 @@ val OnDeviceVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Lipi.Primary)) {
+    path(fill = SolidColor(Color.Black)) {
         moveTo(17f, 1.01f)
         lineTo(7f, 1f)
         curveTo(5.9f, 1f, 5f, 1.9f, 5f, 3f)

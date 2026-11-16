@@ -114,7 +114,7 @@ fun MedicineListView(
                             .clip(CircleShape)
                             .clickable(onClick = { onBackFromHistory?.invoke() }),
                         shape = CircleShape,
-                        color = Color.White,
+                        color = Lipi.Surface,
                         border = BorderStroke(1.dp, Lipi.CardBorder)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -188,7 +188,7 @@ fun MedicineListView(
                                 .fillMaxWidth()
                                 .padding(vertical = 12.dp),
                             shape = RoundedCornerShape(18.dp),
-                            color = Color.White,
+                            color = Lipi.Surface,
                             border = BorderStroke(1.dp, Lipi.CardBorder)
                         ) {
                             Column(
@@ -234,7 +234,7 @@ fun MedicineListView(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth(),
-            color = Color.White,
+            color = Lipi.Surface,
             shadowElevation = 16.dp,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         ) {
@@ -340,7 +340,7 @@ private fun PharmacistApprovalBanner(
 private fun ReviewChip(text: String) {
     Surface(
         shape = CircleShape,
-        color = Color(0xFFFBE9E7)
+        color = Lipi.Error.copy(alpha = 0.15f)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -348,7 +348,7 @@ private fun ReviewChip(text: String) {
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(13.dp), tint = Lipi.Error)
-            Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF8C1D18))
+            Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Error)
         }
     }
 }
@@ -364,7 +364,7 @@ private fun PrescriptionThumbnail(
             .clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onZoom),
         shape = RoundedCornerShape(18.dp),
-        color = Color.White,
+        color = Lipi.Surface,
         border = BorderStroke(1.dp, Lipi.CardBorder),
     ) {
         Row(
@@ -416,7 +416,7 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
             .fillMaxWidth()
             .clip(cardShape),
         shape = cardShape,
-        color = Color.White,
+        color = Lipi.Surface,
         border = BorderStroke(
             width = 1.dp,
             color = if (item.needsReview) Lipi.Error.copy(alpha = 0.4f) else Lipi.CardBorder
@@ -464,7 +464,7 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFFBE9E7), RoundedCornerShape(12.dp))
+                            .background(Lipi.Error.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -477,7 +477,7 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                             },
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF8C1D18),
+                            color = Lipi.Error,
                         )
                     }
                 }
@@ -503,11 +503,11 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                     mealLabel?.let { Badge(it, Lipi.AmberContainer, Lipi.OnAmber) }
 
                     if (item.dosageForm.isNotBlank() && !item.dosageForm.equals(item.unitType, ignoreCase = true)) {
-                        Badge("Form: ${item.dosageForm}", Color(0xFFF1F4F3), Lipi.Ink)
+                        Badge("Form: ${item.dosageForm}", Lipi.ImageWell, Lipi.Ink)
                     }
 
                     if (cleanInstructions.isNotBlank() && cleanInstructions.length <= 20) {
-                        Badge(cleanInstructions, Color(0xFFF1F4F3), Lipi.Ink)
+                        Badge(cleanInstructions, Lipi.ImageWell, Lipi.Ink)
                     }
                 }
 
@@ -516,7 +516,7 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFFF1F4F3)
+                        color = Lipi.ImageWell
                     ) {
                         Text(
                             text = cleanInstructions,
@@ -584,11 +584,11 @@ private fun DoseSlot(label: String, value: String, modifier: Modifier = Modifier
     val active = value.trim() != "0" && value.isNotBlank()
     Column(
         modifier = modifier
-            .background(if (active) Lipi.Primary else Color(0xFFEEF2F1), RoundedCornerShape(12.dp))
+            .background(if (active) Lipi.Primary else Lipi.ImageWell, RoundedCornerShape(12.dp))
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val c = if (active) Color.White else Color(0xFF8A9A9F)
+        val c = if (active) Color.White else Lipi.Muted
         Text(label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = c.copy(alpha = 0.9f))
         Text(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = c)
     }
@@ -599,7 +599,7 @@ private fun AlternativeChip(alt: Alternative) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = Color.White,
+        color = Lipi.Surface,
         border = BorderStroke(1.dp, Lipi.Outline)
     ) {
         Row(

@@ -4,5 +4,6 @@ data class ProviderConfigEntity(
     val providerType: String = "gemini",
     val customUrl: String = "",
     val apiKey: String = "",
-    val modelName: String = ""
+    val modelName: String = "",
+    val themeMode: String = "system"
 )

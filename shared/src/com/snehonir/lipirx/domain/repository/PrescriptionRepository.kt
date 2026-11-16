@@ -24,7 +24,7 @@ interface PrescriptionRepository {
     fun getLastSelectedModel(provider: AiProvider = AiProvider.Gemini, flow: String = ""): String
     fun saveApiKey(apiKey: String, flow: String = "")
     fun getApiKey(flow: String = ""): String
-    fun saveProviderConfig(providerType: String, customUrl: String, apiKey: String, modelName: String, flow: String = "")
+    fun saveProviderConfig(providerType: String, customUrl: String, apiKey: String, modelName: String, themeMode: String = "system", flow: String = "")
     fun getApiKeyForProvider(providerType: String): String
     fun getProviderConfig(flow: String = ""): ProviderConfigEntity
     fun saveAgentConfig(agentType: RxAgentType, provider: AiProvider, modelName: String = "", flow: String = "")

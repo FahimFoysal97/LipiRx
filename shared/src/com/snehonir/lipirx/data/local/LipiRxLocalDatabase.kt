@@ -312,13 +312,14 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
         customUrl: String,
         apiKey: String,
         modelName: String,
+        themeMode: String,
         flow: String
     ) {
         val cleanKey = apiKey.trim()
         val providerObj = AiProvider.fromId(providerType)
         val providerKey = AppConfigKey.keyForProvider(providerObj)
 
-        Napier.d("[$flow] Saving provider config: provider=${providerObj.id}, keyName=${providerKey.key}, customUrl=$customUrl, model=$modelName", tag = TAG)
+        Napier.d("[$flow] Saving provider config: provider=${providerObj.id}, keyName=${providerKey.key}, customUrl=$customUrl, model=$modelName, theme=$themeMode", tag = TAG)
 
         driver.execute(
             identifier = null,
@@ -357,6 +358,15 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
                 bindString(1, modelName.trim())
             }
         }
+
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.THEME_MODE.key)
+            bindString(1, themeMode.trim().lowercase())
+        }
     }
 
     override fun getApiKeyForProvider(providerType: String): String {
@@ -370,12 +380,14 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
         val customUrl = getConfigValue(AppConfigKey.CUSTOM_URL.key)
         val apiKey = getApiKeyForProvider(providerType)
         val modelName = getConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key)
+        val themeMode = getConfigValue(AppConfigKey.THEME_MODE.key).ifBlank { "system" }
 
         val config = ProviderConfigEntity(
             providerType = providerType,
             customUrl = customUrl,
             apiKey = apiKey,
-            modelName = modelName
+            modelName = modelName,
+            themeMode = themeMode
         )
         Napier.d("[$flow -> Result] Provider Config retrieved: $config", tag = TAG)
         return config

@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
-import com.snehonir.lipirx.ui.theme.Lipi
 
 val CameraVectorIcon = ImageVector.Builder(
     name = "CameraOutline",
@@ -57,7 +56,7 @@ val GalleryVectorIcon = ImageVector.Builder(
     viewportHeight = 24f
 ).apply {
     path(
-        stroke = SolidColor(Lipi.Ink),
+        stroke = SolidColor(Color.Black),
         strokeLineWidth = 2f,
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round
@@ -74,7 +73,7 @@ val GalleryVectorIcon = ImageVector.Builder(
         close()
     }
     path(
-        stroke = SolidColor(Lipi.Ink),
+        stroke = SolidColor(Color.Black),
         strokeLineWidth = 2f,
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round
@@ -85,7 +84,7 @@ val GalleryVectorIcon = ImageVector.Builder(
         close()
     }
     path(
-        stroke = SolidColor(Lipi.Ink),
+        stroke = SolidColor(Color.Black),
         strokeLineWidth = 2f,
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round
@@ -104,7 +103,7 @@ val MultiAgentPipelineIcon = ImageVector.Builder(
     viewportHeight = 24f
 ).apply {
     path(
-        stroke = SolidColor(Lipi.Primary),
+        stroke = SolidColor(Color.Black),
         strokeLineWidth = 2f,
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round
@@ -133,7 +132,7 @@ val CopyVectorIcon = ImageVector.Builder(
     viewportHeight = 24f
 ).apply {
     path(
-        stroke = SolidColor(Lipi.Ink),
+        stroke = SolidColor(Color.Black),
         strokeLineWidth = 2f,
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round
@@ -163,7 +162,7 @@ val PasteVectorIcon = ImageVector.Builder(
     viewportHeight = 24f
 ).apply {
     path(
-        stroke = SolidColor(Lipi.Primary),
+        stroke = SolidColor(Color.Black),
         strokeLineWidth = 2f,
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round
@@ -183,7 +182,7 @@ val PasteVectorIcon = ImageVector.Builder(
         close()
     }
     path(
-        fill = SolidColor(Lipi.Primary)
+        fill = SolidColor(Color.Black)
     ) {
         moveTo(14f, 11f)
         lineTo(7f, 11f)

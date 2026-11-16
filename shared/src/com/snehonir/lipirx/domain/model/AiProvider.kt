@@ -3,7 +3,6 @@ package com.snehonir.lipirx.domain.model
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.snehonir.lipirx.common.AppConstants
-import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.LightningVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
@@ -72,7 +71,7 @@ sealed interface AiProvider {
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = false
         override val icon: ImageVector = OnDeviceVectorIcon
-        override val brandColor: Color = Lipi.Primary
+        override val brandColor: Color = Color(0xFF0B7A6E)
     }
 
     companion object {

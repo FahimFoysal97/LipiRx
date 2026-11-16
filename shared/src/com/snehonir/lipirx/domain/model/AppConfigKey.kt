@@ -11,7 +11,8 @@ enum class AppConfigKey(val key: String) {
     OPENAI_API_KEY("openai_api_key"),
     CUSTOM_API_KEY("custom_api_key"),
     ON_DEVICE_STRATEGY("on_device_strategy"),
-    MCP_SERVER_ENABLED("mcp_server_enabled");
+    MCP_SERVER_ENABLED("mcp_server_enabled"),
+    THEME_MODE("theme_mode");
 
     companion object {
         fun keyForProvider(provider: AiProvider): AppConfigKey = when (provider) {

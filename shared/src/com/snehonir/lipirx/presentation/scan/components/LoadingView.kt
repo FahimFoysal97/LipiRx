@@ -87,6 +87,7 @@ fun LoadingView(
 ) {
     val total = RxAgentType.ALL.size
     val percent = agentProgressPercent.coerceIn(0, 100)
+    val primaryColor = Lipi.Primary
 
     val infinite = rememberInfiniteTransition(label = "segmentedLoading")
     val scan = infinite.animateFloat(
@@ -126,7 +127,7 @@ fun LoadingView(
             .drawBehind {
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(Lipi.Primary.copy(alpha = 0.10f), Color.Transparent),
+                        colors = listOf(primaryColor.copy(alpha = 0.10f), Color.Transparent),
                         center = Offset(size.width / 2f, 0f),
                         radius = size.width * 0.95f,
                     )
@@ -170,7 +171,7 @@ fun LoadingView(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    color = Color.White,
+                    color = Lipi.Surface,
                     border = BorderStroke(1.dp, Lipi.CardBorder),
                 ) {
                     Column(
@@ -181,7 +182,7 @@ fun LoadingView(
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
-                                    .drawBehind { drawCircle(Lipi.Primary.copy(alpha = breathe.value)) }
+                                    .drawBehind { drawCircle(primaryColor.copy(alpha = breathe.value)) }
                             )
                             Spacer(Modifier.width(10.dp))
                             Crossfade(
@@ -277,6 +278,7 @@ private fun SegmentBar(
     target: Float,
     isReached: Boolean,
 ) {
+    val primaryColor = Lipi.Primary
     val fill = animateFloatAsState(
         targetValue = target.coerceIn(0f, 1f),
         animationSpec = tween(450, easing = FastOutSlowInEasing),
@@ -295,7 +297,7 @@ private fun SegmentBar(
             .background(track)
             .drawBehind {
                 drawRect(
-                    color = Lipi.Primary,
+                    color = primaryColor,
                     size = Size(size.width * fill.value, size.height),
                 )
             }
@@ -309,6 +311,7 @@ private fun SegScannerCard(
     scan: State<Float>,
     pulse: State<Float>,
 ) {
+    val primaryColor = Lipi.Primary
     val shape = RoundedCornerShape(22.dp)
 
     Box(contentAlignment = Alignment.Center) {
@@ -316,7 +319,7 @@ private fun SegScannerCard(
             val strength = 0.14f + 0.10f * (1f - pulse.value)
             drawRect(
                 Brush.radialGradient(
-                    colors = listOf(Lipi.Primary.copy(alpha = strength), Color.Transparent),
+                    colors = listOf(primaryColor.copy(alpha = strength), Color.Transparent),
                     center = center,
                     radius = size.minDimension * 0.62f,
                 )
@@ -329,8 +332,8 @@ private fun SegScannerCard(
                 .shadow(
                     elevation = 20.dp,
                     shape = shape,
-                    ambientColor = Lipi.Primary.copy(alpha = 0.25f),
-                    spotColor = Lipi.Primary.copy(alpha = 0.35f),
+                    ambientColor = primaryColor.copy(alpha = 0.25f),
+                    spotColor = primaryColor.copy(alpha = 0.35f),
                 )
                 .clip(shape)
                 .background(Color.White),
@@ -355,7 +358,7 @@ private fun SegScannerCard(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Lipi.Primary.copy(alpha = 0.32f),
+                            primaryColor.copy(alpha = 0.32f),
                             Color.Transparent,
                         ),
                         startY = y - glow,
@@ -366,7 +369,7 @@ private fun SegScannerCard(
                 )
                 drawLine(
                     brush = Brush.horizontalGradient(
-                        listOf(Color.Transparent, Lipi.Primary, Lipi.Primary, Color.Transparent)
+                        listOf(Color.Transparent, primaryColor, primaryColor, Color.Transparent)
                     ),
                     start = Offset(0f, y),
                     end = Offset(size.width, y),
@@ -377,7 +380,7 @@ private fun SegScannerCard(
                 val inset = 12.dp.toPx()
                 val len = 22.dp.toPx()
                 val sw = 3.dp.toPx()
-                val c = Lipi.Primary
+                val c = primaryColor
                 val r = size.width - inset
                 val b = size.height - inset
 

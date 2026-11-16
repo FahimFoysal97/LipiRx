@@ -14,8 +14,8 @@ class ManageProviderConfigUseCase(
         return repository.getProviderConfig(flow)
     }
 
-    fun saveProviderConfig(providerType: String, customUrl: String, apiKey: String, modelName: String, flow: String = "") {
-        repository.saveProviderConfig(providerType, customUrl, apiKey, modelName, flow)
+    fun saveProviderConfig(providerType: String, customUrl: String, apiKey: String, modelName: String, themeMode: String = "system", flow: String = "") {
+        repository.saveProviderConfig(providerType, customUrl, apiKey, modelName, themeMode, flow)
     }
 
     fun getApiKeyForProvider(providerType: String): String {

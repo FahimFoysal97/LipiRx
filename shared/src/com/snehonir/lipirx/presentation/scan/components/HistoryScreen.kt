@@ -251,7 +251,7 @@ private fun HistoryCard(
         onClick = onSelect,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = Lipi.Surface,
         border = BorderStroke(1.dp, Lipi.CardBorder)
     ) {
         Row(

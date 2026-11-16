@@ -168,7 +168,7 @@ fun ImagePreviewAndProcessView(
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 20.dp),
                 shape = CircleShape,
-                color = Lipi.Ink.copy(alpha = 0.88f),
+                color = Lipi.ViewerBg.copy(alpha = 0.88f),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
@@ -218,7 +218,7 @@ private fun PipelineSummaryCard(
         onClick = { onClick?.invoke() },
         modifier = Modifier.fillMaxWidth(),
         shape = shape,
-        color = Color.White,
+        color = Lipi.Surface,
         border = BorderStroke(1.dp, Lipi.Outline)
     ) {
         Column(

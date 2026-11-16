@@ -6,6 +6,7 @@ import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
+import com.snehonir.lipirx.domain.model.ThemeMode
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
@@ -17,6 +18,7 @@ data class ScanUiState(
     val loadingStatusText: String = "",
     val activeAgentProgressPercent: Int = 0,
     val currentAgent: RxAgentType = RxAgentType.SUPERVISOR,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val capturedImageByteArray: ByteArray? = null,
     val medicines: ImmutableList<MedicineItem> = persistentListOf(),
     val isSuspendedForApproval: Boolean = false,
@@ -64,6 +66,7 @@ data class ScanUiState(
         if (loadingStatusText != other.loadingStatusText) return false
         if (activeAgentProgressPercent != other.activeAgentProgressPercent) return false
         if (currentAgent != other.currentAgent) return false
+        if (themeMode != other.themeMode) return false
         if (capturedImageByteArray != null) {
             if (other.capturedImageByteArray == null) return false
             if (!capturedImageByteArray.contentEquals(other.capturedImageByteArray)) return false
@@ -99,6 +102,7 @@ data class ScanUiState(
         result = 31 * result + loadingStatusText.hashCode()
         result = 31 * result + activeAgentProgressPercent.hashCode()
         result = 31 * result + currentAgent.hashCode()
+        result = 31 * result + themeMode.hashCode()
         result = 31 * result + (capturedImageByteArray?.contentHashCode() ?: 0)
         result = 31 * result + medicines.hashCode()
         result = 31 * result + isSuspendedForApproval.hashCode()

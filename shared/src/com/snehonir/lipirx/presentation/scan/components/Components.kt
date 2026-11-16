@@ -73,7 +73,7 @@ fun AppHeader(
                         .clip(CircleShape)
                         .clickable(onClick = onBack),
                     shape = CircleShape,
-                    color = Color.White,
+                    color = Lipi.Surface,
                     border = BorderStroke(1.dp, Lipi.CardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -147,7 +147,7 @@ fun HistoryChip(
             .clip(CircleShape)
             .clickable(onClick = onClick),
         shape = CircleShape,
-        color = Color.White,
+        color = Lipi.Surface,
         border = BorderStroke(1.dp, Lipi.Outline)
     ) {
         Row(
@@ -236,7 +236,7 @@ fun SecondaryButton(
         enabled = enabled,
         shape = RoundedCornerShape(22.dp),
         border = BorderStroke(1.dp, Lipi.Outline),
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = contentColor),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Lipi.Surface, contentColor = contentColor),
         contentPadding = PaddingValues(horizontal = 10.dp),
     ) {
         if (icon != null) {
@@ -267,7 +267,7 @@ fun PaperIllustration(
             .size(width, height)
             .rotate(rotation)
             .shadow(20.dp, shape, ambientColor = Lipi.Ink.copy(0.15f), spotColor = Lipi.Ink.copy(0.2f))
-            .background(Color.White, shape)
+            .background(Lipi.Surface, shape)
             .padding(horizontal = 22.dp, vertical = 20.dp),
     ) {
         Text("Rx", color = Lipi.Primary, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp)

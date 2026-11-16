@@ -113,7 +113,7 @@ fun ScanResultScreen(
         else -> ScanScreenMode.Empty
     }
 
-    LipiRxTheme {
+    LipiRxTheme(themeMode = uiState.themeMode) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -162,6 +162,10 @@ fun ScanResultScreen(
                             },
                             onSelectOnDeviceStrategy = { strat ->
                                 viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
+                            },
+                            themeMode = uiState.themeMode,
+                            onSelectThemeMode = { mode ->
+                                viewModel.updateThemeMode(mode, flow = "$flow -> ScanResultScreen.onSelectThemeMode")
                             },
                             onViewTelemetry = {
                                 traceViewModel.loadAgentTraces(flow = "$flow -> ScanResultScreen.onViewTelemetry")

@@ -51,6 +51,8 @@ fun EmptyStateView(
     onOpenSettings: (() -> Unit)? = null,
     onOpenAiStudio: (() -> Unit)? = onOpenSettings
 ) {
+    val primaryColor = Lipi.Primary
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -84,7 +86,7 @@ fun EmptyStateView(
                         quadraticTo(margin, margin, margin, margin + radius)
                         lineTo(margin, margin + armLength)
                     },
-                    color = Lipi.Primary,
+                    color = primaryColor,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
@@ -96,7 +98,7 @@ fun EmptyStateView(
                         quadraticTo(size.width - margin, margin, size.width - margin, margin + radius)
                         lineTo(size.width - margin, margin + armLength)
                     },
-                    color = Lipi.Primary,
+                    color = primaryColor,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
@@ -108,7 +110,7 @@ fun EmptyStateView(
                         quadraticTo(margin, size.height - margin, margin, size.height - margin - radius)
                         lineTo(margin, size.height - margin - armLength)
                     },
-                    color = Lipi.Primary,
+                    color = primaryColor,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
@@ -120,7 +122,7 @@ fun EmptyStateView(
                         quadraticTo(size.width - margin, size.height - margin, size.width - margin, size.height - margin - radius)
                         lineTo(size.width - margin, size.height - margin - armLength)
                     },
-                    color = Lipi.Primary,
+                    color = primaryColor,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
             }
