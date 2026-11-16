@@ -1,6 +1,7 @@
 package com.snehonir.lipirx.ui.theme.icons
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
@@ -48,7 +49,11 @@ val OpenAiVectorIcon: ImageVector = ImageVector.Builder(
     viewportWidth = 24f,
     viewportHeight = 24f
 ).apply {
-    path(fill = SolidColor(Color(0xFF00A67E))) {
+    // EvenOdd so the two inner shapes cut holes in the outer circle
+    path(
+        fill = SolidColor(Color(0xFF00A67E)),
+        pathFillType = PathFillType.EvenOdd
+    ) {
         moveTo(12f, 2f)
         curveTo(6.48f, 2f, 2f, 6.48f, 2f, 12f)
         curveTo(2f, 17.52f, 6.48f, 22f, 12f, 22f)
@@ -64,6 +69,30 @@ val OpenAiVectorIcon: ImageVector = ImageVector.Builder(
         lineTo(13f, 19.93f)
         curveTo(16f, 19f, 18f, 16f, 18f, 12f)
         curveTo(18f, 8f, 16f, 5f, 13f, 4.07f)
+        close()
+    }
+}.build()
+
+val ClaudeVectorIcon: ImageVector = ImageVector.Builder(
+    name = "ClaudeAnthropic",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(4.82f, 19.5f)
+        lineTo(10.11f, 4.5f)
+        lineTo(13.89f, 4.5f)
+        lineTo(19.18f, 19.5f)
+        lineTo(15.93f, 19.5f)
+        lineTo(14.65f, 15.65f)
+        lineTo(9.35f, 15.65f)
+        lineTo(8.07f, 19.5f)
+        close()
+        moveTo(10.27f, 12.85f)
+        lineTo(13.73f, 12.85f)
+        lineTo(12.0f, 7.6f)
         close()
     }
 }.build()

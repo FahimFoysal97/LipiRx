@@ -3,6 +3,7 @@ package com.snehonir.lipirx.domain.model
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.snehonir.lipirx.common.AppConstants
+import com.snehonir.lipirx.ui.theme.icons.ClaudeVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.LightningVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
@@ -59,7 +60,7 @@ sealed interface AiProvider {
         override val defaultModel: String = AppConstants.CLAUDE_DEFAULT_MODEL
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = true
-        override val icon: ImageVector = SparkleVectorIcon
+        override val icon: ImageVector = ClaudeVectorIcon
         override val brandColor: Color = Color(0xFFD97706)
     }
 
