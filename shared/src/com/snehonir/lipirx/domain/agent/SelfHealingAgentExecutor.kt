@@ -20,6 +20,7 @@ class SelfHealingAgentExecutor(
         var currentRepairPrompt = ""
 
         while (currentAttempt <= maxRetries) {
+            Napier.d("[$TAG] Executing agent '$agentName' (Attempt ${currentAttempt + 1}/${maxRetries + 1})...", tag = TAG)
             val result = action(currentRepairPrompt)
             if (result.isSuccess) {
                 if (currentAttempt > 0) {

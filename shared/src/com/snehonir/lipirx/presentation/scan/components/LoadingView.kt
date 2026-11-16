@@ -68,6 +68,7 @@ import com.snehonir.lipirx.resources.content_desc_stop_analysis
 import com.snehonir.lipirx.resources.loading_default_subtitle
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
+import io.github.aakira.napier.Napier
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -213,6 +214,7 @@ fun LoadingView(
                             animationSpec = tween(300),
                             label = "status",
                         ) { text ->
+                            Napier.d { "LoadingView status text: $text" }
                             Text(
                                 text = text,
                                 fontSize = 13.sp,

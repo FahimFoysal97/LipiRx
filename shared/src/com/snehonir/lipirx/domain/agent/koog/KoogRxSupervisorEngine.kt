@@ -68,6 +68,7 @@ class KoogRxSupervisorEngine(
             }
 
             val targetAgentType = decision.nextAgent
+            Napier.d("[$TAG -> Turn ${state.turnCount + 1}] Dispatching agent '${targetAgentType.id}' with reasoning: '${decision.reasoning}'", tag = TAG)
             onProgress(targetAgentType, decision.reasoning)
 
             val supervisorRecord = AgentExecutionRecord(
@@ -126,6 +127,7 @@ class KoogRxSupervisorEngine(
                 executeToolForAgent(targetAgentType, input, state.items, currentParams)
             }
             val agentTimeMs = getPlatformEpochMillis() - agentStartTime
+            Napier.d("[$TAG -> ToolResult] Agent '${targetAgentType.id}' execution finished in ${agentTimeMs}ms. Success=${newItemsResult.isSuccess}, ExtractedItemsCount=${if (newItemsResult.isSuccess) newItemsResult.getOrThrow().size else 0}", tag = TAG)
 
             database.saveAgentTrace(
                 turnNumber = state.turnCount + 1,

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
+import com.snehonir.lipirx.data.local.getPlatformEpochMillis
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
@@ -621,6 +622,7 @@ class ScanViewModel(
                 input = input,
                 agentConfigs = state.agentConfigs,
                 onProgress = { agentType, reasoning ->
+                    Napier.d { "[$flow -> Progress] Agent ${agentType.id} reasoning: $reasoning" }
                     _uiState.update {
                         it.copy(
                             loadingStep = agentType.ordinal,
@@ -634,6 +636,9 @@ class ScanViewModel(
 
             result.fold(
                 onSuccess = { orchResult ->
+                    val totalDurationMs = getPlatformEpochMillis() - analyzeStartTime
+                    Napier.i("[$flow -> Success] Pipeline completed successfully in ${totalDurationMs}ms. Extracted ${orchResult.items.size} items.", tag = TAG)
+
                     _uiState.update {
                         it.copy(
                             loadingStep = 4,
