@@ -13,6 +13,7 @@ import com.snehonir.lipirx.domain.model.ThemeMode
 
 data class LipiColors(
     val primary: Color,
+    val onPrimary: Color,
     val primaryContainer: Color,
     val onPrimaryContainer: Color,
     val background: Color,
@@ -24,6 +25,7 @@ data class LipiColors(
     val amberContainer: Color,
     val onAmber: Color,
     val red: Color,
+    val onError: Color,
     val imageWell: Color,
     val inkLine: Color,
     val success: Color,
@@ -34,50 +36,58 @@ data class LipiColors(
     val statusActiveGreen: Color,
 )
 
+// Soft light: warm off-white surfaces (no pure white), slightly desaturated teal,
+// softer ink instead of near-black.
 private val LightLipiColors = LipiColors(
-    primary = Color(0xFF0B7A6E),
-    primaryContainer = Color(0xFFE3F3F0),
-    onPrimaryContainer = Color(0xFF075E54),
-    background = Color(0xFFF4F7F6),
-    surface = Color.White,
-    outline = Color(0xFFD5E0DE),
-    cardBorder = Color(0xFFE1E9E7),
-    ink = Color(0xFF10242B),
-    muted = Color(0xFF52666C),
-    amberContainer = Color(0xFFFFF1DC),
-    onAmber = Color(0xFF8A4B00),
-    red = Color(0xFFB3261E),
-    imageWell = Color(0xFFE9EFEE),
-    inkLine = Color(0xFF9FB0C8),
-    success = Color(0xFF1DB36B),
-    viewerBg = Color(0xFF070C0F),
-    switchOffTrack = Color(0xFFDCDFE0),
-    switchOffThumb = Color(0xFF52666C),
-    switchOffBorder = Color(0xFF9FB0C8),
-    statusActiveGreen = Color(0xFF2E7D32),
+    primary = Color(0xFF2F8A7F),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFE6F1EE),
+    onPrimaryContainer = Color(0xFF1F5F57),
+    background = Color(0xFFF3F5F2),
+    surface = Color(0xFFFBFCFB),
+    outline = Color(0xFFD9E1DE),
+    cardBorder = Color(0xFFE5EBE8),
+    ink = Color(0xFF24343A),
+    muted = Color(0xFF66777B),
+    amberContainer = Color(0xFFFBEFDA),
+    onAmber = Color(0xFF7A5420),
+    red = Color(0xFFC4554D),
+    onError = Color(0xFFFFFFFF),
+    imageWell = Color(0xFFECF0EE),
+    inkLine = Color(0xFFA9B7C6),
+    success = Color(0xFF3FAE7E),
+    viewerBg = Color(0xFF161C1F),
+    switchOffTrack = Color(0xFFE0E4E3),
+    switchOffThumb = Color(0xFF8A999C),
+    switchOffBorder = Color(0xFFB5C1C4),
+    statusActiveGreen = Color(0xFF4C8F52),
 )
 
+// Soft dark: lifted charcoal (no near-black), muted pastel accents,
+// off-white text instead of bright white to reduce glare.
 private val DarkLipiColors = LipiColors(
-    primary = Color(0xFF14B8A6),
-    primaryContainer = Color(0xFF093D37),
-    onPrimaryContainer = Color(0xFF99F6E4),
-    background = Color(0xFF0B0F17),
-    surface = Color(0xFF131C29),
-    outline = Color(0xFF334155),
-    cardBorder = Color(0xFF1F2B3B),
-    ink = Color(0xFFF1F5F9),
-    muted = Color(0xFF94A3B8),
-    amberContainer = Color(0xFF3A2A0F),
-    onAmber = Color(0xFFFBBF6A),
-    red = Color(0xFFF87171),
-    imageWell = Color(0xFF1A2434),
-    inkLine = Color(0xFF64748B),
-    success = Color(0xFF34D399),
-    viewerBg = Color(0xFF000000),
-    switchOffTrack = Color(0xFF1E293B),
-    switchOffThumb = Color(0xFF94A3B8),
-    switchOffBorder = Color(0xFF475569),
-    statusActiveGreen = Color(0xFF4ADE80),
+    primary = Color(0xFF5FB8AA),
+    onPrimary = Color(0xFF0F2E2A),
+    primaryContainer = Color(0xFF1F3B38),
+    onPrimaryContainer = Color(0xFFBFE3DC),
+    background = Color(0xFF141A1C),
+    surface = Color(0xFF1B2326),
+    outline = Color(0xFF3A4749),
+    cardBorder = Color(0xFF263033),
+    ink = Color(0xFFDDE5E3),
+    muted = Color(0xFF9AA8A6),
+    amberContainer = Color(0xFF35291A),
+    onAmber = Color(0xFFE6C48A),
+    red = Color(0xFFE59A94),
+    onError = Color(0xFF3A1412),
+    imageWell = Color(0xFF222C2F),
+    inkLine = Color(0xFF6E7F83),
+    success = Color(0xFF6FCBA0),
+    viewerBg = Color(0xFF0E1315),
+    switchOffTrack = Color(0xFF263033),
+    switchOffThumb = Color(0xFF9AA8A6),
+    switchOffBorder = Color(0xFF4A585B),
+    statusActiveGreen = Color(0xFF86C98F),
 )
 
 private val LocalLipiColors = staticCompositionLocalOf { LightLipiColors }
@@ -85,6 +95,7 @@ private val LocalLipiColors = staticCompositionLocalOf { LightLipiColors }
 /** Theme-aware tokens. Use inside @Composable code, same as before. */
 object Lipi {
     val Primary: Color @Composable get() = LocalLipiColors.current.primary
+    val OnPrimary: Color @Composable get() = LocalLipiColors.current.onPrimary
     val PrimaryContainer: Color @Composable get() = LocalLipiColors.current.primaryContainer
     val OnPrimaryContainer: Color @Composable get() = LocalLipiColors.current.onPrimaryContainer
     val Background: Color @Composable get() = LocalLipiColors.current.background
@@ -98,6 +109,7 @@ object Lipi {
     val Red: Color @Composable get() = LocalLipiColors.current.red
     val Error: Color @Composable get() = Red
     val Danger: Color @Composable get() = Red
+    val OnError: Color @Composable get() = LocalLipiColors.current.onError
     val ImageWell: Color @Composable get() = LocalLipiColors.current.imageWell
     val InkLine: Color @Composable get() = LocalLipiColors.current.inkLine
     val Success: Color @Composable get() = LocalLipiColors.current.success
@@ -124,7 +136,7 @@ fun LipiRxTheme(
     val colorScheme = if (darkTheme) {
         darkColorScheme(
             primary = lipi.primary,
-            onPrimary = Color(0xFF042F2C),
+            onPrimary = lipi.onPrimary,
             primaryContainer = lipi.primaryContainer,
             onPrimaryContainer = lipi.onPrimaryContainer,
             background = lipi.background,
@@ -136,12 +148,12 @@ fun LipiRxTheme(
             outline = lipi.outline,
             outlineVariant = lipi.cardBorder,
             error = lipi.red,
-            onError = Color(0xFF2A0A0A),
+            onError = lipi.onError,
         )
     } else {
         lightColorScheme(
             primary = lipi.primary,
-            onPrimary = Color.White,
+            onPrimary = lipi.onPrimary,
             primaryContainer = lipi.primaryContainer,
             onPrimaryContainer = lipi.onPrimaryContainer,
             background = lipi.background,
@@ -153,6 +165,7 @@ fun LipiRxTheme(
             outline = lipi.outline,
             outlineVariant = lipi.cardBorder,
             error = lipi.red,
+            onError = lipi.onError,
         )
     }
 
