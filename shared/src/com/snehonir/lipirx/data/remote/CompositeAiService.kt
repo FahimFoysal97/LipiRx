@@ -5,8 +5,17 @@ import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.error_cloud_failed_max_attempts
+import com.snehonir.lipirx.resources.error_unknown
+import com.snehonir.lipirx.resources.progress_attempt_failed
+import com.snehonir.lipirx.resources.progress_escalating_to_cloud
+import com.snehonir.lipirx.resources.progress_executing_on_device_first
+import com.snehonir.lipirx.resources.progress_falling_back
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.getString
+import kotlin.time.Duration.Companion.milliseconds
 
 class CompositeAiService(
     private val services: Map<AiProvider, PrescriptionAiService>
@@ -28,11 +37,11 @@ class CompositeAiService(
 
     suspend fun processPrescriptionImage(
         imageByteArray: ByteArray,
-        selectedModel: String = "gemini-2.5-flash",
+        selectedModel: String = AppConstants.GEMINI_DEFAULT_MODEL,
         providedApiKey: String = "",
         provider: AiProvider = AiProvider.Gemini,
         customUrl: String = "",
-        mimeType: String = "image/jpeg",
+        mimeType: String = AppConstants.MIME_TYPE_JPEG,
         strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
         fallbackProvider: AiProvider? = null,
         fallbackModel: String = "",
@@ -55,25 +64,28 @@ class CompositeAiService(
                     maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
                     providerName = provider.displayName,
                     flow = flow,
-                    onRetryProgress = { attempt, msg -> onProgress(1, msg) }
+                    onRetryProgress = { _, msg -> onProgress(1, msg) }
                 ) {
                     primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
                 }
             }
             OnDeviceStrategy.ON_DEVICE_FIRST -> {
-                onProgress(0, "Executing On-Device SLM first...")
+                val executingMsg = getString(Res.string.progress_executing_on_device_first)
+                onProgress(0, executingMsg)
+
                 val localService = services[AiProvider.OnDevice] ?: fallbackService
                 val localResult = localService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
                 if (localResult.isSuccess && localResult.getOrNull()?.isNotEmpty() == true) {
                     localResult
                 } else {
+                    val escalatingMsg = getString(Res.string.progress_escalating_to_cloud, provider.displayName)
                     Napier.w("[$flow -> Escalation] On-Device SLM incomplete or unavailable. Escalating to ${provider.displayName} Cloud AI...", tag = TAG)
-                    onProgress(1, "Escalating to ${provider.displayName} Cloud AI...")
+                    onProgress(1, escalatingMsg)
                     executeWithCloudRetries(
                         maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
                         providerName = provider.displayName,
                         flow = flow,
-                        onRetryProgress = { attempt, msg -> onProgress(1, msg) }
+                        onRetryProgress = { _, msg -> onProgress(1, msg) }
                     ) {
                         primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
                     }
@@ -84,7 +96,7 @@ class CompositeAiService(
                     maxAttempts = AppConstants.MAX_CLOUD_RETRIES,
                     providerName = provider.displayName,
                     flow = flow,
-                    onRetryProgress = { attempt, msg -> onProgress(1, msg) }
+                    onRetryProgress = { _, msg -> onProgress(1, msg) }
                 ) {
                     primaryService.processPrescriptionImage(imageByteArray, selectedModel, providedApiKey, customUrl, mimeType, flow, onProgress)
                 }
@@ -93,8 +105,9 @@ class CompositeAiService(
                     cloudResult
                 } else {
                     val targetModelName = fallbackModel.ifBlank { selectedModel }
+                    val fallingBackMsg = getString(Res.string.progress_falling_back, provider.displayName, AppConstants.MAX_CLOUD_RETRIES, targetFallbackProvider.displayName)
                     Napier.w("[$flow -> Fallback Triggered] ${provider.displayName} Cloud AI failed after ${AppConstants.MAX_CLOUD_RETRIES} attempts (${cloudResult.exceptionOrNull()?.message}). Falling back to ${targetFallbackProvider.displayName} ($targetModelName)...", tag = TAG)
-                    onProgress(1, "${provider.displayName} Cloud failed (${AppConstants.MAX_CLOUD_RETRIES} attempts). Falling back to ${targetFallbackProvider.displayName}...")
+                    onProgress(1, fallingBackMsg)
                     fallbackService.processPrescriptionImage(imageByteArray, targetModelName, providedApiKey, customUrl, mimeType, flow, onProgress)
                 }
             }
@@ -174,6 +187,9 @@ class CompositeAiService(
         block: suspend () -> Result<T>
     ): Result<T> {
         var lastResult: Result<T>? = null
+        val unknownErr = getString(Res.string.error_unknown)
+        val maxFailedErr = getString(Res.string.error_cloud_failed_max_attempts, providerName, maxAttempts)
+
         for (attempt in 1..maxAttempts) {
             val result = block()
             if (result.isSuccess) {
@@ -183,14 +199,15 @@ class CompositeAiService(
                 return result
             }
             lastResult = result
-            val errMsg = result.exceptionOrNull()?.message ?: "Unknown error"
-            Napier.w("[$flow -> Attempt $attempt/$maxAttempts Failed] $providerName Cloud AI attempt $attempt/$maxAttempts failed: $errMsg", tag = TAG)
-            onRetryProgress?.invoke(attempt, "$providerName Cloud AI attempt $attempt/$maxAttempts failed: $errMsg")
+            val errMsg = result.exceptionOrNull()?.message ?: unknownErr
+            val attemptFailedMsg = getString(Res.string.progress_attempt_failed, providerName, attempt, maxAttempts, errMsg)
+            Napier.w("[$flow -> Attempt $attempt/$maxAttempts Failed] $attemptFailedMsg", tag = TAG)
+            onRetryProgress?.invoke(attempt, attemptFailedMsg)
             if (attempt < maxAttempts) {
-                delay(AppConstants.CLOUD_RETRY_DELAY_MILLIS)
+                delay(AppConstants.CLOUD_RETRY_DELAY_MILLIS.milliseconds)
             }
         }
-        return lastResult ?: Result.failure(IllegalStateException("$providerName Cloud AI failed after $maxAttempts attempts."))
+        return lastResult ?: Result.failure(IllegalStateException(maxFailedErr))
     }
 
     companion object {

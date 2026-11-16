@@ -204,6 +204,14 @@
     <string name="label_locked_by_strategy">Locked by current strategy</string>
     <string name="content_desc_selected">Selected</string>
 
+    <!-- Composite AI Service Progress & Error Strings -->
+    <string name="progress_executing_on_device_first">Executing On-Device SLM first...</string>
+    <string name="progress_escalating_to_cloud">Escalating to %1$s Cloud AI...</string>
+    <string name="progress_falling_back">%1$s Cloud failed (%2$d attempts). Falling back to %3$s...</string>
+    <string name="progress_attempt_failed">%1$s Cloud AI attempt %2$d/%3$d failed: %4$s</string>
+    <string name="error_unknown">Unknown error</string>
+    <string name="error_cloud_failed_max_attempts">%1$s Cloud AI failed after %2$d attempts.</string>
+
     <!-- Clinical Warnings & Pharmacist Gate -->
     <string name="gate_title">Pharmacist Review Required</string>
     <string name="gate_subtitle">Safety Gate Triggered: Unverified dosage or interaction risk detected</string>
