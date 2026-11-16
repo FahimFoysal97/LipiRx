@@ -31,17 +31,6 @@ sealed interface AiProvider {
         override val brandColor: Color = Color(0xFF4285F4)
     }
 
-    data object Groq : AiProvider {
-        override val id: String = "groq"
-        override val displayName: String = "Groq"
-        override val defaultEndpoint: String = AppConstants.GROQ_DEFAULT_ENDPOINT
-        override val defaultModel: String = AppConstants.GROQ_DEFAULT_MODEL
-        override val requiresCustomUrl: Boolean = false
-        override val requiresApiKey: Boolean = true
-        override val icon: ImageVector = LightningVectorIcon
-        override val brandColor: Color = Color(0xFFF55036)
-    }
-
     data object OpenAi : AiProvider {
         override val id: String = "openai"
         override val displayName: String = "OpenAI"
@@ -62,6 +51,17 @@ sealed interface AiProvider {
         override val requiresApiKey: Boolean = true
         override val icon: ImageVector = ClaudeVectorIcon
         override val brandColor: Color = Color(0xFFD97757)
+    }
+
+    data object Groq : AiProvider {
+        override val id: String = "groq"
+        override val displayName: String = "Groq"
+        override val defaultEndpoint: String = AppConstants.GROQ_DEFAULT_ENDPOINT
+        override val defaultModel: String = AppConstants.GROQ_DEFAULT_MODEL
+        override val requiresCustomUrl: Boolean = false
+        override val requiresApiKey: Boolean = true
+        override val icon: ImageVector = LightningVectorIcon
+        override val brandColor: Color = Color(0xFFF55036)
     }
 
     data object Custom : AiProvider {
@@ -87,12 +87,12 @@ sealed interface AiProvider {
     }
 
     companion object {
-        val ALL: List<AiProvider> = listOf(Gemini, Groq, OpenAi, Claude, Custom, OnDevice)
+        val ALL: List<AiProvider> = listOf(Gemini, OpenAi, Claude, Groq, Custom, OnDevice)
 
         fun fromId(id: String): AiProvider = when (id.trim().lowercase()) {
-            Groq.id -> Groq
             OpenAi.id -> OpenAi
             Claude.id -> Claude
+            Groq.id -> Groq
             Custom.id -> Custom
             OnDevice.id -> OnDevice
             else -> Gemini
