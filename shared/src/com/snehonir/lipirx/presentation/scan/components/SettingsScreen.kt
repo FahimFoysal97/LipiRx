@@ -1,10 +1,13 @@
 package com.snehonir.lipirx.presentation.scan.components
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,11 +20,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -29,6 +36,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -43,11 +51,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.domain.agent.AgentConfig
@@ -55,9 +67,6 @@ import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.model.ThemeMode
-import com.snehonir.lipirx.ui.theme.icons.DarkThemeVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.LightThemeVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.SystemThemeVectorIcon
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_save_config
@@ -86,16 +95,23 @@ import com.snehonir.lipirx.resources.studio_title
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.ApiKeyVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.DarkThemeVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.LightThemeVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.McpEndpointVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.McpServerVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.OnDeviceStrategyVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.icon
 import com.snehonir.lipirx.ui.theme.icons.PasteVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.PipelineMatrixVectorIcon
-import com.snehonir.lipirx.ui.theme.icons.ProviderSelectVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.ProviderSettingsVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.SystemThemeVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.icon
 import org.jetbrains.compose.resources.stringResource
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Screen
+// Order: Appearance → AI execution → Provider & key → Agents → Integrations.
+// Things people touch most / must do first come first; advanced stuff is last.
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun SettingsScreen(
@@ -164,1208 +180,153 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
 
-            // --- APPEARANCE THEME ---
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            // ── 1. APPEARANCE ────────────────────────────────────────────────
+            SettingsSection(
+                icon = SystemThemeVectorIcon,
+                title = stringResource(Res.string.section_appearance_theme)
             ) {
-                Icon(
-                    imageVector = SystemThemeVectorIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = stringResource(Res.string.section_appearance_theme),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                ThemeModeSelector(themeMode = themeMode, onSelect = onSelectThemeMode)
             }
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = Lipi.Surface,
-                border = BorderStroke(1.dp, Lipi.CardBorder)
+            // ── 2. AI EXECUTION STRATEGY ─────────────────────────────────────
+            SettingsSection(
+                icon = OnDeviceStrategyVectorIcon,
+                title = stringResource(Res.string.section_on_device)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    ThemeMode.entries.forEach { mode ->
-                        val isSelected = themeMode == mode
-                        val icon = when (mode) {
-                            ThemeMode.SYSTEM -> SystemThemeVectorIcon
-                            ThemeMode.DARK -> DarkThemeVectorIcon
-                            ThemeMode.LIGHT -> LightThemeVectorIcon
-                        }
-
-                        Surface(
-                            onClick = { onSelectThemeMode(mode) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) Lipi.PrimaryContainer else Color.Transparent,
-                            border = BorderStroke(
-                                width = 1.dp,
-                                color = if (isSelected) Lipi.Primary else Color.Transparent
+                SettingsCard {
+                    PickerField(
+                        valueText = stringResource(onDeviceStrategy.displayNameRes),
+                        accent = Lipi.Primary,
+                        leadingIcon = onDeviceStrategy.icon,
+                        contentDescription = stringResource(Res.string.content_desc_select_strategy),
+                        options = OnDeviceStrategy.ALL.map { strat ->
+                            MenuOption(
+                                title = stringResource(strat.displayNameRes),
+                                subtitle = stringResource(strat.descriptionRes),
+                                icon = strat.icon,
+                                tint = Lipi.Primary,
+                                selected = onDeviceStrategy == strat,
+                                onClick = { onSelectOnDeviceStrategy(strat) }
                             )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = mode.displayName,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = if (isSelected) Lipi.Primary else Lipi.Muted
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = mode.displayName,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                    color = if (isSelected) Lipi.OnPrimaryContainer else Lipi.Muted,
-                                    maxLines = 1
-                                )
+                        }
+                    )
+                    InfoNote(text = stringResource(onDeviceStrategy.explanationRes))
+                }
+            }
+
+            // ── 3. PROVIDER & API KEY ────────────────────────────────────────
+            SettingsSection(
+                icon = ProviderSettingsVectorIcon,
+                title = stringResource(Res.string.section_provider_settings)
+            ) {
+                val activeCardProvider = AiProvider.fromId(selectedTabProvider)
+
+                SettingsCard {
+                    PickerField(
+                        label = stringResource(Res.string.label_select_provider),
+                        valueText = activeCardProvider.displayName,
+                        accent = activeCardProvider.brandColor,
+                        leadingIcon = activeCardProvider.icon,
+                        contentDescription = stringResource(Res.string.label_select_provider),
+                        options = providerOptions(
+                            selectedId = selectedTabProvider,
+                            onPick = { prov ->
+                                selectedTabProvider = prov.id
+                                onProviderTabSelected(prov.id)
                             }
-                        }
-                    }
-                }
-            }
-
-            // --- ON-DEVICE AI EXECUTION STRATEGY ---
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    imageVector = OnDeviceStrategyVectorIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = Lipi.Primary
-                )
-                Text(
-                    text = stringResource(Res.string.section_on_device),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Lipi.Ink
-                )
-            }
-
-            var showStrategyDropdown by remember { mutableStateOf(false) }
-            val strategyScrollState = rememberScrollState()
-            var selectedStrategyY by remember(showStrategyDropdown) { mutableStateOf<Int?>(null) }
-
-            LaunchedEffect(showStrategyDropdown, selectedStrategyY) {
-                val y = selectedStrategyY
-                if (showStrategyDropdown && y != null) {
-                    strategyScrollState.scrollTo(y.coerceAtMost(strategyScrollState.maxValue))
-                }
-            }
-
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Surface(
-                    onClick = { showStrategyDropdown = !showStrategyDropdown },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = Lipi.Background,
-                    border = BorderStroke(1.dp, Lipi.Outline)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = onDeviceStrategy.icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = Lipi.Primary
-                            )
-                            Text(
-                                text = stringResource(onDeviceStrategy.displayNameRes),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Lipi.Primary
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = stringResource(Res.string.content_desc_select_strategy),
-                            modifier = Modifier.size(20.dp),
-                            tint = Lipi.Muted
-                        )
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = showStrategyDropdown,
-                    onDismissRequest = { showStrategyDropdown = false },
-                    modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .background(Lipi.Surface)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 220.dp)
-                            .verticalScroll(strategyScrollState)
-                    ) {
-                        OnDeviceStrategy.ALL.forEach { strat ->
-                            val isSelected = onDeviceStrategy == strat
-                            DropdownMenuItem(
-                                modifier = Modifier.onGloballyPositioned { coordinates ->
-                                    if (isSelected && selectedStrategyY == null) {
-                                        selectedStrategyY = coordinates.positionInParent().y.toInt()
-                                    }
-                                },
-                                text = {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = strat.icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp),
-                                            tint = if (isSelected) Lipi.Primary else Lipi.Muted
-                                        )
-                                        Column {
-                                            Text(
-                                                text = stringResource(strat.displayNameRes),
-                                                fontSize = 13.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                color = if (isSelected) Lipi.Primary else Lipi.Ink
-                                            )
-                                            Text(
-                                                text = stringResource(strat.descriptionRes),
-                                                fontSize = 11.sp,
-                                                color = Lipi.Muted
-                                            )
-                                        }
-                                    }
-                                },
-                                onClick = {
-                                    onSelectOnDeviceStrategy(strat)
-                                    showStrategyDropdown = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // --- STRATEGY EXPLANATION BANNER ---
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = Lipi.PrimaryContainer.copy(alpha = 0.5f),
-                border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = Lipi.Primary
-                    )
-                    Text(
-                        text = stringResource(onDeviceStrategy.explanationRes),
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        color = Lipi.Ink
-                    )
-                }
-            }
-
-            // --- MODEL CONTEXT PROTOCOL (MCP) SERVER CONTROL ---
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    imageVector = McpServerVectorIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = Lipi.Primary
-                )
-                Text(
-                    text = stringResource(Res.string.section_mcp),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Lipi.Ink
-                )
-            }
-
-            var localMcpState by remember(isMcpServerEnabled) { mutableStateOf(isMcpServerEnabled) }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = Lipi.Background,
-                border = BorderStroke(1.dp, Lipi.Outline)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = McpEndpointVectorIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = Lipi.Primary
-                            )
-                            Text(
-                                text = stringResource(Res.string.section_mcp_endpoint),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Lipi.Ink
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = if (localMcpState) {
-                                stringResource(Res.string.mcp_server_running)
-                            } else {
-                                stringResource(Res.string.mcp_server_description)
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = if (localMcpState) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (localMcpState) Lipi.StatusActiveGreen else Lipi.Muted
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = localMcpState,
-                        onCheckedChange = { enabled ->
-                            localMcpState = enabled
-                            onToggleMcpServer(enabled)
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Lipi.Primary,
-                            uncheckedThumbColor = Lipi.SwitchOffThumb,
-                            uncheckedTrackColor = Lipi.SwitchOffTrack,
-                            uncheckedBorderColor = Lipi.SwitchOffBorder
                         )
                     )
-                }
-            }
-
-            if (onViewTelemetry != null) {
-                Surface(
-                    onClick = {
-                        onViewTelemetry()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    color = Lipi.PrimaryContainer,
-                    border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = PipelineMatrixVectorIcon,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = Lipi.Primary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(Res.string.btn_view_telemetry),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Lipi.Primary
-                        )
-                    }
-                }
-            }
-
-            // --- PER-AGENT AI ASSIGNMENTS ---
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    imageVector = PipelineMatrixVectorIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = Lipi.Primary
-                )
-                Text(
-                    text = stringResource(Res.string.section_per_agent_assignments),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Lipi.Ink
-                )
-            }
-
-            RxAgentType.ALL.forEach { agentType ->
-                val currentConfig = agentConfigs[agentType]
-                val currentAssignedProvider = currentConfig?.provider ?: agentType.defaultProvider
-                val currentAssignedModel = currentConfig?.selectedModel?.ifBlank { "" } ?: ""
-
-                val liveModelsForProvider = providerModelsMap[currentAssignedProvider.id] ?: emptyList()
-
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Lipi.Background,
-                    border = BorderStroke(1.dp, Lipi.Outline)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = agentType.icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = Lipi.Primary
-                            )
-                            Text(
-                                text = stringResource(agentType.displayNameRes),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Lipi.Ink
-                            )
-                        }
-                        Text(
-                            text = stringResource(agentType.descriptionRes),
-                            fontSize = 11.sp,
-                            color = Lipi.Muted
-                        )
-
-                        var showProviderDropdown by remember { mutableStateOf(false) }
-                        var showModelDropdown by remember { mutableStateOf(false) }
-
-                        val providerScrollState = rememberScrollState()
-                        var selectedProviderY by remember(showProviderDropdown) { mutableStateOf<Int?>(null) }
-
-                        LaunchedEffect(showProviderDropdown, selectedProviderY) {
-                            val y = selectedProviderY
-                            if (showProviderDropdown && y != null) {
-                                providerScrollState.scrollTo(y.coerceAtMost(providerScrollState.maxValue))
-                            }
-                        }
-
-                        val modelScrollState = rememberScrollState()
-                        var selectedModelY by remember(showModelDropdown) { mutableStateOf<Int?>(null) }
-
-                        LaunchedEffect(showModelDropdown, selectedModelY) {
-                            val y = selectedModelY
-                            if (showModelDropdown && y != null) {
-                                modelScrollState.scrollTo(y.coerceAtMost(modelScrollState.maxValue))
-                            }
-                        }
-
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            Surface(
-                                onClick = { showProviderDropdown = !showProviderDropdown },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                color = Lipi.Surface,
-                                border = BorderStroke(1.dp, currentAssignedProvider.brandColor.copy(alpha = 0.5f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(
-                                            text = "Provider:",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Lipi.Muted
-                                        )
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = currentAssignedProvider.icon,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(14.dp),
-                                                tint = currentAssignedProvider.brandColor
-                                            )
-                                            Text(
-                                                text = currentAssignedProvider.displayName,
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = currentAssignedProvider.brandColor
-                                            )
-                                        }
-                                    }
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Select Provider",
-                                        modifier = Modifier.size(20.dp),
-                                        tint = currentAssignedProvider.brandColor
-                                    )
-                                }
-                            }
-
-                            DropdownMenu(
-                                expanded = showProviderDropdown,
-                                onDismissRequest = { showProviderDropdown = false },
-                                modifier = Modifier
-                                    .fillMaxWidth(0.85f)
-                                    .background(Lipi.Surface)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(max = 220.dp)
-                                        .verticalScroll(providerScrollState)
-                                ) {
-                                    AiProvider.ALL.forEach { prov ->
-                                        val isSelected = currentAssignedProvider == prov
-                                        val isProviderDisabled = (onDeviceStrategy == OnDeviceStrategy.CLOUD_ONLY && prov == AiProvider.OnDevice) ||
-                                                (onDeviceStrategy == OnDeviceStrategy.ON_DEVICE_ONLY && prov != AiProvider.OnDevice)
-
-                                        DropdownMenuItem(
-                                            modifier = Modifier.onGloballyPositioned { coordinates ->
-                                                if (isSelected && selectedProviderY == null) {
-                                                    selectedProviderY = coordinates.positionInParent().y.toInt()
-                                                }
-                                            },
-                                            text = {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = prov.icon,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(16.dp),
-                                                            tint = if (isProviderDisabled) Lipi.Muted.copy(alpha = 0.4f) else prov.brandColor
-                                                        )
-                                                        Text(
-                                                            text = if (isProviderDisabled) "${prov.displayName} (Locked by Strategy)" else prov.displayName,
-                                                            fontSize = 12.sp,
-                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                            color = if (isProviderDisabled) Lipi.Muted.copy(alpha = 0.4f) else if (isSelected) prov.brandColor else Lipi.Ink
-                                                        )
-                                                    }
-                                                    if (isSelected) {
-                                                        Text(
-                                                            text = "✓",
-                                                            fontSize = 12.sp,
-                                                            fontWeight = FontWeight.ExtraBold,
-                                                            color = prov.brandColor
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                            onClick = {
-                                                if (!isProviderDisabled) {
-                                                    onAgentProviderSelected(agentType, prov)
-                                                    showProviderDropdown = false
-                                                }
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            Surface(
-                                onClick = { showModelDropdown = !showModelDropdown },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                color = Lipi.Surface,
-                                border = BorderStroke(
-                                    width = 1.dp,
-                                    color = if (liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor.copy(alpha = 0.5f) else Lipi.Error
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(
-                                            text = stringResource(Res.string.label_model),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Lipi.Muted
-                                        )
-                                        Text(
-                                            text = when {
-                                                currentAssignedModel.isNotBlank() -> currentAssignedModel
-                                                liveModelsForProvider.isNotEmpty() -> liveModelsForProvider.first()
-                                                currentAssignedProvider == AiProvider.OnDevice -> stringResource(Res.string.no_local_models_found)
-                                                else -> stringResource(Res.string.configure_key_to_load_models)
-                                            },
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = if (currentAssignedModel.isNotBlank() || liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor else Lipi.Error
-                                        )
-                                    }
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Select Model",
-                                        modifier = Modifier.size(20.dp),
-                                        tint = if (liveModelsForProvider.isNotEmpty()) currentAssignedProvider.brandColor else Lipi.Error
-                                    )
-                                }
-                            }
-
-                            DropdownMenu(
-                                expanded = showModelDropdown,
-                                onDismissRequest = { showModelDropdown = false },
-                                modifier = Modifier
-                                    .fillMaxWidth(0.85f)
-                                    .background(Lipi.Surface)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(max = 220.dp)
-                                        .verticalScroll(modelScrollState)
-                                ) {
-                                    if (liveModelsForProvider.isNotEmpty()) {
-                                        liveModelsForProvider.forEachIndexed { idx, mName ->
-                                            val isModelSelected = if (currentAssignedModel.isNotBlank()) currentAssignedModel == mName else idx == 0
-                                            DropdownMenuItem(
-                                                modifier = Modifier.onGloballyPositioned { coordinates ->
-                                                    if (isModelSelected && selectedModelY == null) {
-                                                        selectedModelY = coordinates.positionInParent().y.toInt()
-                                                    }
-                                                },
-                                                text = {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(
-                                                            text = mName,
-                                                            fontSize = 12.sp,
-                                                            fontWeight = if (isModelSelected) FontWeight.Bold else FontWeight.Medium,
-                                                            color = if (isModelSelected) currentAssignedProvider.brandColor else Lipi.Ink
-                                                        )
-                                                        if (isModelSelected) {
-                                                            Text(
-                                                                text = "✓",
-                                                                fontSize = 12.sp,
-                                                                fontWeight = FontWeight.ExtraBold,
-                                                                color = currentAssignedProvider.brandColor
-                                                            )
-                                                        }
-                                                    }
-                                                },
-                                                onClick = {
-                                                    onAgentModelSelected(agentType, mName)
-                                                    showModelDropdown = false
-                                                }
-                                            )
-                                        }
-                                    } else {
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    text = if (currentAssignedProvider == AiProvider.OnDevice) {
-                                                        stringResource(Res.string.no_local_models_found)
-                                                    } else {
-                                                        stringResource(Res.string.no_live_models_found, currentAssignedProvider.displayName)
-                                                    },
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = Lipi.Error
-                                                )
-                                            },
-                                            onClick = {
-                                                showModelDropdown = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // --- PER-AGENT FALLBACK PROVIDER & MODEL SELECTOR ---
-                        if (onDeviceStrategy == OnDeviceStrategy.HYBRID_FALLBACK || onDeviceStrategy == OnDeviceStrategy.ON_DEVICE_FIRST) {
-                            val currentFallbackProvider = currentConfig?.fallbackProvider
-                                ?: if (currentAssignedProvider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
-                            val currentFallbackModel = currentConfig?.fallbackModel?.ifBlank { "" } ?: ""
-                            val fallbackModelsList = providerModelsMap[currentFallbackProvider.id] ?: emptyList()
-
-                            var showFallbackProviderDropdown by remember { mutableStateOf(false) }
-                            var showFallbackModelDropdown by remember { mutableStateOf(false) }
-
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                // Fallback Provider Dropdown
-                                Box(modifier = Modifier.fillMaxWidth()) {
-                                    Surface(
-                                        onClick = { showFallbackProviderDropdown = !showFallbackProviderDropdown },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = Lipi.Surface,
-                                        border = BorderStroke(1.dp, currentFallbackProvider.brandColor.copy(alpha = 0.4f))
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = if (currentAssignedProvider != AiProvider.OnDevice) "Fallback Provider:" else "Escalation Provider:",
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Lipi.Muted
-                                                )
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = currentFallbackProvider.icon,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(13.dp),
-                                                        tint = currentFallbackProvider.brandColor
-                                                    )
-                                                    Text(
-                                                        text = currentFallbackProvider.displayName,
-                                                        fontSize = 11.5.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = currentFallbackProvider.brandColor
-                                                    )
-                                                }
-                                            }
-                                            Icon(
-                                                imageVector = Icons.Default.ArrowDropDown,
-                                                contentDescription = "Select Fallback Provider",
-                                                modifier = Modifier.size(18.dp),
-                                                tint = currentFallbackProvider.brandColor
-                                            )
-                                        }
-                                    }
-
-                                    DropdownMenu(
-                                        expanded = showFallbackProviderDropdown,
-                                        onDismissRequest = { showFallbackProviderDropdown = false },
-                                        modifier = Modifier.fillMaxWidth(0.85f).background(Lipi.Surface)
-                                    ) {
-                                        AiProvider.ALL.forEach { fProv ->
-                                            val isFbProvSelected = currentFallbackProvider == fProv
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = fProv.icon,
-                                                                contentDescription = null,
-                                                                modifier = Modifier.size(14.dp),
-                                                                tint = fProv.brandColor
-                                                            )
-                                                            Text(
-                                                                text = fProv.displayName,
-                                                                fontSize = 12.sp,
-                                                                fontWeight = if (isFbProvSelected) FontWeight.Bold else FontWeight.Medium,
-                                                                color = if (isFbProvSelected) fProv.brandColor else Lipi.Ink
-                                                            )
-                                                        }
-                                                        if (isFbProvSelected) {
-                                                            Text("✓", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = fProv.brandColor)
-                                                        }
-                                                    }
-                                                },
-                                                onClick = {
-                                                    onAgentFallbackProviderSelected(agentType, fProv)
-                                                    showFallbackProviderDropdown = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Fallback Model Dropdown
-                                Box(modifier = Modifier.fillMaxWidth()) {
-                                    Surface(
-                                        onClick = { showFallbackModelDropdown = !showFallbackModelDropdown },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = Lipi.Surface,
-                                        border = BorderStroke(1.dp, currentFallbackProvider.brandColor.copy(alpha = 0.4f))
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = "Fallback Model:",
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Lipi.Muted
-                                                )
-                                                Text(
-                                                    text = when {
-                                                        currentFallbackModel.isNotBlank() -> currentFallbackModel
-                                                        fallbackModelsList.isNotEmpty() -> fallbackModelsList.first()
-                                                        else -> currentFallbackProvider.defaultModel
-                                                    },
-                                                    fontSize = 11.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = currentFallbackProvider.brandColor
-                                                )
-                                            }
-                                            Icon(
-                                                imageVector = Icons.Default.ArrowDropDown,
-                                                contentDescription = "Select Fallback Model",
-                                                modifier = Modifier.size(18.dp),
-                                                tint = currentFallbackProvider.brandColor
-                                            )
-                                        }
-                                    }
-
-                                    DropdownMenu(
-                                        expanded = showFallbackModelDropdown,
-                                        onDismissRequest = { showFallbackModelDropdown = false },
-                                        modifier = Modifier.fillMaxWidth(0.85f).background(Lipi.Surface)
-                                    ) {
-                                        val availableFallbackList = if (fallbackModelsList.isNotEmpty()) fallbackModelsList else listOf(currentFallbackProvider.defaultModel)
-                                        availableFallbackList.forEach { fbModel ->
-                                            val isFbSelected = currentFallbackModel == fbModel
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(
-                                                            text = fbModel,
-                                                            fontSize = 12.sp,
-                                                            fontWeight = if (isFbSelected) FontWeight.Bold else FontWeight.Medium,
-                                                            color = if (isFbSelected) currentFallbackProvider.brandColor else Lipi.Ink
-                                                        )
-                                                        if (isFbSelected) {
-                                                            Text("✓", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = currentFallbackProvider.brandColor)
-                                                        }
-                                                    }
-                                                },
-                                                onClick = {
-                                                    onAgentFallbackModelSelected(agentType, fbModel)
-                                                    showFallbackModelDropdown = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    imageVector = ProviderSettingsVectorIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = Lipi.Primary
-                )
-                Text(
-                    text = stringResource(Res.string.section_provider_settings),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Lipi.Ink
-                )
-            }
-
-            val activeCardProvider = AiProvider.fromId(selectedTabProvider)
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                color = Lipi.Background,
-                border = BorderStroke(1.dp, Lipi.Outline)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = ProviderSelectVectorIcon,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp),
-                            tint = Lipi.Primary
-                        )
-                        Text(stringResource(Res.string.label_select_provider), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
-                    }
-
-                    var showCardProviderDropdown by remember { mutableStateOf(false) }
-                    val cardProviderScrollState = rememberScrollState()
-
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Surface(
-                            onClick = { showCardProviderDropdown = !showCardProviderDropdown },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            color = Lipi.Surface,
-                            border = BorderStroke(1.dp, activeCardProvider.brandColor.copy(alpha = 0.5f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = activeCardProvider.icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = activeCardProvider.brandColor
-                                    )
-                                    Text(
-                                        text = activeCardProvider.displayName,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = activeCardProvider.brandColor
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Select Provider",
-                                    modifier = Modifier.size(20.dp),
-                                    tint = activeCardProvider.brandColor
-                                )
-                            }
-                        }
-
-                        DropdownMenu(
-                            expanded = showCardProviderDropdown,
-                            onDismissRequest = { showCardProviderDropdown = false },
-                            modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .background(Lipi.Surface)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 220.dp)
-                                    .verticalScroll(cardProviderScrollState)
-                            ) {
-                                AiProvider.ALL.forEach { prov ->
-                                    val isSelected = selectedTabProvider == prov.id
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = prov.icon,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(16.dp),
-                                                        tint = prov.brandColor
-                                                    )
-                                                    Text(
-                                                        text = prov.displayName,
-                                                        fontSize = 12.sp,
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        color = if (isSelected) prov.brandColor else Lipi.Ink
-                                                    )
-                                                }
-                                                if (isSelected) {
-                                                    Text(
-                                                        text = "✓",
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.ExtraBold,
-                                                        color = prov.brandColor
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onClick = {
-                                            selectedTabProvider = prov.id
-                                            onProviderTabSelected(prov.id)
-                                            showCardProviderDropdown = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
 
                     if (selectedTabProvider == "custom") {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = CustomUrlVectorIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(15.dp),
-                                tint = Lipi.Primary
-                            )
-                            Text(stringResource(Res.string.label_custom_url), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
-                        }
                         OutlinedTextField(
                             value = inputUrl,
                             onValueChange = { inputUrl = it },
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("e.g. http://192.168.1.50:11434/v1/chat/completions", fontSize = 12.sp) },
+                            label = { Text(stringResource(Res.string.label_custom_url)) },
+                            placeholder = { Text("http://192.168.1.50:11434/v1/chat/completions", fontSize = 12.sp) },
+                            leadingIcon = {
+                                Icon(CustomUrlVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
+                            },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp)
                         )
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = CustomUrlVectorIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(15.dp),
-                                tint = Lipi.Primary
-                            )
-                            Text(stringResource(Res.string.label_custom_model), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
-                        }
                         OutlinedTextField(
                             value = inputCustomModel,
                             onValueChange = { inputCustomModel = it },
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("e.g. llava or gpt-4o", fontSize = 12.sp) },
+                            label = { Text(stringResource(Res.string.label_custom_model)) },
+                            placeholder = { Text("llava or gpt-4o", fontSize = 12.sp) },
+                            leadingIcon = {
+                                Icon(CustomUrlVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
+                            },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
 
                     if (selectedTabProvider == "on_device") {
-                        val onDeviceModels = providerModelsMap[AiProvider.OnDevice.id] ?: emptyList()
-                        var selectedOnDeviceModel by remember(selectedModel) {
-                            mutableStateOf(if (selectedModel.isNotBlank()) selectedModel else onDeviceModels.firstOrNull() ?: AiProvider.OnDevice.defaultModel)
-                        }
-                        var showOnDeviceModelDropdown by remember { mutableStateOf(false) }
-
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            color = Lipi.PrimaryContainer
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = OnDeviceVectorIcon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = Lipi.Primary
-                                )
-                                Text(
-                                    text = stringResource(Res.string.on_device_info_banner),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Lipi.OnPrimaryContainer
-                                )
-                            }
-                        }
-
-                        // --- GLOBAL LOCAL SLM MODEL SELECTOR ---
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = OnDeviceVectorIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(15.dp),
-                                tint = Lipi.Primary
-                            )
-                            Text("Active On-Device SLM Model", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
-                        }
-
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            Surface(
-                                onClick = { showOnDeviceModelDropdown = !showOnDeviceModelDropdown },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = Lipi.Surface,
-                                border = BorderStroke(1.dp, Lipi.Outline)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = selectedOnDeviceModel,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Lipi.Ink
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Select Local SLM Model",
-                                        modifier = Modifier.size(20.dp),
-                                        tint = Lipi.Muted
-                                    )
-                                }
-                            }
-
-                            DropdownMenu(
-                                expanded = showOnDeviceModelDropdown,
-                                onDismissRequest = { showOnDeviceModelDropdown = false },
-                                modifier = Modifier
-                                    .fillMaxWidth(0.85f)
-                                    .background(Lipi.Surface)
-                            ) {
-                                val modelsList = if (onDeviceModels.isNotEmpty()) onDeviceModels else listOf(AiProvider.OnDevice.defaultModel)
-                                modelsList.forEach { mName ->
-                                    DropdownMenuItem(
-                                        text = { Text(mName, fontWeight = FontWeight.SemiBold, color = Lipi.Ink) },
-                                        onClick = {
-                                            selectedOnDeviceModel = mName
-                                            showOnDeviceModelDropdown = false
-                                            onSaveProviderConfig("on_device", "", "", mName)
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        InfoNote(
+                            text = stringResource(Res.string.on_device_info_banner),
+                            icon = Icons.Default.Info
+                        )
                     } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = ApiKeyVectorIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(15.dp),
-                                tint = Lipi.Primary
-                            )
-                            Text(stringResource(Res.string.label_api_key), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
-                        }
-
-                        Row(
+                        // API key: masked, with Paste / Clear actions.
+                        OutlinedTextField(
+                            value = displayKeyText,
+                            onValueChange = {},
+                            readOnly = true,
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = displayKeyText,
-                                onValueChange = {},
-                                readOnly = true,
-                                modifier = Modifier.weight(1f),
-                                placeholder = { Text(stringResource(Res.string.placeholder_paste_key), fontSize = 12.sp) },
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-
-                            Surface(
-                                onClick = {
-                                    val text = clipboardManager.getText()?.text?.trim() ?: ""
-                                    if (text.isNotBlank()) inputKey = text
-                                },
-                                modifier = Modifier.size(50.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                color = Lipi.PrimaryContainer,
-                                border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = PasteVectorIcon,
-                                        contentDescription = "Paste API Key from Clipboard",
-                                        modifier = Modifier.size(22.dp),
-                                        tint = Lipi.Primary
-                                    )
+                            label = { Text(stringResource(Res.string.label_api_key)) },
+                            placeholder = {
+                                Text(stringResource(Res.string.placeholder_paste_key), fontSize = 12.sp)
+                            },
+                            leadingIcon = {
+                                Icon(ApiKeyVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
+                            },
+                            trailingIcon = {
+                                Row {
+                                    if (inputKey.isNotBlank()) {
+                                        IconButton(onClick = { inputKey = "" }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = "Clear API key",
+                                                modifier = Modifier.size(20.dp),
+                                                tint = Lipi.Muted
+                                            )
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val text = clipboardManager.getText()?.text?.trim() ?: ""
+                                            if (text.isNotBlank()) inputKey = text
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = PasteVectorIcon,
+                                            contentDescription = "Paste API key from clipboard",
+                                            modifier = Modifier.size(22.dp),
+                                            tint = Lipi.Primary
+                                        )
+                                    }
                                 }
-                            }
-                        }
+                            },
+                            isError = !apiKeyError.isNullOrBlank(),
+                            supportingText = if (!apiKeyError.isNullOrBlank()) {
+                                { Text(apiKeyError) }
+                            } else null,
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
 
-                        if (!apiKeyError.isNullOrBlank()) {
-                            Text(
-                                text = apiKeyError,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Lipi.Error
-                            )
-                        }
+                        StatusLine(
+                            ok = keyForSelectedProvider.isNotBlank(),
+                            text = if (keyForSelectedProvider.isNotBlank()) "API key saved" else "No API key saved yet"
+                        )
 
                         if (!apiKeySuccess.isNullOrBlank()) {
                             Surface(
@@ -1374,9 +335,9 @@ fun SettingsScreen(
                                 color = Lipi.PrimaryContainer
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.CheckCircle,
@@ -1387,7 +348,7 @@ fun SettingsScreen(
                                     Text(
                                         text = apiKeySuccess,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         color = Lipi.OnPrimaryContainer
                                     )
                                 }
@@ -1396,108 +357,713 @@ fun SettingsScreen(
 
                         Button(
                             onClick = {
-                                onSaveProviderConfig(
-                                    selectedTabProvider,
-                                    inputUrl,
-                                    inputKey,
-                                    inputCustomModel
-                                )
+                                onSaveProviderConfig(selectedTabProvider, inputUrl, inputKey, inputCustomModel)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .height(50.dp),
                             enabled = !isTestingApiKey,
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Lipi.Primary,
-                                contentColor = Color.White
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
                             if (isTestingApiKey) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     strokeWidth = 2.dp
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Connecting & Saving...", fontSize = 13.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("Connecting & saving…", fontSize = 14.sp)
                             } else {
-                                Text(stringResource(Res.string.btn_save_config), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    stringResource(Res.string.btn_save_config),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // ── 4. PER-AGENT ASSIGNMENTS (collapsible cards) ─────────────────
+            SettingsSection(
+                icon = PipelineMatrixVectorIcon,
+                title = stringResource(Res.string.section_per_agent_assignments)
+            ) {
+                RxAgentType.ALL.forEach { agentType ->
+                    AgentAssignmentCard(
+                        agentType = agentType,
+                        config = agentConfigs[agentType],
+                        providerModelsMap = providerModelsMap,
+                        onDeviceStrategy = onDeviceStrategy,
+                        onProviderSelected = { onAgentProviderSelected(agentType, it) },
+                        onModelSelected = { onAgentModelSelected(agentType, it) },
+                        onFallbackProviderSelected = { onAgentFallbackProviderSelected(agentType, it) },
+                        onFallbackModelSelected = { onAgentFallbackModelSelected(agentType, it) }
+                    )
+                }
+            }
+
+            // ── 5. INTEGRATIONS / DEVELOPER ──────────────────────────────────
+            SettingsSection(
+                icon = McpServerVectorIcon,
+                title = stringResource(Res.string.section_mcp)
+            ) {
+                var localMcpState by remember(isMcpServerEnabled) { mutableStateOf(isMcpServerEnabled) }
+
+                SettingsCard(contentPadding = 0.dp, spacing = 0.dp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconBadge(icon = McpEndpointVectorIcon)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(Res.string.section_mcp_endpoint),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.Ink
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (localMcpState) stringResource(Res.string.mcp_server_running)
+                                else stringResource(Res.string.mcp_server_description),
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                fontWeight = if (localMcpState) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (localMcpState) Lipi.StatusActiveGreen else Lipi.Muted
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = localMcpState,
+                            onCheckedChange = { enabled ->
+                                localMcpState = enabled
+                                onToggleMcpServer(enabled)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Lipi.Primary,
+                                uncheckedThumbColor = Lipi.SwitchOffThumb,
+                                uncheckedTrackColor = Lipi.SwitchOffTrack,
+                                uncheckedBorderColor = Lipi.SwitchOffBorder
+                            )
+                        )
+                    }
+
+                    if (onViewTelemetry != null) {
+                        Divider()
+                        Surface(
+                            onClick = onViewTelemetry,
+                            color = Color.Transparent,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 56.dp)
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconBadge(icon = PipelineMatrixVectorIcon)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = stringResource(Res.string.btn_view_telemetry),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Lipi.Ink,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = Lipi.Muted
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
-@Deprecated(
-    message = "Use SettingsScreen as a full screen composable instead",
-    replaceWith = ReplaceWith("SettingsScreen")
-)
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent card: collapsed = one-line summary, expanded = provider/model/fallback.
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
-fun ModelSelectionBottomSheet(
-    selectedModel: String,
-    apiKey: String = "",
-    geminiApiKey: String = "",
-    groqApiKey: String = "",
-    openaiApiKey: String = "",
-    claudeApiKey: String = "",
-    customApiKey: String = "",
-    providerType: String = "gemini",
-    customUrl: String = "",
-    apiKeyError: String? = null,
-    apiKeySuccess: String? = null,
-    isTestingApiKey: Boolean = false,
-    onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
-    isMcpServerEnabled: Boolean = false,
-    onToggleMcpServer: (Boolean) -> Unit = {},
-    agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-    providerModelsMap: Map<String, List<String>> = emptyMap(),
-    onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
-    onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
-    onAgentFallbackProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
-    onAgentFallbackModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
-    onProviderTabSelected: (String) -> Unit = {},
-    onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
-    onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
-    themeMode: ThemeMode = ThemeMode.SYSTEM,
-    onSelectThemeMode: (ThemeMode) -> Unit = {},
-    onViewTelemetry: (() -> Unit)? = null,
-    onDismiss: () -> Unit
+private fun AgentAssignmentCard(
+    agentType: RxAgentType,
+    config: AgentConfig?,
+    providerModelsMap: Map<String, List<String>>,
+    onDeviceStrategy: OnDeviceStrategy,
+    onProviderSelected: (AiProvider) -> Unit,
+    onModelSelected: (String) -> Unit,
+    onFallbackProviderSelected: (AiProvider) -> Unit,
+    onFallbackModelSelected: (String) -> Unit,
 ) {
-    SettingsScreen(
-        selectedModel = selectedModel,
-        apiKey = apiKey,
-        geminiApiKey = geminiApiKey,
-        groqApiKey = groqApiKey,
-        openaiApiKey = openaiApiKey,
-        claudeApiKey = claudeApiKey,
-        customApiKey = customApiKey,
-        providerType = providerType,
-        customUrl = customUrl,
-        apiKeyError = apiKeyError,
-        apiKeySuccess = apiKeySuccess,
-        isTestingApiKey = isTestingApiKey,
-        onDeviceStrategy = onDeviceStrategy,
-        isMcpServerEnabled = isMcpServerEnabled,
-        onToggleMcpServer = onToggleMcpServer,
-        agentConfigs = agentConfigs,
-        providerModelsMap = providerModelsMap,
-        onAgentProviderSelected = onAgentProviderSelected,
-        onAgentModelSelected = onAgentModelSelected,
-        onAgentFallbackProviderSelected = onAgentFallbackProviderSelected,
-        onAgentFallbackModelSelected = onAgentFallbackModelSelected,
-        onProviderTabSelected = onProviderTabSelected,
-        onSaveProviderConfig = onSaveProviderConfig,
-        onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,
-        themeMode = themeMode,
-        onSelectThemeMode = onSelectThemeMode,
-        onViewTelemetry = onViewTelemetry,
-        onClose = onDismiss
+    var expanded by remember(agentType) { mutableStateOf(false) }
+    val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f)
+
+    val provider = config?.provider ?: agentType.defaultProvider
+    val assignedModel = config?.selectedModel?.ifBlank { "" } ?: ""
+    val liveModels = providerModelsMap[provider.id] ?: emptyList()
+    val hasProblem = liveModels.isEmpty() && assignedModel.isBlank()
+
+    val modelText = when {
+        assignedModel.isNotBlank() -> assignedModel
+        liveModels.isNotEmpty() -> liveModels.first()
+        provider == AiProvider.OnDevice -> stringResource(Res.string.no_local_models_found)
+        else -> stringResource(Res.string.configure_key_to_load_models)
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Lipi.Surface,
+        border = BorderStroke(1.dp, if (expanded) Lipi.Primary.copy(alpha = 0.4f) else Lipi.CardBorder)
+    ) {
+        Column(modifier = Modifier.animateContentSize()) {
+            // Header (always visible)
+            Surface(
+                onClick = { expanded = !expanded },
+                color = Color.Transparent,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 64.dp)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconBadge(icon = agentType.icon)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(agentType.displayNameRes),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Ink
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${provider.displayName} · $modelText",
+                            fontSize = 12.sp,
+                            color = if (hasProblem) Lipi.Error else Lipi.Muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .rotate(arrowRotation),
+                        tint = Lipi.Muted
+                    )
+                }
+            }
+
+            if (expanded) {
+                Divider()
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = stringResource(agentType.descriptionRes),
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = Lipi.Muted
+                    )
+
+                    PickerField(
+                        label = "Provider",
+                        valueText = provider.displayName,
+                        accent = provider.brandColor,
+                        leadingIcon = provider.icon,
+                        contentDescription = "Select provider",
+                        options = providerOptions(
+                            selectedId = provider.id,
+                            onPick = onProviderSelected,
+                            isLocked = { prov ->
+                                (onDeviceStrategy == OnDeviceStrategy.CLOUD_ONLY && prov == AiProvider.OnDevice) ||
+                                        (onDeviceStrategy == OnDeviceStrategy.ON_DEVICE_ONLY && prov != AiProvider.OnDevice)
+                            }
+                        )
+                    )
+
+                    PickerField(
+                        label = stringResource(Res.string.label_model),
+                        valueText = modelText,
+                        accent = provider.brandColor,
+                        isError = hasProblem,
+                        contentDescription = "Select model",
+                        options = if (liveModels.isNotEmpty()) {
+                            modelOptions(liveModels, assignedModel, provider.brandColor, onModelSelected)
+                        } else {
+                            listOf(
+                                MenuOption(
+                                    title = if (provider == AiProvider.OnDevice) {
+                                        stringResource(Res.string.no_local_models_found)
+                                    } else {
+                                        stringResource(Res.string.no_live_models_found, provider.displayName)
+                                    },
+                                    tint = Lipi.Error,
+                                    selected = false,
+                                    onClick = {}
+                                )
+                            )
+                        }
+                    )
+
+                    if (onDeviceStrategy == OnDeviceStrategy.HYBRID_FALLBACK ||
+                        onDeviceStrategy == OnDeviceStrategy.ON_DEVICE_FIRST
+                    ) {
+                        val fallbackProvider = config?.fallbackProvider
+                            ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
+                        val fallbackModel = config?.fallbackModel?.ifBlank { "" } ?: ""
+                        val fallbackModels = providerModelsMap[fallbackProvider.id] ?: emptyList()
+                        val fallbackList = fallbackModels.ifEmpty { listOf(fallbackProvider.defaultModel) }
+                        val fallbackModelText = when {
+                            fallbackModel.isNotBlank() -> fallbackModel
+                            else -> fallbackList.first()
+                        }
+
+                        Divider()
+                        Text(
+                            text = if (provider != AiProvider.OnDevice) "FALLBACK" else "ESCALATION",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = Lipi.Muted
+                        )
+
+                        PickerField(
+                            label = if (provider != AiProvider.OnDevice) "Fallback provider" else "Escalation provider",
+                            valueText = fallbackProvider.displayName,
+                            accent = fallbackProvider.brandColor,
+                            leadingIcon = fallbackProvider.icon,
+                            contentDescription = "Select fallback provider",
+                            options = providerOptions(
+                                selectedId = fallbackProvider.id,
+                                onPick = onFallbackProviderSelected
+                            )
+                        )
+                        PickerField(
+                            label = "Fallback model",
+                            valueText = fallbackModelText,
+                            accent = fallbackProvider.brandColor,
+                            contentDescription = "Select fallback model",
+                            options = modelOptions(fallbackList, fallbackModel, fallbackProvider.brandColor, onFallbackModelSelected)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reusable building blocks
+// ─────────────────────────────────────────────────────────────────────────────
+
+private data class MenuOption(
+    val title: String,
+    val tint: Color,
+    val selected: Boolean,
+    val onClick: () -> Unit,
+    val subtitle: String? = null,
+    val icon: ImageVector? = null,
+    val enabled: Boolean = true,
+)
+
+@Composable
+private fun providerOptions(
+    selectedId: String,
+    onPick: (AiProvider) -> Unit,
+    isLocked: (AiProvider) -> Boolean = { false },
+): List<MenuOption> = AiProvider.ALL.map { prov ->
+    val locked = isLocked(prov)
+    MenuOption(
+        title = prov.displayName,
+        subtitle = if (locked) "Locked by current strategy" else null,
+        icon = prov.icon,
+        tint = prov.brandColor,
+        selected = prov.id == selectedId,
+        enabled = !locked,
+        onClick = { onPick(prov) }
+    )
+}
+
+private fun modelOptions(
+    models: List<String>,
+    selected: String,
+    tint: Color,
+    onPick: (String) -> Unit,
+): List<MenuOption> = models.mapIndexed { idx, name ->
+    MenuOption(
+        title = name,
+        tint = tint,
+        // When nothing is explicitly chosen the UI shows the first model, so mark it as selected.
+        selected = if (selected.isNotBlank()) selected == name else idx == 0,
+        onClick = { onPick(name) }
+    )
+}
+
+/** A tappable "field" that opens a menu. One implementation for every dropdown on the screen. */
+@Composable
+private fun PickerField(
+    valueText: String,
+    accent: Color,
+    options: List<MenuOption>,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    leadingIcon: ImageVector? = null,
+    isError: Boolean = false,
+    contentDescription: String? = null,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    var selectedY by remember(expanded) { mutableStateOf<Int?>(null) }
+
+    // Scroll the open menu so the selected item is visible.
+    LaunchedEffect(expanded, selectedY) {
+        val y = selectedY
+        if (expanded && y != null) {
+            scrollState.scrollTo(y.coerceAtMost(scrollState.maxValue))
+        }
+    }
+
+    val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f)
+    val borderColor = when {
+        isError -> Lipi.Error
+        expanded -> accent
+        else -> Lipi.Outline
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            onClick = { expanded = !expanded },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 52.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = Lipi.Background,
+            border = BorderStroke(1.dp, borderColor)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (leadingIcon != null) {
+                    Icon(
+                        imageVector = leadingIcon,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = accent
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    if (label != null) {
+                        Text(
+                            text = label,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Lipi.Muted
+                        )
+                    }
+                    Text(
+                        text = valueText,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isError) Lipi.Error else Lipi.Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = contentDescription,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .rotate(arrowRotation),
+                    tint = if (isError) Lipi.Error else Lipi.Muted
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .background(Lipi.Surface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 260.dp)
+                    .verticalScroll(scrollState)
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        modifier = if (option.selected) {
+                            Modifier.onGloballyPositioned { coordinates ->
+                                if (selectedY == null) selectedY = coordinates.positionInParent().y.toInt()
+                            }
+                        } else Modifier,
+                        enabled = option.enabled,
+                        leadingIcon = if (option.icon != null) {
+                            {
+                                Icon(
+                                    imageVector = option.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = if (option.enabled) option.tint else option.tint.copy(alpha = 0.4f)
+                                )
+                            }
+                        } else null,
+                        trailingIcon = if (option.selected) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = option.tint
+                                )
+                            }
+                        } else null,
+                        text = {
+                            Column {
+                                Text(
+                                    text = option.title,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (option.selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = when {
+                                        !option.enabled -> Lipi.Muted.copy(alpha = 0.6f)
+                                        option.selected -> option.tint
+                                        else -> Lipi.Ink
+                                    }
+                                )
+                                if (option.subtitle != null) {
+                                    Text(
+                                        text = option.subtitle,
+                                        fontSize = 11.sp,
+                                        color = Lipi.Muted
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            option.onClick()
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    icon: ImageVector,
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = Lipi.Primary
+            )
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Lipi.Ink
+            )
+        }
+        content()
+    }
+}
+
+@Composable
+private fun SettingsCard(
+    contentPadding: androidx.compose.ui.unit.Dp = 14.dp,
+    spacing: androidx.compose.ui.unit.Dp = 12.dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Lipi.Surface,
+        border = BorderStroke(1.dp, Lipi.CardBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(contentPadding),
+            verticalArrangement = Arrangement.spacedBy(spacing),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun ThemeModeSelector(
+    themeMode: ThemeMode,
+    onSelect: (ThemeMode) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Lipi.Surface,
+        border = BorderStroke(1.dp, Lipi.CardBorder)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ThemeMode.entries.forEach { mode ->
+                val isSelected = themeMode == mode
+                val modeIcon = when (mode) {
+                    ThemeMode.SYSTEM -> SystemThemeVectorIcon
+                    ThemeMode.DARK -> DarkThemeVectorIcon
+                    ThemeMode.LIGHT -> LightThemeVectorIcon
+                }
+                Surface(
+                    onClick = { onSelect(mode) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) Lipi.PrimaryContainer else Color.Transparent,
+                    border = BorderStroke(1.dp, if (isSelected) Lipi.Primary else Color.Transparent)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = modeIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isSelected) Lipi.Primary else Lipi.Muted
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = mode.displayName,
+                            fontSize = 12.5.sp,
+                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                            color = if (isSelected) Lipi.OnPrimaryContainer else Lipi.Muted,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoNote(text: String, icon: ImageVector = Icons.Default.Info) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Lipi.PrimaryContainer.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = Lipi.Primary
+            )
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = Lipi.Ink
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusLine(ok: Boolean, text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = if (ok) Icons.Default.CheckCircle else Icons.Default.Info,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = if (ok) Lipi.StatusActiveGreen else Lipi.Muted
+        )
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (ok) Lipi.StatusActiveGreen else Lipi.Muted
+        )
+    }
+}
+
+@Composable
+private fun IconBadge(icon: ImageVector) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Lipi.PrimaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = Lipi.Primary
+        )
+    }
+}
+
+@Composable
+private fun Divider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(Lipi.CardBorder)
     )
 }
 
