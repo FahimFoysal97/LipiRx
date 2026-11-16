@@ -17,3 +17,6 @@ settings:
   android:
     namespace: com.snehonir.lipirx
     applicationId: com.snehonir.lipirx
+    abiFilters:
+      - arm64-v8a
+      - x86_64
