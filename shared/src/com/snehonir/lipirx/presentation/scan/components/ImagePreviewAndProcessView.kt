@@ -74,7 +74,6 @@ fun ImagePreviewAndProcessView(
     onChange: () -> Unit,
     onClear: () -> Unit,
     onOpenSettings: (() -> Unit)? = null,
-    onOpenAiStudio: (() -> Unit)? = onOpenSettings
 ) {
     Column(
         modifier = Modifier
@@ -189,7 +188,7 @@ fun ImagePreviewAndProcessView(
         ) {
             PipelineSummaryCard(
                 agentConfigs = agentConfigs,
-                onClick = { (onOpenSettings ?: onOpenAiStudio)?.invoke() }
+                onClick = onOpenSettings
             )
 
             PrimaryButton(

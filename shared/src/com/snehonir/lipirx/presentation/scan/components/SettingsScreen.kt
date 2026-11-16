@@ -89,6 +89,7 @@ import com.snehonir.lipirx.ui.theme.icons.McpEndpointVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.McpServerVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.OnDeviceStrategyVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.icon
 import com.snehonir.lipirx.ui.theme.icons.PasteVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.PipelineMatrixVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.ProviderSelectVectorIcon
@@ -288,7 +289,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Icon(
-                                imageVector = OnDeviceVectorIcon,
+                                imageVector = onDeviceStrategy.icon,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                                 tint = Lipi.Primary
@@ -331,18 +332,29 @@ fun SettingsScreen(
                                     }
                                 },
                                 text = {
-                                    Column {
-                                        Text(
-                                            text = strat.displayName,
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) Lipi.Primary else Lipi.Ink
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = strat.icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = if (isSelected) Lipi.Primary else Lipi.Muted
                                         )
-                                        Text(
-                                            text = strat.description,
-                                            fontSize = 11.sp,
-                                            color = Lipi.Muted
-                                        )
+                                        Column {
+                                            Text(
+                                                text = strat.displayName,
+                                                fontSize = 13.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) Lipi.Primary else Lipi.Ink
+                                            )
+                                            Text(
+                                                text = strat.description,
+                                                fontSize = 11.sp,
+                                                color = Lipi.Muted
+                                            )
+                                        }
                                     }
                                 },
                                 onClick = {
