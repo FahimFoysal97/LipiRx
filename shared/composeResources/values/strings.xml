@@ -166,6 +166,23 @@
     <string name="mcp_server_description">Exposes local OCR tools &amp; prescription history for desktop tools &amp; POS software</string>
     <string name="on_device_info_banner">On-Device SLM runs locally on your device hardware without requiring an API key.</string>
 
+    <!-- On-Device Execution Strategy Explanations -->
+    <string name="strategy_hybrid_fallback_name">Hybrid Fallback</string>
+    <string name="strategy_hybrid_fallback_desc">Cloud First -&gt; Automatic On-Device SLM Fallback on offline/error</string>
+    <string name="strategy_hybrid_fallback_explanation">Hybrid Fallback: Each agent uses its assigned Cloud Provider &amp; Model. If a cloud request fails or network drops, it automatically falls back on-device to the configured local SLM model.</string>
+
+    <string name="strategy_on_device_first_name">On-Device First</string>
+    <string name="strategy_on_device_first_desc">Local NPU First -&gt; Cloud Escalation for complex safety</string>
+    <string name="strategy_on_device_first_explanation">On-Device First: Each agent runs locally on your device\'s NPU/CPU first using the local SLM model. If the local output is incomplete or flagged, it automatically escalates to the assigned Cloud model.</string>
+
+    <string name="strategy_on_device_only_name">On-Device Only</string>
+    <string name="strategy_on_device_only_desc">Strict 100% Offline / Local Execution Only</string>
+    <string name="strategy_on_device_only_explanation">On-Device Only: 100% offline mode. All agents execute locally using on-device SLM models. Cloud providers are locked.</string>
+
+    <string name="strategy_cloud_only_name">Cloud Only</string>
+    <string name="strategy_cloud_only_desc">Disable On-Device SLM -&gt; Cloud AI Only</string>
+    <string name="strategy_cloud_only_explanation">Cloud Only: 100% cloud mode. All agents execute using their assigned Cloud AI models. On-device SLM is bypassed.</string>
+
     <!-- Clinical Warnings & Pharmacist Gate -->
     <string name="gate_title">Pharmacist Review Required</string>
     <string name="gate_subtitle">Safety Gate Triggered: Unverified dosage or interaction risk detected</string>

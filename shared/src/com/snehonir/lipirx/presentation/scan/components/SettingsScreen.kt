@@ -298,7 +298,7 @@ fun SettingsScreen(
                                 tint = Lipi.Primary
                             )
                             Text(
-                                text = onDeviceStrategy.displayName,
+                                text = stringResource(onDeviceStrategy.displayNameRes),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Lipi.Primary
@@ -347,13 +347,13 @@ fun SettingsScreen(
                                         )
                                         Column {
                                             Text(
-                                                text = strat.displayName,
+                                                text = stringResource(strat.displayNameRes),
                                                 fontSize = 13.sp,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                                 color = if (isSelected) Lipi.Primary else Lipi.Ink
                                             )
                                             Text(
-                                                text = strat.description,
+                                                text = stringResource(strat.descriptionRes),
                                                 fontSize = 11.sp,
                                                 color = Lipi.Muted
                                             )
@@ -389,12 +389,7 @@ fun SettingsScreen(
                         tint = Lipi.Primary
                     )
                     Text(
-                        text = when (onDeviceStrategy) {
-                            OnDeviceStrategy.HYBRID_FALLBACK -> "Hybrid Fallback: Each agent uses its assigned Cloud Provider & Model. If a cloud request fails or network drops, it automatically falls back on-device to the configured local SLM model."
-                            OnDeviceStrategy.ON_DEVICE_FIRST -> "On-Device First: Each agent runs locally on your device's NPU/CPU first using the local SLM model. If the local output is incomplete or flagged, it automatically escalates to the assigned Cloud model."
-                            OnDeviceStrategy.ON_DEVICE_ONLY -> "On-Device Only: 100% offline mode. All agents execute locally using on-device SLM models. Cloud providers are locked."
-                            OnDeviceStrategy.CLOUD_ONLY -> "Cloud Only: 100% cloud mode. All agents execute using their assigned Cloud AI models. On-device SLM is bypassed."
-                        },
+                        text = stringResource(onDeviceStrategy.explanationRes),
                         fontSize = 12.sp,
                         lineHeight = 17.sp,
                         color = Lipi.Ink
