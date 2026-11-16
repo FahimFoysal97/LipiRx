@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -117,6 +118,8 @@ fun SettingsScreen(
     providerModelsMap: Map<String, List<String>> = emptyMap(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
+    onAgentFallbackProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
+    onAgentFallbackModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
@@ -298,7 +301,7 @@ fun SettingsScreen(
                                 text = onDeviceStrategy.displayName,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Lipi.Ink
+                                color = Lipi.Primary
                             )
                         }
                         Icon(
@@ -364,6 +367,38 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+            }
+
+            // --- STRATEGY EXPLANATION BANNER ---
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = Lipi.PrimaryContainer.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Lipi.Primary
+                    )
+                    Text(
+                        text = when (onDeviceStrategy) {
+                            OnDeviceStrategy.HYBRID_FALLBACK -> "Hybrid Fallback: Each agent uses its assigned Cloud Provider & Model. If a cloud request fails or network drops, it automatically falls back on-device to the configured local SLM model."
+                            OnDeviceStrategy.ON_DEVICE_FIRST -> "On-Device First: Each agent runs locally on your device's NPU/CPU first using the local SLM model. If the local output is incomplete or flagged, it automatically escalates to the assigned Cloud model."
+                            OnDeviceStrategy.ON_DEVICE_ONLY -> "On-Device Only: 100% offline mode. All agents execute locally using on-device SLM models. Cloud providers are locked."
+                            OnDeviceStrategy.CLOUD_ONLY -> "Cloud Only: 100% cloud mode. All agents execute using their assigned Cloud AI models. On-device SLM is bypassed."
+                        },
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = Lipi.Ink
+                    )
                 }
             }
 
@@ -801,6 +836,194 @@ fun SettingsScreen(
                                 }
                             }
                         }
+
+                        // --- PER-AGENT FALLBACK PROVIDER & MODEL SELECTOR ---
+                        if (onDeviceStrategy == OnDeviceStrategy.HYBRID_FALLBACK || onDeviceStrategy == OnDeviceStrategy.ON_DEVICE_FIRST) {
+                            val currentFallbackProvider = currentConfig?.fallbackProvider
+                                ?: if (currentAssignedProvider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
+                            val currentFallbackModel = currentConfig?.fallbackModel?.ifBlank { "" } ?: ""
+                            val fallbackModelsList = providerModelsMap[currentFallbackProvider.id] ?: emptyList()
+
+                            var showFallbackProviderDropdown by remember { mutableStateOf(false) }
+                            var showFallbackModelDropdown by remember { mutableStateOf(false) }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                // Fallback Provider Dropdown
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    Surface(
+                                        onClick = { showFallbackProviderDropdown = !showFallbackProviderDropdown },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Lipi.Surface,
+                                        border = BorderStroke(1.dp, currentFallbackProvider.brandColor.copy(alpha = 0.4f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (currentAssignedProvider != AiProvider.OnDevice) "Fallback Provider:" else "Escalation Provider:",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Lipi.Muted
+                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = currentFallbackProvider.icon,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(13.dp),
+                                                        tint = currentFallbackProvider.brandColor
+                                                    )
+                                                    Text(
+                                                        text = currentFallbackProvider.displayName,
+                                                        fontSize = 11.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = currentFallbackProvider.brandColor
+                                                    )
+                                                }
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowDropDown,
+                                                contentDescription = "Select Fallback Provider",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = currentFallbackProvider.brandColor
+                                            )
+                                        }
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = showFallbackProviderDropdown,
+                                        onDismissRequest = { showFallbackProviderDropdown = false },
+                                        modifier = Modifier.fillMaxWidth(0.85f).background(Lipi.Surface)
+                                    ) {
+                                        AiProvider.ALL.forEach { fProv ->
+                                            val isFbProvSelected = currentFallbackProvider == fProv
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = fProv.icon,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(14.dp),
+                                                                tint = fProv.brandColor
+                                                            )
+                                                            Text(
+                                                                text = fProv.displayName,
+                                                                fontSize = 12.sp,
+                                                                fontWeight = if (isFbProvSelected) FontWeight.Bold else FontWeight.Medium,
+                                                                color = if (isFbProvSelected) fProv.brandColor else Lipi.Ink
+                                                            )
+                                                        }
+                                                        if (isFbProvSelected) {
+                                                            Text("✓", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = fProv.brandColor)
+                                                        }
+                                                    }
+                                                },
+                                                onClick = {
+                                                    onAgentFallbackProviderSelected(agentType, fProv)
+                                                    showFallbackProviderDropdown = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Fallback Model Dropdown
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    Surface(
+                                        onClick = { showFallbackModelDropdown = !showFallbackModelDropdown },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Lipi.Surface,
+                                        border = BorderStroke(1.dp, currentFallbackProvider.brandColor.copy(alpha = 0.4f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Fallback Model:",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Lipi.Muted
+                                                )
+                                                Text(
+                                                    text = when {
+                                                        currentFallbackModel.isNotBlank() -> currentFallbackModel
+                                                        fallbackModelsList.isNotEmpty() -> fallbackModelsList.first()
+                                                        else -> currentFallbackProvider.defaultModel
+                                                    },
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = currentFallbackProvider.brandColor
+                                                )
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowDropDown,
+                                                contentDescription = "Select Fallback Model",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = currentFallbackProvider.brandColor
+                                            )
+                                        }
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = showFallbackModelDropdown,
+                                        onDismissRequest = { showFallbackModelDropdown = false },
+                                        modifier = Modifier.fillMaxWidth(0.85f).background(Lipi.Surface)
+                                    ) {
+                                        val availableFallbackList = if (fallbackModelsList.isNotEmpty()) fallbackModelsList else listOf(currentFallbackProvider.defaultModel)
+                                        availableFallbackList.forEach { fbModel ->
+                                            val isFbSelected = currentFallbackModel == fbModel
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = fbModel,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = if (isFbSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isFbSelected) currentFallbackProvider.brandColor else Lipi.Ink
+                                                        )
+                                                        if (isFbSelected) {
+                                                            Text("✓", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = currentFallbackProvider.brandColor)
+                                                        }
+                                                    }
+                                                },
+                                                onClick = {
+                                                    onAgentFallbackModelSelected(agentType, fbModel)
+                                                    showFallbackModelDropdown = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -997,6 +1220,12 @@ fun SettingsScreen(
                     }
 
                     if (selectedTabProvider == "on_device") {
+                        val onDeviceModels = providerModelsMap[AiProvider.OnDevice.id] ?: emptyList()
+                        var selectedOnDeviceModel by remember(selectedModel) {
+                            mutableStateOf(if (selectedModel.isNotBlank()) selectedModel else onDeviceModels.firstOrNull() ?: AiProvider.OnDevice.defaultModel)
+                        }
+                        var showOnDeviceModelDropdown by remember { mutableStateOf(false) }
+
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -1019,6 +1248,69 @@ fun SettingsScreen(
                                     fontWeight = FontWeight.SemiBold,
                                     color = Lipi.OnPrimaryContainer
                                 )
+                            }
+                        }
+
+                        // --- GLOBAL LOCAL SLM MODEL SELECTOR ---
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = OnDeviceVectorIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = Lipi.Primary
+                            )
+                            Text("Active On-Device SLM Model", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
+                        }
+
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Surface(
+                                onClick = { showOnDeviceModelDropdown = !showOnDeviceModelDropdown },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Lipi.Surface,
+                                border = BorderStroke(1.dp, Lipi.Outline)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = selectedOnDeviceModel,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Lipi.Ink
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select Local SLM Model",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = Lipi.Muted
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = showOnDeviceModelDropdown,
+                                onDismissRequest = { showOnDeviceModelDropdown = false },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .background(Lipi.Surface)
+                            ) {
+                                val modelsList = if (onDeviceModels.isNotEmpty()) onDeviceModels else listOf(AiProvider.OnDevice.defaultModel)
+                                modelsList.forEach { mName ->
+                                    DropdownMenuItem(
+                                        text = { Text(mName, fontWeight = FontWeight.SemiBold, color = Lipi.Ink) },
+                                        onClick = {
+                                            selectedOnDeviceModel = mName
+                                            showOnDeviceModelDropdown = false
+                                            onSaveProviderConfig("on_device", "", "", mName)
+                                        }
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -1172,6 +1464,8 @@ fun ModelSelectionBottomSheet(
     providerModelsMap: Map<String, List<String>> = emptyMap(),
     onAgentProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
     onAgentModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
+    onAgentFallbackProviderSelected: (RxAgentType, AiProvider) -> Unit = { _, _ -> },
+    onAgentFallbackModelSelected: (RxAgentType, String) -> Unit = { _, _ -> },
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
@@ -1200,6 +1494,8 @@ fun ModelSelectionBottomSheet(
         providerModelsMap = providerModelsMap,
         onAgentProviderSelected = onAgentProviderSelected,
         onAgentModelSelected = onAgentModelSelected,
+        onAgentFallbackProviderSelected = onAgentFallbackProviderSelected,
+        onAgentFallbackModelSelected = onAgentFallbackModelSelected,
         onProviderTabSelected = onProviderTabSelected,
         onSaveProviderConfig = onSaveProviderConfig,
         onSelectOnDeviceStrategy = onSelectOnDeviceStrategy,

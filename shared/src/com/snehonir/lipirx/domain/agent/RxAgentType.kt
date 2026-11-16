@@ -26,8 +26,8 @@ enum class RxAgentType(
     val displayNameRes: StringResource,
     val descriptionRes: StringResource,
     val icon: ImageVector,
-    val defaultProvider: AiProvider = AiProvider.Gemini,
-    val defaultModel: String = AppConstants.GEMINI_DEFAULT_MODEL
+    val defaultProvider: AiProvider,
+    val defaultModel: String
 ) {
     SUPERVISOR(
         id = "supervisor",
@@ -80,5 +80,7 @@ enum class RxAgentType(
 data class AgentConfig(
     val agentType: RxAgentType,
     val provider: AiProvider,
-    val selectedModel: String = ""
+    val selectedModel: String = "",
+    val fallbackProvider: AiProvider? = null,
+    val fallbackModel: String = ""
 )

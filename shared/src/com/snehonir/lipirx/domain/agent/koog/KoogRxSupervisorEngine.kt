@@ -247,12 +247,19 @@ class KoogRxSupervisorEngine(
         val savedProviderModel = database.getLastSelectedModel(provider, flow = "KoogEngine -> getLastSelectedModel")
             .ifBlank { provider.defaultModel }
         val model = config.selectedModel.ifBlank { savedProviderModel }
+
+        val fallbackProvider = config.fallbackProvider ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
+        val fallbackModel = config.fallbackModel.ifBlank {
+            database.getLastSelectedModel(fallbackProvider, flow = "KoogEngine -> getFallbackModel")
+                .ifBlank { fallbackProvider.defaultModel }
+        }
+
         val apiKey = database.getApiKeyForProvider(provider.id).ifBlank { fallbackApiKey }
         val customUrl = when (provider) {
             AiProvider.Custom -> database.getProviderConfig().customUrl.ifBlank { fallbackCustomUrl }
             else -> ""
         }
-        return RuntimeConfig(provider, model, apiKey, customUrl)
+        return RuntimeConfig(provider, model, apiKey, customUrl, fallbackProvider, fallbackModel)
     }
 
     private fun updateEpisodicMemoryIfNeeded(state: SupervisorState): SupervisorState {
@@ -266,7 +273,9 @@ class KoogRxSupervisorEngine(
         val provider: AiProvider,
         val model: String,
         val apiKey: String,
-        val customUrl: String
+        val customUrl: String,
+        val fallbackProvider: AiProvider = AiProvider.OnDevice,
+        val fallbackModel: String = ""
     )
 
     companion object {

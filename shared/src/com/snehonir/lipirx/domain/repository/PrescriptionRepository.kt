@@ -27,7 +27,7 @@ interface PrescriptionRepository {
     fun saveProviderConfig(providerType: String, customUrl: String, apiKey: String, modelName: String, themeMode: String = "system", flow: String = "")
     fun getApiKeyForProvider(providerType: String): String
     fun getProviderConfig(flow: String = ""): ProviderConfigEntity
-    fun saveAgentConfig(agentType: RxAgentType, provider: AiProvider, modelName: String = "", flow: String = "")
+    fun saveAgentConfig(agentType: RxAgentType, provider: AiProvider, modelName: String = "", fallbackProvider: AiProvider? = null, fallbackModel: String = "", flow: String = "")
     fun getAgentConfig(agentType: RxAgentType): AgentConfig
     fun getAllAgentConfigs(): Map<RxAgentType, AgentConfig>
     fun saveProviderModels(providerType: String, models: List<String>, flow: String = "")

@@ -226,11 +226,79 @@ class ScanViewModel(
 
         _uiState.update { currentState ->
             val updatedMap = currentState.agentConfigs.toMutableMap()
-            updatedMap[agentType] = AgentConfig(
+            val existing = updatedMap[agentType] ?: AgentConfig(agentType, currentProvider)
+            updatedMap[agentType] = existing.copy(selectedModel = modelName)
+            currentState.copy(agentConfigs = updatedMap.toImmutableMap())
+        }
+    }
+
+    fun onAgentFallbackProviderSelected(
+        agentType: RxAgentType,
+        fallbackProvider: AiProvider,
+        flow: String = "App -> ScanViewModel.onAgentFallbackProviderSelected"
+    ) {
+        val currentConfig = _uiState.value.agentConfigs[agentType]
+        val currentProvider = currentConfig?.provider ?: agentType.defaultProvider
+        val currentSelectedModel = currentConfig?.selectedModel ?: ""
+
+        val modelsForFallbackProvider = _uiState.value.providerModelsMap[fallbackProvider.id] ?: emptyList()
+        val defaultFallbackModel = if (modelsForFallbackProvider.isNotEmpty()) modelsForFallbackProvider.first() else fallbackProvider.defaultModel
+
+        Napier.d("[$flow] User selected fallback provider '${fallbackProvider.id}' for agent '${agentType.id}' (default model: '$defaultFallbackModel')", tag = TAG)
+
+        runCatching {
+            manageProviderConfigUseCase.saveAgentConfig(
                 agentType = agentType,
                 provider = currentProvider,
-                selectedModel = modelName
+                modelName = currentSelectedModel,
+                fallbackProvider = fallbackProvider,
+                fallbackModel = defaultFallbackModel,
+                flow = flow
             )
+        }
+
+        _uiState.update { currentState ->
+            val updatedMap = currentState.agentConfigs.toMutableMap()
+            val existing = updatedMap[agentType] ?: AgentConfig(agentType, currentProvider)
+            updatedMap[agentType] = existing.copy(
+                fallbackProvider = fallbackProvider,
+                fallbackModel = defaultFallbackModel
+            )
+            currentState.copy(agentConfigs = updatedMap.toImmutableMap())
+        }
+
+        if (modelsForFallbackProvider.isEmpty()) {
+            fetchModelsForProvider(fallbackProvider, flow = "$flow -> autoFetchFallback")
+        }
+    }
+
+    fun onAgentFallbackModelSelected(
+        agentType: RxAgentType,
+        fallbackModelName: String,
+        flow: String = "App -> ScanViewModel.onAgentFallbackModelSelected"
+    ) {
+        val currentConfig = _uiState.value.agentConfigs[agentType]
+        val currentProvider = currentConfig?.provider ?: agentType.defaultProvider
+        val currentSelectedModel = currentConfig?.selectedModel ?: ""
+        val fallbackProvider = currentConfig?.fallbackProvider
+
+        Napier.d("[$flow] User selected fallback model '$fallbackModelName' for agent '${agentType.id}'", tag = TAG)
+
+        runCatching {
+            manageProviderConfigUseCase.saveAgentConfig(
+                agentType = agentType,
+                provider = currentProvider,
+                modelName = currentSelectedModel,
+                fallbackProvider = fallbackProvider,
+                fallbackModel = fallbackModelName,
+                flow = flow
+            )
+        }
+
+        _uiState.update { currentState ->
+            val updatedMap = currentState.agentConfigs.toMutableMap()
+            val existing = updatedMap[agentType] ?: AgentConfig(agentType, currentProvider)
+            updatedMap[agentType] = existing.copy(fallbackModel = fallbackModelName)
             currentState.copy(agentConfigs = updatedMap.toImmutableMap())
         }
     }
