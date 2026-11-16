@@ -62,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -69,20 +70,41 @@ import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.model.ThemeMode
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_cancel
+import com.snehonir.lipirx.resources.btn_connecting_saving
 import com.snehonir.lipirx.resources.btn_save_config
 import com.snehonir.lipirx.resources.btn_view_telemetry
+import com.snehonir.lipirx.resources.cd_collapse
+import com.snehonir.lipirx.resources.cd_expand
 import com.snehonir.lipirx.resources.configure_key_to_load_models
+import com.snehonir.lipirx.resources.content_desc_clear_api_key
+import com.snehonir.lipirx.resources.content_desc_paste_api_key
+import com.snehonir.lipirx.resources.content_desc_select_fallback_model
+import com.snehonir.lipirx.resources.content_desc_select_fallback_provider
+import com.snehonir.lipirx.resources.content_desc_select_model
+import com.snehonir.lipirx.resources.content_desc_select_provider
 import com.snehonir.lipirx.resources.content_desc_select_strategy
+import com.snehonir.lipirx.resources.content_desc_selected
 import com.snehonir.lipirx.resources.label_api_key
+import com.snehonir.lipirx.resources.label_api_key_saved
 import com.snehonir.lipirx.resources.label_custom_model
 import com.snehonir.lipirx.resources.label_custom_url
+import com.snehonir.lipirx.resources.label_escalation_badge
+import com.snehonir.lipirx.resources.label_escalation_provider
+import com.snehonir.lipirx.resources.label_fallback_badge
+import com.snehonir.lipirx.resources.label_fallback_model
+import com.snehonir.lipirx.resources.label_fallback_provider
+import com.snehonir.lipirx.resources.label_locked_by_strategy
 import com.snehonir.lipirx.resources.label_model
+import com.snehonir.lipirx.resources.label_no_api_key_saved
+import com.snehonir.lipirx.resources.label_provider
 import com.snehonir.lipirx.resources.label_select_provider
 import com.snehonir.lipirx.resources.mcp_server_description
 import com.snehonir.lipirx.resources.mcp_server_running
 import com.snehonir.lipirx.resources.no_live_models_found
 import com.snehonir.lipirx.resources.no_local_models_found
 import com.snehonir.lipirx.resources.on_device_info_banner
+import com.snehonir.lipirx.resources.placeholder_custom_model_example
+import com.snehonir.lipirx.resources.placeholder_custom_url_example
 import com.snehonir.lipirx.resources.placeholder_paste_key
 import com.snehonir.lipirx.resources.section_appearance_theme
 import com.snehonir.lipirx.resources.section_mcp
@@ -248,7 +270,7 @@ fun SettingsScreen(
                             onValueChange = { inputUrl = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text(stringResource(Res.string.label_custom_url)) },
-                            placeholder = { Text("http://192.168.1.50:11434/v1/chat/completions", fontSize = 12.sp) },
+                            placeholder = { Text(stringResource(Res.string.placeholder_custom_url_example), fontSize = 12.sp) },
                             leadingIcon = {
                                 Icon(CustomUrlVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
                             },
@@ -260,7 +282,7 @@ fun SettingsScreen(
                             onValueChange = { inputCustomModel = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text(stringResource(Res.string.label_custom_model)) },
-                            placeholder = { Text("llava or gpt-4o", fontSize = 12.sp) },
+                            placeholder = { Text(stringResource(Res.string.placeholder_custom_model_example), fontSize = 12.sp) },
                             leadingIcon = {
                                 Icon(CustomUrlVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
                             },
@@ -294,7 +316,7 @@ fun SettingsScreen(
                                         IconButton(onClick = { inputKey = "" }) {
                                             Icon(
                                                 imageVector = Icons.Default.Clear,
-                                                contentDescription = "Clear API key",
+                                                contentDescription = stringResource(Res.string.content_desc_clear_api_key),
                                                 modifier = Modifier.size(20.dp),
                                                 tint = Lipi.Muted
                                             )
@@ -308,7 +330,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(
                                             imageVector = PasteVectorIcon,
-                                            contentDescription = "Paste API key from clipboard",
+                                            contentDescription = stringResource(Res.string.content_desc_paste_api_key),
                                             modifier = Modifier.size(22.dp),
                                             tint = Lipi.Primary
                                         )
@@ -325,7 +347,11 @@ fun SettingsScreen(
 
                         StatusLine(
                             ok = keyForSelectedProvider.isNotBlank(),
-                            text = if (keyForSelectedProvider.isNotBlank()) "API key saved" else "No API key saved yet"
+                            text = if (keyForSelectedProvider.isNotBlank()) {
+                                stringResource(Res.string.label_api_key_saved)
+                            } else {
+                                stringResource(Res.string.label_no_api_key_saved)
+                            }
                         )
 
                         if (!apiKeySuccess.isNullOrBlank()) {
@@ -376,7 +402,7 @@ fun SettingsScreen(
                                     strokeWidth = 2.dp
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text("Connecting & saving…", fontSize = 14.sp)
+                                Text(stringResource(Res.string.btn_connecting_saving), fontSize = 14.sp)
                             } else {
                                 Text(
                                     stringResource(Res.string.btn_save_config),
@@ -522,12 +548,13 @@ private fun AgentAssignmentCard(
     val liveModels = providerModelsMap[provider.id] ?: emptyList()
     val hasProblem = liveModels.isEmpty() && assignedModel.isBlank()
 
-    val modelText = when {
+    val rawModelText = when {
         assignedModel.isNotBlank() -> assignedModel
         liveModels.isNotEmpty() -> liveModels.first()
         provider == AiProvider.OnDevice -> stringResource(Res.string.no_local_models_found)
         else -> stringResource(Res.string.configure_key_to_load_models)
     }
+    val modelText = if (provider == AiProvider.OnDevice) formatModelDisplayName(rawModelText) else rawModelText
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -569,7 +596,7 @@ private fun AgentAssignmentCard(
                     }
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        contentDescription = stringResource(if (expanded) Res.string.cd_collapse else Res.string.cd_expand),
                         modifier = Modifier
                             .size(24.dp)
                             .rotate(arrowRotation),
@@ -592,11 +619,11 @@ private fun AgentAssignmentCard(
                     )
 
                     PickerField(
-                        label = "Provider",
+                        label = stringResource(Res.string.label_provider),
                         valueText = provider.displayName,
                         accent = provider.brandColor,
                         leadingIcon = provider.icon,
-                        contentDescription = "Select provider",
+                        contentDescription = stringResource(Res.string.content_desc_select_provider),
                         options = providerOptions(
                             selectedId = provider.id,
                             onPick = onProviderSelected,
@@ -612,7 +639,7 @@ private fun AgentAssignmentCard(
                         valueText = modelText,
                         accent = provider.brandColor,
                         isError = hasProblem,
-                        contentDescription = "Select model",
+                        contentDescription = stringResource(Res.string.content_desc_select_model),
                         options = if (liveModels.isNotEmpty()) {
                             modelOptions(liveModels, assignedModel, provider.brandColor, onModelSelected)
                         } else {
@@ -639,14 +666,15 @@ private fun AgentAssignmentCard(
                         val fallbackModel = config?.fallbackModel?.ifBlank { "" } ?: ""
                         val fallbackModels = providerModelsMap[fallbackProvider.id] ?: emptyList()
                         val fallbackList = fallbackModels.ifEmpty { listOf(fallbackProvider.defaultModel) }
-                        val fallbackModelText = when {
+                        val rawFallbackModelText = when {
                             fallbackModel.isNotBlank() -> fallbackModel
                             else -> fallbackList.first()
                         }
+                        val fallbackModelText = if (fallbackProvider == AiProvider.OnDevice) formatModelDisplayName(rawFallbackModelText) else rawFallbackModelText
 
                         Divider()
                         Text(
-                            text = if (provider != AiProvider.OnDevice) "FALLBACK" else "ESCALATION",
+                            text = stringResource(if (provider != AiProvider.OnDevice) Res.string.label_fallback_badge else Res.string.label_escalation_badge),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp,
@@ -654,21 +682,21 @@ private fun AgentAssignmentCard(
                         )
 
                         PickerField(
-                            label = if (provider != AiProvider.OnDevice) "Fallback provider" else "Escalation provider",
+                            label = stringResource(if (provider != AiProvider.OnDevice) Res.string.label_fallback_provider else Res.string.label_escalation_provider),
                             valueText = fallbackProvider.displayName,
                             accent = fallbackProvider.brandColor,
                             leadingIcon = fallbackProvider.icon,
-                            contentDescription = "Select fallback provider",
+                            contentDescription = stringResource(Res.string.content_desc_select_fallback_provider),
                             options = providerOptions(
                                 selectedId = fallbackProvider.id,
                                 onPick = onFallbackProviderSelected
                             )
                         )
                         PickerField(
-                            label = "Fallback model",
+                            label = stringResource(Res.string.label_fallback_model),
                             valueText = fallbackModelText,
                             accent = fallbackProvider.brandColor,
-                            contentDescription = "Select fallback model",
+                            contentDescription = stringResource(Res.string.content_desc_select_fallback_model),
                             options = modelOptions(fallbackList, fallbackModel, fallbackProvider.brandColor, onFallbackModelSelected)
                         )
                     }
@@ -697,17 +725,31 @@ private fun providerOptions(
     selectedId: String,
     onPick: (AiProvider) -> Unit,
     isLocked: (AiProvider) -> Boolean = { false },
-): List<MenuOption> = AiProvider.ALL.map { prov ->
-    val locked = isLocked(prov)
-    MenuOption(
-        title = prov.displayName,
-        subtitle = if (locked) "Locked by current strategy" else null,
-        icon = prov.icon,
-        tint = prov.brandColor,
-        selected = prov.id == selectedId,
-        enabled = !locked,
-        onClick = { onPick(prov) }
-    )
+): List<MenuOption> {
+    val lockedText = stringResource(Res.string.label_locked_by_strategy)
+    return AiProvider.ALL.map { prov ->
+        val locked = isLocked(prov)
+        MenuOption(
+            title = prov.displayName,
+            subtitle = if (locked) lockedText else null,
+            icon = prov.icon,
+            tint = prov.brandColor,
+            selected = prov.id == selectedId,
+            enabled = !locked,
+            onClick = { onPick(prov) }
+        )
+    }
+}
+
+private fun formatModelDisplayName(modelName: String): String {
+    if (modelName.isBlank()) return ""
+    var result = modelName.removePrefix(AppConstants.MODEL_PREFIX_GEMINI)
+    AppConstants.SLM_MODEL_EXTENSIONS.forEach { ext ->
+        if (result.endsWith(ext, ignoreCase = true)) {
+            result = result.dropLast(ext.length)
+        }
+    }
+    return result.trim()
 }
 
 private fun modelOptions(
@@ -715,13 +757,14 @@ private fun modelOptions(
     selected: String,
     tint: Color,
     onPick: (String) -> Unit,
-): List<MenuOption> = models.mapIndexed { idx, name ->
+): List<MenuOption> = models.mapIndexed { idx, rawName ->
+    val displayTitle = formatModelDisplayName(rawName)
     MenuOption(
-        title = name,
+        title = displayTitle,
         tint = tint,
         // When nothing is explicitly chosen the UI shows the first model, so mark it as selected.
-        selected = if (selected.isNotBlank()) selected == name else idx == 0,
-        onClick = { onPick(name) }
+        selected = if (selected.isNotBlank()) selected == rawName || formatModelDisplayName(selected) == displayTitle else idx == 0,
+        onClick = { onPick(rawName) }
     )
 }
 
@@ -843,7 +886,7 @@ private fun PickerField(
                             {
                                 Icon(
                                     imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
+                                    contentDescription = stringResource(Res.string.content_desc_selected),
                                     modifier = Modifier.size(16.dp),
                                     tint = option.tint
                                 )

@@ -183,6 +183,27 @@
     <string name="strategy_cloud_only_desc">Disable On-Device SLM -&gt; Cloud AI Only</string>
     <string name="strategy_cloud_only_explanation">Cloud Only: 100% cloud mode. All agents execute using their assigned Cloud AI models. On-device SLM is bypassed.</string>
 
+    <!-- Settings UI Strings -->
+    <string name="placeholder_custom_url_example">e.g. http://192.168.1.50:11434/v1/chat/completions</string>
+    <string name="placeholder_custom_model_example">e.g. llava or gpt-4o</string>
+    <string name="content_desc_clear_api_key">Clear API key</string>
+    <string name="content_desc_paste_api_key">Paste API key from clipboard</string>
+    <string name="label_api_key_saved">API key saved</string>
+    <string name="label_no_api_key_saved">No API key saved yet</string>
+    <string name="btn_connecting_saving">Connecting &amp; Saving...</string>
+    <string name="label_provider">Provider</string>
+    <string name="content_desc_select_provider">Select Provider</string>
+    <string name="content_desc_select_model">Select Model</string>
+    <string name="label_fallback_badge">FALLBACK</string>
+    <string name="label_escalation_badge">ESCALATION</string>
+    <string name="label_fallback_provider">Fallback Provider</string>
+    <string name="label_escalation_provider">Escalation Provider</string>
+    <string name="content_desc_select_fallback_provider">Select Fallback Provider</string>
+    <string name="label_fallback_model">Fallback Model</string>
+    <string name="content_desc_select_fallback_model">Select Fallback Model</string>
+    <string name="label_locked_by_strategy">Locked by current strategy</string>
+    <string name="content_desc_selected">Selected</string>
+
     <!-- Clinical Warnings & Pharmacist Gate -->
     <string name="gate_title">Pharmacist Review Required</string>
     <string name="gate_subtitle">Safety Gate Triggered: Unverified dosage or interaction risk detected</string>

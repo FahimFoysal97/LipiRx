@@ -15,9 +15,18 @@ object AppConstants {
 
     const val EXTENSION_LITETRLM = ".litertlm"
     const val EXTENSION_TFLITE = ".tflite"
+    const val EXTENSION_BIN = ".bin"
+    const val EXTENSION_GGUF = ".gguf"
     const val EXTENSION_JPG = ".jpg"
     const val EXTENSION_JPEG = ".jpeg"
     const val EXTENSION_PNG = ".png"
+
+    val SLM_MODEL_EXTENSIONS = listOf(
+        EXTENSION_LITETRLM,
+        EXTENSION_TFLITE,
+        EXTENSION_BIN,
+        EXTENSION_GGUF
+    )
 
     const val UNIT_KB = "KB"
     const val UNIT_MB = "MB"
