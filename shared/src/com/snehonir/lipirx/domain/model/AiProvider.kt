@@ -28,7 +28,7 @@ sealed interface AiProvider {
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = true
         override val icon: ImageVector = SparkleVectorIcon
-        override val brandColor: Color = Color(0xFF8E24AA)
+        override val brandColor: Color = Color(0xFF4285F4)
     }
 
     data object Groq : AiProvider {
@@ -39,7 +39,7 @@ sealed interface AiProvider {
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = true
         override val icon: ImageVector = LightningVectorIcon
-        override val brandColor: Color = Color(0xFFF57C00)
+        override val brandColor: Color = Color(0xFFF55036)
     }
 
     data object OpenAi : AiProvider {
@@ -50,7 +50,7 @@ sealed interface AiProvider {
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = true
         override val icon: ImageVector = OpenAiVectorIcon
-        override val brandColor: Color = Color(0xFF00A67E)
+        override val brandColor: Color = Color(0xFF10A37F)
     }
 
     data object Claude : AiProvider {
@@ -61,7 +61,7 @@ sealed interface AiProvider {
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = true
         override val icon: ImageVector = ClaudeVectorIcon
-        override val brandColor: Color = Color(0xFFD97706)
+        override val brandColor: Color = Color(0xFFD97757)
     }
 
     data object Custom : AiProvider {
