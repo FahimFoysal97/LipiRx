@@ -628,8 +628,10 @@ private fun AgentAssignmentCard(
                             selectedId = provider.id,
                             onPick = onProviderSelected,
                             isLocked = { prov ->
-                                (onDeviceStrategy == OnDeviceStrategy.CLOUD_ONLY && prov == AiProvider.OnDevice) ||
-                                        (onDeviceStrategy == OnDeviceStrategy.ON_DEVICE_ONLY && prov != AiProvider.OnDevice)
+                                when (onDeviceStrategy) {
+                                    OnDeviceStrategy.HYBRID_FALLBACK, OnDeviceStrategy.CLOUD_ONLY -> prov == AiProvider.OnDevice
+                                    OnDeviceStrategy.ON_DEVICE_FIRST, OnDeviceStrategy.ON_DEVICE_ONLY -> prov != AiProvider.OnDevice
+                                }
                             }
                         )
                     )
@@ -689,7 +691,15 @@ private fun AgentAssignmentCard(
                             contentDescription = stringResource(Res.string.content_desc_select_fallback_provider),
                             options = providerOptions(
                                 selectedId = fallbackProvider.id,
-                                onPick = onFallbackProviderSelected
+                                onPick = onFallbackProviderSelected,
+                                isLocked = { prov ->
+                                    when (onDeviceStrategy) {
+                                        OnDeviceStrategy.HYBRID_FALLBACK -> prov != AiProvider.OnDevice
+                                        OnDeviceStrategy.ON_DEVICE_FIRST -> prov == AiProvider.OnDevice
+                                        OnDeviceStrategy.ON_DEVICE_ONLY -> prov != AiProvider.OnDevice
+                                        OnDeviceStrategy.CLOUD_ONLY -> prov == AiProvider.OnDevice
+                                    }
+                                }
                             )
                         )
                         PickerField(

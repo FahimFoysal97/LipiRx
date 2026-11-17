@@ -307,43 +307,110 @@ class ScanViewModel(
         Napier.d("[$flow] User selected On-Device strategy '${strategy.id}'", tag = TAG)
         runCatching { manageProviderConfigUseCase.saveOnDeviceStrategy(strategy, flow = flow) }
 
-        if (strategy == OnDeviceStrategy.ON_DEVICE_ONLY) {
+        if (strategy == OnDeviceStrategy.ON_DEVICE_ONLY || strategy == OnDeviceStrategy.ON_DEVICE_FIRST || strategy == OnDeviceStrategy.HYBRID_FALLBACK) {
             fetchModelsForProvider(AiProvider.OnDevice, flow = "$flow -> fetchModelsForProvider.OnDevice")
         }
 
         _uiState.update { currentState ->
             val newAgentConfigs = currentState.agentConfigs.toMutableMap()
+            val onDeviceModels = currentState.providerModelsMap[AiProvider.OnDevice.id] ?: emptyList()
+            val defaultLocalModel = if (onDeviceModels.isNotEmpty()) onDeviceModels.first() else AiProvider.OnDevice.defaultModel
 
             when (strategy) {
-                OnDeviceStrategy.ON_DEVICE_ONLY -> {
+                OnDeviceStrategy.HYBRID_FALLBACK -> {
                     RxAgentType.ALL.forEach { agentType ->
-                        val onDeviceModels = currentState.providerModelsMap[AiProvider.OnDevice.id] ?: emptyList()
-                        val chosenModel = if (onDeviceModels.isNotEmpty()) onDeviceModels.first() else AiProvider.OnDevice.defaultModel
+                        val currentConfig = newAgentConfigs[agentType]
+                        val currentProv = currentConfig?.provider ?: agentType.defaultProvider
+
+                        // Primary must be a Cloud provider
+                        val primaryProv = if (currentProv == AiProvider.OnDevice) AiProvider.Gemini else currentProv
+                        val cloudModels = currentState.providerModelsMap[primaryProv.id] ?: emptyList()
+                        val primaryModel = currentConfig?.selectedModel?.takeIf { it.isNotBlank() && currentProv != AiProvider.OnDevice }
+                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else primaryProv.defaultModel
+
+                        // Fallback must be On-Device SLM
+                        val fallbackProv = AiProvider.OnDevice
+                        val fallbackModel = currentConfig?.fallbackModel?.takeIf { it.isNotBlank() } ?: defaultLocalModel
 
                         runCatching {
-                            manageProviderConfigUseCase.saveAgentConfig(agentType, AiProvider.OnDevice, chosenModel)
+                            manageProviderConfigUseCase.saveAgentConfig(
+                                agentType = agentType,
+                                provider = primaryProv,
+                                modelName = primaryModel,
+                                fallbackProvider = fallbackProv,
+                                fallbackModel = fallbackModel,
+                                flow = flow
+                            )
                         }
-                        newAgentConfigs[agentType] = AgentConfig(agentType, AiProvider.OnDevice, chosenModel)
+                        newAgentConfigs[agentType] = AgentConfig(
+                            agentType = agentType,
+                            provider = primaryProv,
+                            selectedModel = primaryModel,
+                            fallbackProvider = fallbackProv,
+                            fallbackModel = fallbackModel
+                        )
+                    }
+                }
+                OnDeviceStrategy.ON_DEVICE_FIRST -> {
+                    RxAgentType.ALL.forEach { agentType ->
+                        val currentConfig = newAgentConfigs[agentType]
+
+                        // Primary must be On-Device SLM
+                        val primaryProv = AiProvider.OnDevice
+                        val primaryModel = currentConfig?.selectedModel?.takeIf { it.isNotBlank() && currentConfig.provider == AiProvider.OnDevice }
+                            ?: defaultLocalModel
+
+                        // Fallback / Escalation must be a Cloud provider
+                        val fallbackProv = if (currentConfig?.fallbackProvider != null && currentConfig.fallbackProvider != AiProvider.OnDevice) {
+                            currentConfig.fallbackProvider
+                        } else {
+                            if (currentConfig?.provider != null && currentConfig.provider != AiProvider.OnDevice) currentConfig.provider else AiProvider.Gemini
+                        }
+                        val cloudModels = currentState.providerModelsMap[fallbackProv.id] ?: emptyList()
+                        val fallbackModel = currentConfig?.fallbackModel?.takeIf { it.isNotBlank() }
+                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else fallbackProv.defaultModel
+
+                        runCatching {
+                            manageProviderConfigUseCase.saveAgentConfig(
+                                agentType = agentType,
+                                provider = primaryProv,
+                                modelName = primaryModel,
+                                fallbackProvider = fallbackProv,
+                                fallbackModel = fallbackModel,
+                                flow = flow
+                            )
+                        }
+                        newAgentConfigs[agentType] = AgentConfig(
+                            agentType = agentType,
+                            provider = primaryProv,
+                            selectedModel = primaryModel,
+                            fallbackProvider = fallbackProv,
+                            fallbackModel = fallbackModel
+                        )
+                    }
+                }
+                OnDeviceStrategy.ON_DEVICE_ONLY -> {
+                    RxAgentType.ALL.forEach { agentType ->
+                        runCatching {
+                            manageProviderConfigUseCase.saveAgentConfig(agentType, AiProvider.OnDevice, defaultLocalModel, null, "", flow)
+                        }
+                        newAgentConfigs[agentType] = AgentConfig(agentType, AiProvider.OnDevice, defaultLocalModel, null, "")
                     }
                 }
                 OnDeviceStrategy.CLOUD_ONLY -> {
                     RxAgentType.ALL.forEach { agentType ->
                         val currentConfig = newAgentConfigs[agentType]
                         val currentProv = currentConfig?.provider ?: agentType.defaultProvider
-                        if (currentProv == AiProvider.OnDevice) {
-                            val cloudProv = AiProvider.Gemini
-                            val cloudModels = currentState.providerModelsMap[cloudProv.id] ?: emptyList()
-                            val chosenModel = if (cloudModels.isNotEmpty()) cloudModels.first() else cloudProv.defaultModel
+                        val cloudProv = if (currentProv == AiProvider.OnDevice) AiProvider.Gemini else currentProv
+                        val cloudModels = currentState.providerModelsMap[cloudProv.id] ?: emptyList()
+                        val chosenModel = currentConfig?.selectedModel?.takeIf { it.isNotBlank() && currentProv != AiProvider.OnDevice }
+                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else cloudProv.defaultModel
 
-                            runCatching {
-                                manageProviderConfigUseCase.saveAgentConfig(agentType, cloudProv, chosenModel)
-                            }
-                            newAgentConfigs[agentType] = AgentConfig(agentType, cloudProv, chosenModel)
+                        runCatching {
+                            manageProviderConfigUseCase.saveAgentConfig(agentType, cloudProv, chosenModel, null, "", flow)
                         }
+                        newAgentConfigs[agentType] = AgentConfig(agentType, cloudProv, chosenModel, null, "")
                     }
-                }
-                else -> {
-                    // Hybrid Fallback or On-Device First: Keep existing choices
                 }
             }
 
