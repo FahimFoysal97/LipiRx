@@ -1,13 +1,13 @@
 # LipiRx - KMP Supervisor-Driven Multi-Agent AI Prescription Scanner
 
-[![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/docs/multiplatform.html)
-[![Compose Multiplatform](https://img.shields.io/badge/Compose-Multiplatform-4285F4?logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
-[![Android](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)](https://www.android.com/)
-[![iOS](https://img.shields.io/badge/Platform-iOS-000000?logo=apple&logoColor=white)](https://developer.apple.com/ios/)
-[![Architecture](https://img.shields.io/badge/Architecture-Koog%20Multi--Agent-000000?logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
-[![Protocol](https://img.shields.io/badge/Protocol-MCP%20JSON--RPC%202.0-8A2BE2)](https://modelcontextprotocol.io/)
-[![Releases](https://img.shields.io/badge/GitHub-Releases-4285F4?logo=github)](https://github.com/FahimFoysal97/LipiRx/releases)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin_Multiplatform-7F52FF?style=flat&logo=kotlin&logoColor=white)](https://kotlinlang.org/docs/multiplatform.html)
+[![Compose Multiplatform](https://img.shields.io/badge/Compose_Multiplatform-4285F4?style=flat&logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
+[![Android](https://img.shields.io/badge/Android-3DDC84?style=flat&logo=android&logoColor=white)](https://www.android.com/)
+[![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
+[![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
+[![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
+[![GitHub Releases](https://img.shields.io/badge/GitHub_Releases-24292E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![MIT License](https://img.shields.io/badge/MIT_License-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
 
