@@ -24,14 +24,15 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 ## ✨ Core Features
 
 1. **Supervisor-Driven Multi-Agent Orchestration (JetBrains Koog)**:
-    - Configurable **Agent Settings Matrix** allowing developers to assign specific providers and models per agent (including `📱 On-Device SLM`).
+    - Configurable **Per-Agent AI Assignments Matrix** allowing developers and pharmacists to assign specific primary providers/models AND dedicated fallback providers/models for every agent (including `📱 On-Device SLM`).
     - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`decision.reasoning`), per-agent task completion percentages (`0% → 100%`), active agent name banners, and execution timing logs.
 
-2. **Self-Healing Agent Execution Wrapper (`SelfHealingAgentExecutor`)**:
-    - Automatically catches `SerializationException` and JSON formatting errors from non-deterministic worker agent outputs, generates targeted schema repair prompts, and retries execution up to 2 times.
+2. **Self-Healing & 3-Attempt Retry Execution Wrappers**:
+    - **Cloud AI 3-Attempt Retry Rule**: `CompositeAiService` attempts primary Cloud AI model requests up to 3 times before triggering the agent's assigned fallback model.
+    - **JSON Self-Healing Wrapper (`SelfHealingAgentExecutor`)**: Automatically catches `SerializationException` and JSON formatting errors, generates targeted schema repair prompts, and retries execution up to 2 times.
 
 3. **Dedicated Full-Screen Settings Screen & Shared Header**:
-    - Dedicated full-screen `SettingsScreen` with predictive back navigation.
+    - Full-screen `SettingsScreen` featuring collapsible per-agent cards, dynamic arrow animations, and type-safe `OnDeviceStrategy` explanations.
     - Standardized top navigation header across all secondary screens using a shared `AppHeader` component.
     - **3-Way Theme Switcher**: Instant switching between **System Default**, **Dark Theme**, and **Light Theme** with persistent SQLDelight storage and clean 3-tab segmented control (`ThemeIcons.kt`).
 
@@ -53,13 +54,13 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - `RxAgentEvaluator` executes the pipeline against golden benchmark test cases (`RxEvalTestCase`), computing extraction accuracy %, turn counts, and latency.
     - Exposes on-device evaluation runner via MCP Tool `eval_run_benchmark` (`http://localhost:8080/lipirx/mcp`).
 
-8. **Multi-Provider & Edge Vision AI Engine**:
-    - **Google Gemini**: Dynamic model discovery via Gemini REST API (`gemini-2.5-flash`, etc.).
-    - **Groq**: High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
-    - **OpenAI**: Integration with OpenAI Vision models (`gpt-4o`, etc.).
-    - **Anthropic Claude**: Multimodal Vision integration via Anthropic `/v1/messages` and dynamic model discovery (`claude-3-5-sonnet-20241022`, etc.).
-    - **Custom Endpoint**: Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
-    - **On-Device SLM**: Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage.
+8. **Multi-Provider AI Engine with Official Vector Logos**:
+    - **Google Gemini** (`Color(0xFF4285F4)`): Dynamic model discovery via Gemini REST API (`gemini-2.5-flash`, etc.).
+    - **OpenAI** (`Color(0xFF10A37F)`): Integration with OpenAI Vision models (`gpt-4o`, etc.).
+    - **Anthropic Claude** (`Color(0xFFD97757)`): Multimodal Vision integration via Anthropic `/v1/messages` and dynamic model discovery (`claude-3-5-sonnet-20241022`, etc.).
+    - **Groq** (`Color(0xFFF55036)`): High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
+    - **Custom Endpoint** (`Color(0xFF546E7A)`): Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
+    - **On-Device SLM** (`Color(0xFF0B7A6E)`): Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage with clean extension stripping (`.litertlm`, `.tflite`, `.bin`, `.gguf`).
 
 9. **Scan History & Local Storage Management**:
     - SQLDelight SQLite storage saving prescription scan history and cross-session episodic dispensing memory.
@@ -68,7 +69,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 10. **Safety & UX Controls**:
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
     - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
-    - **Complete Resource Localization**: Extracted all UI strings and duration units into `composeResources/values/strings.xml`.
+    - **100% Resource Localization**: Zero hardcoded UI strings; all texts externalized into `composeResources/values/strings.xml`.
     - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
 
 ---
@@ -154,10 +155,10 @@ LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`Lipi
 LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** (`litertlm-android`) and LiteRT runtime (`.litertlm` and `.tflite` model files).
 
 ### On-Device Execution Strategies
-- **Hybrid Fallback** *(Default)*: Cloud AI First → Automatic On-Device SLM Fallback on network drops, server errors, or API quota limits.
-- **On-Device First**: Local NPU First → Cloud Escalation for complex safety auditing.
+- **Hybrid Fallback** *(Default)*: Cloud AI First (3 attempts) → Automatic On-Device SLM Fallback on network drops, server errors, or API quota limits.
+- **On-Device First**: Local NPU First → Cloud AI Escalation (3 attempts) for complex safety auditing.
 - **On-Device Only**: Strict 100% Offline / Local Execution Only.
-- **Cloud Only**: Disable On-Device SLM → Cloud AI Only.
+- **Cloud Only**: Disable On-Device SLM → Cloud AI Only (3 attempts).
 
 ---
 
@@ -230,7 +231,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │       ├── CustomAiService.kt           # Custom Endpoint REST implementation
             │       ├── OnDeviceAiService.kt         # On-Device SLM service implementation
             │       ├── OnDeviceLlmEngine.kt         # LiteRT-LM expect/actual engine interface
-            │       └── CompositeAiService.kt        # Polymorphic AI provider router
+            │       └── CompositeAiService.kt        # Polymorphic AI provider router with 3-attempt retries
             ├── di/
             │   └── KoinModule.kt                    # Koin 4.x dependency injection module
             ├── domain/
@@ -266,7 +267,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   ├── model/
             │   │   ├── AiProvider.kt                # Sealed interface for AI Providers (Gemini, OpenAI, Claude, Groq, Custom, OnDevice)
             │   │   ├── ClinicalApprovalReasons.kt   # Pharmacist gate approval reasons
-            │   │   ├── OnDeviceStrategy.kt          # On-device execution strategy enum
+            │   │   ├── OnDeviceStrategy.kt          # On-device execution strategy enum with string resources
             │   │   ├── ThemeMode.kt                 # System Default, Dark, Light theme mode enum
             │   │   ├── MedicineItem.kt              # Prescription medicine model
             │   │   └── ProcessingStep.kt            # Analysis progress step enum
@@ -281,7 +282,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
                 │   ├── ScanResultScreen.kt          # Main screen composable
                 │   └── components/                  # UI View components
                 │       ├── AppHeader.kt             # Shared AppHeader top bar component (in Components.kt)
-                │       ├── SettingsScreen.kt        # Dedicated full-screen Settings UI
+                │       ├── SettingsScreen.kt        # Dedicated full-screen Settings UI with modular cards
                 │       ├── HistoryScreen.kt         # Scan History list UI with bulk clear
                 │       ├── EmptyStateView.kt        # Home scan upload view
                 │       ├── LoadingView.kt           # Live multi-agent analysis UI with per-agent task progress
@@ -300,7 +301,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 1. Launch **LipiRx** on your Android device.
 2. Tap the **Settings** icon on the top header or preview screen.
 3. Configure your API keys for your preferred cloud providers (**`🤖 Gemini`**, **`🌐 OpenAI`**, **`🟧 Claude`**, **`⚡ Groq`**, or **`🛠️ Custom URL`**) or select your **On-Device AI & Fallback Strategy**.
-4. Customize agent assignments and models in the **Per-Agent AI Assignments** matrix.
+4. Customize primary and fallback agent assignments in the **Per-Agent AI Assignments** matrix.
 
 ### 🔌 Testing the MCP Server via Terminal (PowerShell / `curl`)
 1. Forward the port if testing on emulator or USB device:
