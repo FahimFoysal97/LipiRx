@@ -760,7 +760,7 @@ class ScanViewModel(
             return
         }
 
-        val analyzeStartTime = com.snehonir.lipirx.data.local.getPlatformEpochMillis()
+        val analyzeStartTime = getPlatformEpochMillis()
 
         _uiState.update {
             it.copy(
@@ -846,9 +846,7 @@ class ScanViewModel(
                             jsonParser.encodeToString(orchResult.items)
                         }.getOrDefault("")
 
-                        val summaryToSave = if (summaryJson.isNotBlank()) {
-                            summaryJson
-                        } else {
+                        val summaryToSave = summaryJson.ifBlank {
                             orchResult.items.joinToString(separator = "; ") { item ->
                                 "${item.formattedFullName} (${item.genericName}) [${item.schedule}] Qty: ${item.formattedQuantity}"
                             }
