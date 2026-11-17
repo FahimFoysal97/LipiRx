@@ -6,7 +6,7 @@
 [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
-[![GitHub Releases](https://img.shields.io/badge/GitHub_Releases-24292E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![Release v0.3](https://img.shields.io/badge/Release_v0.3-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![MIT License](https://img.shields.io/badge/MIT_License-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
@@ -378,8 +378,8 @@ You can generate custom-named APKs directly into a dedicated `apks/` directory u
   ```
 
 - **Standard Build Task Commands**:
-  - Debug APK: `.\kotlin.bat task :androidApp:buildAndroidDebug`
-  - Release APK (R8 Minified): `.\kotlin.bat task :androidApp:buildAndroidRelease`
+    - Debug APK: `.\kotlin.bat task :androidApp:buildAndroidDebug`
+    - Release APK (R8 Minified): `.\kotlin.bat task :androidApp:buildAndroidRelease`
 
 - **Optimizing APK Size for Physical Devices**:
   To shrink the APK size from ~90 MB down to **~35–45 MB**, target only 64-bit ARM architecture (`arm64-v8a`) in `androidApp/module.yaml`:
