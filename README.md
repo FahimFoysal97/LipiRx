@@ -195,6 +195,9 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 │   │   └── ViewController.kt                        # ComposeUIViewController wrapper
 │   └── module.yaml
 │
+├── build-apk.bat                                    # Windows script generating custom-named APKs in apks/
+├── build-apk.sh                                     # macOS/Linux script generating custom-named APKs in apks/
+│
 └── shared/                                          # KMP Shared Module
     ├── composeResources/
     │   ├── drawable/                                # Official SVG Vector Assets
@@ -337,29 +340,31 @@ To run local models offline:
 
 The project includes CLI wrappers `kotlin` (macOS/Linux) and `kotlin.bat` (Windows):
 
-#### 📦 Generating Android Debug & Release APKs
+#### 📦 Generating Custom-Named Android Debug & Release APKs
 
-- **Generate Debug APK**:
+You can generate custom-named APKs directly into a dedicated `apks/` directory using the provided build helpers:
+
+- **Generate Custom-Named Debug APK (`apks/LipiRx-v1.0.0-debug.apk`)**:
   ```powershell
   # Windows PowerShell
-  .\kotlin.bat task :androidApp:buildAndroidDebug
+  .\build-apk.bat debug
 
   # macOS / Linux
-  ./kotlin task :androidApp:buildAndroidDebug
+  ./build-apk.sh debug
   ```
-  - *Primary File Path*: `D:\NewProject4\build\tasks\_androidApp_buildAndroidDebug\gradle-project-debug.apk`
-  - *Gradle Outputs Folder*: `D:\NewProject4\build\tasks\_androidApp_buildAndroidDebug\gradle-project\build\_androidApp\outputs\apk\debug\`
 
-- **Generate Release APK (R8 Minified)**:
+- **Generate Custom-Named Release APK (`apks/LipiRx-v1.0.0-release.apk`)**:
   ```powershell
   # Windows PowerShell
-  .\kotlin.bat task :androidApp:buildAndroidRelease
+  .\build-apk.bat release
 
   # macOS / Linux
-  ./kotlin task :androidApp:buildAndroidRelease
+  ./build-apk.sh release
   ```
-  - *Primary File Path*: `D:\NewProject4\build\tasks\_androidApp_buildAndroidRelease\gradle-project-release-unsigned.apk`
-  - *Gradle Outputs Folder*: `D:\NewProject4\build\tasks\_androidApp_buildAndroidRelease\gradle-project\build\_androidApp\outputs\apk\release\`
+
+- **Standard Build Task Commands**:
+  - Debug APK: `.\kotlin.bat task :androidApp:buildAndroidDebug`
+  - Release APK (R8 Minified): `.\kotlin.bat task :androidApp:buildAndroidRelease`
 
 - **Optimizing APK Size for Physical Devices**:
   To shrink the APK size from ~90 MB down to **~35–45 MB**, target only 64-bit ARM architecture (`arm64-v8a`) in `androidApp/module.yaml`:
