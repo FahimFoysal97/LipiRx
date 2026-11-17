@@ -1,5 +1,11 @@
 # LipiRx - KMP Supervisor-Driven Multi-Agent AI Prescription Scanner
 
+[![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/docs/multiplatform.html)
+[![Compose Multiplatform](https://img.shields.io/badge/Compose-Multiplatform-4285F4?logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
+[![Android](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)](https://www.android.com/)
+[![iOS](https://img.shields.io/badge/Platform-iOS-000000?logo=apple&logoColor=white)](https://developer.apple.com/ios/)
+[![Architecture](https://img.shields.io/badge/Architecture-Koog%20Multi--Agent-000000?logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
+[![Protocol](https://img.shields.io/badge/Protocol-MCP%20JSON--RPC%202.0-8A2BE2)](https://modelcontextprotocol.io/)
 [![Releases](https://img.shields.io/badge/GitHub-Releases-4285F4?logo=github)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
