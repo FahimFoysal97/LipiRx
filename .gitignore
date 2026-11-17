@@ -1,6 +1,8 @@
 *.iml
 .kotlin
 build/
+apks/
+*.apk
 .DS_Store
 captures
 **/module.xcodeproj/*
