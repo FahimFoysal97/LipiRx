@@ -92,8 +92,14 @@ class ScanViewModel(
 
         AiProvider.ALL.forEach { prov ->
             val key = manageProviderConfigUseCase.getApiKeyForProvider(prov.id)
-            if (key.isNotBlank() || prov == AiProvider.OnDevice || prov == AiProvider.Custom) {
+            val customUrl = if (prov == AiProvider.Custom) manageProviderConfigUseCase.getProviderConfig().customUrl else ""
+            val canFetch = key.isNotBlank() || prov == AiProvider.OnDevice || (prov == AiProvider.Custom && customUrl.isNotBlank())
+
+            if (canFetch) {
                 fetchModelsForProvider(prov, flow = "App -> ScanViewModel.init.${prov.displayName}")
+            } else {
+                // Discard stale models in SQLite DB for unconfigured providers on startup
+                runCatching { manageProviderConfigUseCase.saveProviderModels(prov.id, emptyList(), flow = "App -> ScanViewModel.init.clearUnconfigured") }
             }
         }
     }
@@ -116,16 +122,28 @@ class ScanViewModel(
         val apiKey = manageProviderConfigUseCase.getApiKeyForProvider(targetProvider.id)
         val customUrl = if (targetProvider == AiProvider.Custom) manageProviderConfigUseCase.getProviderConfig().customUrl else ""
 
-        if (apiKey.isBlank() && targetProvider == AiProvider.Gemini) {
-            Napier.d("[$flow] Skipping fetch for ${targetProvider.id} because API key is blank", tag = TAG)
+        if (apiKey.isBlank() && targetProvider != AiProvider.OnDevice && targetProvider != AiProvider.Custom) {
+            Napier.d("[$flow] Skipping fetch for ${targetProvider.id} because API key is blank. Discarding stale models in DB.", tag = TAG)
+            runCatching { manageProviderConfigUseCase.saveProviderModels(targetProvider.id, emptyList(), flow = flow) }
+            _uiState.update { currentState ->
+                val updatedMap = currentState.providerModelsMap.toMutableMap()
+                updatedMap[targetProvider.id] = persistentListOf()
+                currentState.copy(providerModelsMap = updatedMap.toImmutableMap())
+            }
             return
         }
         if (targetProvider == AiProvider.Custom && customUrl.isBlank()) {
-            Napier.d("[$flow] Skipping fetch for Custom provider because customUrl is blank", tag = TAG)
+            Napier.d("[$flow] Skipping fetch for Custom provider because customUrl is blank. Discarding stale models in DB.", tag = TAG)
+            runCatching { manageProviderConfigUseCase.saveProviderModels(targetProvider.id, emptyList(), flow = flow) }
+            _uiState.update { currentState ->
+                val updatedMap = currentState.providerModelsMap.toMutableMap()
+                updatedMap[targetProvider.id] = persistentListOf()
+                currentState.copy(providerModelsMap = updatedMap.toImmutableMap())
+            }
             return
         }
 
-        Napier.d("[$flow] Auto-fetching models for ${targetProvider.displayName}...", tag = TAG)
+        Napier.d("[$flow] Auto-fetching fresh models for ${targetProvider.displayName}...", tag = TAG)
 
         viewModelScope.launch {
             val result = processPrescriptionUseCase.fetchAvailableModels(
@@ -137,17 +155,17 @@ class ScanViewModel(
 
             result.fold(
                 onSuccess = { modelList ->
-                    val names = modelList.map { it.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim() }.toImmutableList()
-                    if (names.isNotEmpty()) {
-                        runCatching {
-                            manageProviderConfigUseCase.saveProviderModels(targetProvider.id, names, flow = flow)
-                        }
+                    val names = modelList.map { it.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim() }.filter { it.isNotBlank() }.toImmutableList()
+                    
+                    // Always overwrite SQLite DB with fresh live models, discarding deprecated models
+                    runCatching {
+                        manageProviderConfigUseCase.saveProviderModels(targetProvider.id, names, flow = flow)
+                    }
 
-                        _uiState.update { currentState ->
-                            val updatedMap = currentState.providerModelsMap.toMutableMap()
-                            updatedMap[targetProvider.id] = names
-                            currentState.copy(providerModelsMap = updatedMap.toImmutableMap())
-                        }
+                    _uiState.update { currentState ->
+                        val updatedMap = currentState.providerModelsMap.toMutableMap()
+                        updatedMap[targetProvider.id] = names
+                        currentState.copy(providerModelsMap = updatedMap.toImmutableMap())
                     }
                 },
                 onFailure = { ex ->
