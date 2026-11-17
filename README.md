@@ -6,7 +6,7 @@
 [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
-[![GitHub Releases](https://img.shields.io/badge/GitHub_Releases-24292E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![Latest Release](https://img.shields.io/badge/Latest_Release-v0.3-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![MIT License](https://img.shields.io/badge/MIT_License-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
