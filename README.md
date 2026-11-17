@@ -1,8 +1,17 @@
 # LipiRx - KMP Supervisor-Driven Multi-Agent AI Prescription Scanner
 
+[![Releases](https://img.shields.io/badge/GitHub-Releases-4285F4?logo=github)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
 
 It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, **OpenAI**, **Anthropic Claude**, **Groq**, **Custom OpenAI-Compatible Endpoints** (such as local Ollama or private LLM proxies), **Edge On-Device SLM (LiteRT-LM)**, an **Embedded Model Context Protocol (MCP) Server**, and an **Automated Evaluation & Regression Testing Harness (`RxAgentEvaluator`)** for seamless integration with external AI tools and desktop pharmacy POS systems.
+
+---
+
+## 📦 Releases & Downloads
+
+- 🚀 **GitHub Releases**: Download pre-built APKs, view changelogs, and access release artifacts on the [GitHub Releases Page](https://github.com/FahimFoysal97/LipiRx/releases).
 
 ---
 
@@ -403,3 +412,5 @@ LipiRx is an educational/learning project, not a business or production product,
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 The software is provided "as is", without warranty of any kind. Third-party libraries used in this project (Koog, Koin, Ktor, SQLDelight, LiteRT-LM, etc.) are subject to their own licenses.
+
+---
