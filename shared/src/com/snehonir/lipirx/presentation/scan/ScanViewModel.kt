@@ -59,6 +59,10 @@ class ScanViewModel(
             manageProviderConfigUseCase.getProviderConfig(flow = "App -> ScanViewModel.init.getProviderConfig")
         }.getOrDefault(ProviderConfigEntity())
 
+        val savedStrategy = runCatching {
+            manageProviderConfigUseCase.getOnDeviceStrategy()
+        }.getOrDefault(OnDeviceStrategy.HYBRID_FALLBACK)
+
         val providerObj = AiProvider.fromId(config.providerType)
         val savedModelForProvider = runCatching {
             manageProviderConfigUseCase.getLastSelectedModel(providerObj, flow = "App -> ScanViewModel.init.getLastSelectedModel")
@@ -77,6 +81,7 @@ class ScanViewModel(
             it.copy(
                 provider = providerObj,
                 customUrl = config.customUrl,
+                onDeviceStrategy = savedStrategy,
                 geminiApiKey = geminiKey,
                 groqApiKey = groqKey,
                 openaiApiKey = openaiKey,

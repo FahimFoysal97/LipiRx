@@ -13,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -29,7 +29,6 @@ import com.snehonir.lipirx.presentation.telemetry.AgentTelemetryScreen
 import com.snehonir.lipirx.presentation.telemetry.AgentTraceViewModel
 import com.snehonir.lipirx.ui.BackHandler
 import com.snehonir.lipirx.ui.theme.Lipi
-import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import io.github.aakira.napier.Napier
 import org.koin.compose.koinInject
 
@@ -72,10 +71,10 @@ fun ScanResultScreen(
         viewModel.onImageSelected(imageBytes, flow = pickerFlow)
     }
 
-    var showViewer by remember { mutableStateOf(false) }
-    var showHistoryScreen by remember { mutableStateOf(false) }
-    var showTelemetryScreen by remember { mutableStateOf(false) }
-    var showSettingsScreen by remember { mutableStateOf(false) }
+    var showViewer by rememberSaveable { mutableStateOf(false) }
+    var showHistoryScreen by rememberSaveable { mutableStateOf(false) }
+    var showTelemetryScreen by rememberSaveable { mutableStateOf(false) }
+    var showSettingsScreen by rememberSaveable { mutableStateOf(false) }
 
     val isBackHandlerEnabled = showSettingsScreen || showTelemetryScreen || showHistoryScreen || uiState.selectedHistoryItem != null || uiState.medicines.isNotEmpty() || uiState.capturedImageByteArray != null
 
@@ -113,12 +112,11 @@ fun ScanResultScreen(
         else -> ScanScreenMode.Empty
     }
 
-    LipiRxTheme(themeMode = uiState.themeMode) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Lipi.Background)
-        ) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Lipi.Background)
+    ) {
             AnimatedContent(
                 targetState = currentScreenMode,
                 contentKey = { it::class },
@@ -290,5 +288,4 @@ fun ScanResultScreen(
                 )
             }
         }
-    }
 }
