@@ -36,13 +36,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
+import com.snehonir.lipirx.domain.model.MedicineItem
+import kotlinx.serialization.json.Json
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_clear_history
@@ -247,6 +247,10 @@ private fun HistoryCard(
     onSelect: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val displaySummary = remember(record.medicineSummary) {
+        formatHistoryDisplaySummary(record.medicineSummary)
+    }
+
     Surface(
         onClick = onSelect,
         modifier = Modifier.fillMaxWidth(),
@@ -268,7 +272,7 @@ private fun HistoryCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = record.medicineSummary,
+                    text = displaySummary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Lipi.Ink,
@@ -298,4 +302,21 @@ private fun HistoryCard(
             }
         }
     }
+}
+
+private val jsonParser = Json { ignoreUnknownKeys = true; isLenient = true }
+
+private fun formatHistoryDisplaySummary(summaryText: String): String {
+    if (summaryText.isBlank()) return ""
+    val jsonItems = runCatching {
+        jsonParser.decodeFromString<List<MedicineItem>>(summaryText)
+    }.getOrNull()
+
+    if (!jsonItems.isNullOrEmpty()) {
+        return jsonItems.joinToString(separator = "; ") { item ->
+            val name = item.formattedFullName.ifBlank { item.medicineName }
+            if (item.genericName.isNotBlank()) "$name (${item.genericName})" else name
+        }
+    }
+    return summaryText
 }

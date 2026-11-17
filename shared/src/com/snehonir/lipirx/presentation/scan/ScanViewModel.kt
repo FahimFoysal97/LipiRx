@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import kotlin.time.Duration.Companion.milliseconds
 
 class ScanViewModel(
@@ -47,6 +48,7 @@ class ScanViewModel(
     val uiEvent: Flow<ScanUiEvent> = _uiEvent.receiveAsFlow()
 
     private var processingJob: Job? = null
+    private val jsonParser = Json { ignoreUnknownKeys = true; isLenient = true; prettyPrint = false }
 
     init {
         val geminiKey = runCatching { manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Gemini.id) }.getOrDefault("")
@@ -840,11 +842,20 @@ class ScanViewModel(
 
                     runCatching {
                         val dbFlow = "$flow -> GetScanHistoryUseCase.saveSummary"
-                        val summary = orchResult.items.joinToString(separator = "; ") { item ->
-                            "${item.formattedFullName} (${item.genericName}) [${item.schedule}] Qty: ${item.formattedQuantity}"
+                        val summaryJson = runCatching {
+                            jsonParser.encodeToString(orchResult.items)
+                        }.getOrDefault("")
+
+                        val summaryToSave = if (summaryJson.isNotBlank()) {
+                            summaryJson
+                        } else {
+                            orchResult.items.joinToString(separator = "; ") { item ->
+                                "${item.formattedFullName} (${item.genericName}) [${item.schedule}] Qty: ${item.formattedQuantity}"
+                            }
                         }
-                        if (summary.isNotBlank() && orchResult.items.isNotEmpty()) {
-                            getScanHistoryUseCase.saveSummary(summary, timestampMillis = analyzeStartTime, flow = dbFlow)
+
+                        if (summaryToSave.isNotBlank() && orchResult.items.isNotEmpty()) {
+                            getScanHistoryUseCase.saveSummary(summaryToSave, timestampMillis = analyzeStartTime, flow = dbFlow)
                             getScanHistoryUseCase.saveDispensedHistory(orchResult.items, flow = dbFlow)
                         }
                     }.onFailure { dbEx ->
@@ -990,7 +1001,18 @@ class ScanViewModel(
 
     private fun parseSummaryToMedicineItems(summaryText: String): List<MedicineItem> {
         if (summaryText.isBlank()) return emptyList()
-        return summaryText.split("; ").mapIndexed { _, part ->
+
+        // 1. Decode structured JSON (preserves all medicine properties including similarBrands, instructions, needsReview)
+        val decodedItems = runCatching {
+            jsonParser.decodeFromString<List<MedicineItem>>(summaryText)
+        }.getOrNull()
+
+        if (!decodedItems.isNullOrEmpty()) {
+            return decodedItems
+        }
+
+        // 2. Fallback for legacy plain-text summary strings stored in older history records
+        return summaryText.split("; ").map { part ->
             val clean = part.trim()
             val namePart = clean.substringBefore(" (").trim().ifBlank { clean.substringBefore(" [").trim() }
             val genericPart = if (clean.contains("(") && clean.contains(")")) clean.substringAfter("(").substringBefore(")").trim() else ""
