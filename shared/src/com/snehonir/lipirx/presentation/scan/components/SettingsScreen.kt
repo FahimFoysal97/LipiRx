@@ -425,7 +425,9 @@ fun SettingsScreen(
                 }
             }
 
-            // ── 4. PER-AGENT ASSIGNMENTS (collapsible cards) ─────────────────
+            // ── 4. PER-AGENT ASSIGNMENTS (accordion cards) ─────────────────
+            var expandedAgentType by remember { mutableStateOf<RxAgentType?>(null) }
+
             SettingsSection(
                 icon = PipelineMatrixVectorIcon,
                 title = stringResource(Res.string.section_per_agent_assignments)
@@ -436,6 +438,10 @@ fun SettingsScreen(
                         config = agentConfigs[agentType],
                         providerModelsMap = providerModelsMap,
                         onDeviceStrategy = onDeviceStrategy,
+                        isExpanded = expandedAgentType == agentType,
+                        onToggleExpand = {
+                            expandedAgentType = if (expandedAgentType == agentType) null else agentType
+                        },
                         onProviderSelected = { onAgentProviderSelected(agentType, it) },
                         onModelSelected = { onAgentModelSelected(agentType, it) },
                         onFallbackProviderSelected = { onAgentFallbackProviderSelected(agentType, it) },
@@ -545,13 +551,14 @@ private fun AgentAssignmentCard(
     config: AgentConfig?,
     providerModelsMap: Map<String, List<String>>,
     onDeviceStrategy: OnDeviceStrategy,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
     onProviderSelected: (AiProvider) -> Unit,
     onModelSelected: (String) -> Unit,
     onFallbackProviderSelected: (AiProvider) -> Unit,
     onFallbackModelSelected: (String) -> Unit,
 ) {
-    var expanded by remember(agentType) { mutableStateOf(false) }
-    val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f)
+    val arrowRotation by animateFloatAsState(if (isExpanded) 180f else 0f)
 
     val provider = config?.provider ?: agentType.defaultProvider
     val assignedModel = config?.selectedModel?.ifBlank { "" } ?: ""
@@ -570,12 +577,12 @@ private fun AgentAssignmentCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = Lipi.Surface,
-        border = BorderStroke(1.dp, if (expanded) Lipi.Primary.copy(alpha = 0.4f) else Lipi.CardBorder)
+        border = BorderStroke(1.dp, if (isExpanded) Lipi.Primary.copy(alpha = 0.4f) else Lipi.CardBorder)
     ) {
         Column(modifier = Modifier.animateContentSize()) {
             // Header (always visible)
             Surface(
-                onClick = { expanded = !expanded },
+                onClick = onToggleExpand,
                 color = Color.Transparent,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -606,7 +613,7 @@ private fun AgentAssignmentCard(
                     }
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = stringResource(if (expanded) Res.string.cd_collapse else Res.string.cd_expand),
+                        contentDescription = stringResource(if (isExpanded) Res.string.cd_collapse else Res.string.cd_expand),
                         modifier = Modifier
                             .size(24.dp)
                             .rotate(arrowRotation),
@@ -615,7 +622,7 @@ private fun AgentAssignmentCard(
                 }
             }
 
-            if (expanded) {
+            if (isExpanded) {
                 Divider()
                 Column(
                     modifier = Modifier.padding(14.dp),
