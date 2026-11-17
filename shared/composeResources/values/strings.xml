@@ -204,6 +204,11 @@
     <string name="label_locked_by_strategy">Locked by current strategy</string>
     <string name="content_desc_selected">Selected</string>
 
+    <!-- Provider Models Count Strings -->
+    <string name="label_provider_models_count">%1$s (%2$d)</string>
+    <string name="label_models_available_count">%1$d model(s) available</string>
+    <string name="label_no_models_loaded">No models loaded</string>
+
     <!-- Composite AI Service Progress & Error Strings -->
     <string name="progress_executing_on_device_first">Executing On-Device SLM first...</string>
     <string name="progress_escalating_to_cloud">Escalating to %1$s Cloud AI...</string>

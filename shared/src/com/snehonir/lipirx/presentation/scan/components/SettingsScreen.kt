@@ -95,8 +95,11 @@ import com.snehonir.lipirx.resources.label_fallback_model
 import com.snehonir.lipirx.resources.label_fallback_provider
 import com.snehonir.lipirx.resources.label_locked_by_strategy
 import com.snehonir.lipirx.resources.label_model
+import com.snehonir.lipirx.resources.label_models_available_count
 import com.snehonir.lipirx.resources.label_no_api_key_saved
+import com.snehonir.lipirx.resources.label_no_models_loaded
 import com.snehonir.lipirx.resources.label_provider
+import com.snehonir.lipirx.resources.label_provider_models_count
 import com.snehonir.lipirx.resources.label_select_provider
 import com.snehonir.lipirx.resources.mcp_server_description
 import com.snehonir.lipirx.resources.mcp_server_running
@@ -247,16 +250,23 @@ fun SettingsScreen(
                 title = stringResource(Res.string.section_provider_settings)
             ) {
                 val activeCardProvider = AiProvider.fromId(selectedTabProvider)
+                val activeCardModelsCount = providerModelsMap[activeCardProvider.id]?.size ?: 0
+                val activeCardProviderValue = if (activeCardModelsCount > 0) {
+                    stringResource(Res.string.label_provider_models_count, activeCardProvider.displayName, activeCardModelsCount)
+                } else {
+                    activeCardProvider.displayName
+                }
 
                 SettingsCard {
                     PickerField(
                         label = stringResource(Res.string.label_select_provider),
-                        valueText = activeCardProvider.displayName,
+                        valueText = activeCardProviderValue,
                         accent = activeCardProvider.brandColor,
                         leadingIcon = activeCardProvider.icon,
                         contentDescription = stringResource(Res.string.label_select_provider),
                         options = providerOptions(
                             selectedId = selectedTabProvider,
+                            providerModelsMap = providerModelsMap,
                             onPick = { prov ->
                                 selectedTabProvider = prov.id
                                 onProviderTabSelected(prov.id)
@@ -618,14 +628,21 @@ private fun AgentAssignmentCard(
                         color = Lipi.Muted
                     )
 
+                    val primaryProviderValue = if (liveModels.isNotEmpty()) {
+                        stringResource(Res.string.label_provider_models_count, provider.displayName, liveModels.size)
+                    } else {
+                        provider.displayName
+                    }
+
                     PickerField(
                         label = stringResource(Res.string.label_provider),
-                        valueText = provider.displayName,
+                        valueText = primaryProviderValue,
                         accent = provider.brandColor,
                         leadingIcon = provider.icon,
                         contentDescription = stringResource(Res.string.content_desc_select_provider),
                         options = providerOptions(
                             selectedId = provider.id,
+                            providerModelsMap = providerModelsMap,
                             onPick = onProviderSelected,
                             isLocked = { prov ->
                                 when (onDeviceStrategy) {
@@ -674,6 +691,12 @@ private fun AgentAssignmentCard(
                         }
                         val fallbackModelText = if (fallbackProvider == AiProvider.OnDevice) formatModelDisplayName(rawFallbackModelText) else rawFallbackModelText
 
+                        val fallbackProviderValue = if (fallbackModels.isNotEmpty()) {
+                            stringResource(Res.string.label_provider_models_count, fallbackProvider.displayName, fallbackModels.size)
+                        } else {
+                            fallbackProvider.displayName
+                        }
+
                         Divider()
                         Text(
                             text = stringResource(if (provider != AiProvider.OnDevice) Res.string.label_fallback_badge else Res.string.label_escalation_badge),
@@ -685,12 +708,13 @@ private fun AgentAssignmentCard(
 
                         PickerField(
                             label = stringResource(if (provider != AiProvider.OnDevice) Res.string.label_fallback_provider else Res.string.label_escalation_provider),
-                            valueText = fallbackProvider.displayName,
+                            valueText = fallbackProviderValue,
                             accent = fallbackProvider.brandColor,
                             leadingIcon = fallbackProvider.icon,
                             contentDescription = stringResource(Res.string.content_desc_select_fallback_provider),
                             options = providerOptions(
                                 selectedId = fallbackProvider.id,
+                                providerModelsMap = providerModelsMap,
                                 onPick = onFallbackProviderSelected,
                                 isLocked = { prov ->
                                     when (onDeviceStrategy) {
@@ -733,15 +757,19 @@ private data class MenuOption(
 @Composable
 private fun providerOptions(
     selectedId: String,
+    providerModelsMap: Map<String, List<String>> = emptyMap(),
     onPick: (AiProvider) -> Unit,
     isLocked: (AiProvider) -> Boolean = { false },
 ): List<MenuOption> {
     val lockedText = stringResource(Res.string.label_locked_by_strategy)
+    val noModelsText = stringResource(Res.string.label_no_models_loaded)
     return AiProvider.ALL.map { prov ->
         val locked = isLocked(prov)
+        val count = providerModelsMap[prov.id]?.size ?: 0
+        val countSubtitle = if (count > 0) stringResource(Res.string.label_models_available_count, count) else noModelsText
         MenuOption(
-            title = prov.displayName,
-            subtitle = if (locked) lockedText else null,
+            title = if (count > 0) stringResource(Res.string.label_provider_models_count, prov.displayName, count) else prov.displayName,
+            subtitle = if (locked) lockedText else countSubtitle,
             icon = prov.icon,
             tint = prov.brandColor,
             selected = prov.id == selectedId,
