@@ -14,14 +14,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,8 +48,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -61,7 +64,6 @@ import com.snehonir.lipirx.resources.btn_done
 import com.snehonir.lipirx.resources.btn_sign_off
 import com.snehonir.lipirx.resources.content_desc_prescription
 import com.snehonir.lipirx.resources.disclaimer_text
-import com.snehonir.lipirx.resources.gate_title
 import com.snehonir.lipirx.resources.label_needs_pharmacist_review
 import com.snehonir.lipirx.resources.label_pharmacist_verified
 import com.snehonir.lipirx.resources.no_medicines_subtitle
@@ -90,6 +92,14 @@ fun MedicineListView(
 ) {
     val reviewCount = remember(medicines) { medicines.count { it.needsReview } }
 
+    // Filter: "All" vs "Needs review". Original numbering (#1, #2…) is kept so it still
+    // matches the order on the paper prescription.
+    var showOnlyReview by rememberSaveable { mutableStateOf(false) }
+    val filterActive = showOnlyReview && reviewCount > 0
+    val visibleItems = remember(medicines, filterActive) {
+        medicines.withIndex().filter { !filterActive || it.value.needsReview }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -110,16 +120,16 @@ fun MedicineListView(
                 ) {
                     Surface(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(44.dp)
                             .clip(CircleShape)
-                            .clickable(onClick = { onBackFromHistory?.invoke() }),
+                            .clickable(role = Role.Button, onClick = { onBackFromHistory?.invoke() }),
                         shape = CircleShape,
                         color = Lipi.Surface,
                         border = BorderStroke(1.dp, Lipi.CardBorder)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back to History",
                                 modifier = Modifier.size(20.dp),
                                 tint = Lipi.Ink
@@ -147,17 +157,16 @@ fun MedicineListView(
                     title = stringResource(Res.string.results_title)
                 ) {
                     if (onHistoryClick != null) {
-                        HistoryChip(
-                            onClick = onHistoryClick
-                        )
+                        HistoryChip(onClick = onHistoryClick)
                     }
                 }
             }
 
             LazyColumn(
-                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 130.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 130.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                // 1. Safety first: the pharmacist banner goes above everything else.
                 if (isSuspendedForApproval || reviewCount > 0) {
                     item {
                         PharmacistApprovalBanner(
@@ -168,17 +177,34 @@ fun MedicineListView(
                     }
                 }
 
+                // 2. Summary (count + prescription thumbnail in one card)
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoChip("${medicines.size} medicines")
-                        if (reviewCount > 0) {
-                            ReviewChip("$reviewCount need review")
-                        }
-                    }
+                    SummaryCard(
+                        medicineCount = medicines.size,
+                        imageByteArray = imageByteArray,
+                        onZoom = onZoom
+                    )
                 }
 
-                if (imageByteArray != null) {
-                    item { PrescriptionThumbnail(imageByteArray, onZoom) }
+                // 3. Filter pills (only when something needs review)
+                if (reviewCount > 0) {
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterPill(
+                                text = "All (${medicines.size})",
+                                selected = !filterActive,
+                                accent = Lipi.Primary,
+                                onClick = { showOnlyReview = false }
+                            )
+                            FilterPill(
+                                text = "Needs review ($reviewCount)",
+                                selected = filterActive,
+                                accent = Lipi.Error,
+                                icon = Icons.Default.Warning,
+                                onClick = { showOnlyReview = true }
+                            )
+                        }
+                    }
                 }
 
                 if (medicines.isEmpty()) {
@@ -213,7 +239,9 @@ fun MedicineListView(
                     }
                 }
 
-                itemsIndexed(medicines) { index, item -> MedicineItemCard(index + 1, item) }
+                items(visibleItems) { (originalIndex, item) ->
+                    MedicineItemCard(originalIndex + 1, item)
+                }
 
                 item {
                     Text(
@@ -237,6 +265,7 @@ fun MedicineListView(
             color = Lipi.Surface,
             shadowElevation = 16.dp,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            border = BorderStroke(1.dp, Lipi.CardBorder),
         ) {
             Row(
                 modifier = Modifier
@@ -261,6 +290,10 @@ fun MedicineListView(
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Top-of-list pieces
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun PharmacistApprovalBanner(
@@ -289,7 +322,8 @@ private fun PharmacistApprovalBanner(
                     modifier = Modifier.size(22.dp)
                 )
                 Text(
-                    text = if (isApproved) stringResource(Res.string.label_pharmacist_verified) else stringResource(Res.string.label_needs_pharmacist_review),
+                    text = if (isApproved) stringResource(Res.string.label_pharmacist_verified)
+                    else stringResource(Res.string.label_needs_pharmacist_review),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (isApproved) Lipi.OnPrimaryContainer else Lipi.OnAmber
@@ -299,35 +333,36 @@ private fun PharmacistApprovalBanner(
             Text(
                 text = reason,
                 fontSize = 13.sp,
+                lineHeight = 18.sp,
                 color = Lipi.Ink
             )
 
             if (!isApproved) {
                 Surface(
+                    onClick = onApprove,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClick = onApprove),
+                        .heightIn(min = 48.dp),
                     color = Lipi.Primary,
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp),
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(Res.string.btn_sign_off),
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }
@@ -337,63 +372,107 @@ private fun PharmacistApprovalBanner(
 }
 
 @Composable
-private fun ReviewChip(text: String) {
-    Surface(
-        shape = CircleShape,
-        color = Lipi.Error.copy(alpha = 0.15f)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(13.dp), tint = Lipi.Error)
-            Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Error)
-        }
-    }
-}
-
-@Composable
-private fun PrescriptionThumbnail(
-    imageByteArray: ByteArray,
+private fun SummaryCard(
+    medicineCount: Int,
+    imageByteArray: ByteArray?,
     onZoom: () -> Unit
 ) {
+    val shape = RoundedCornerShape(18.dp)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onZoom),
-        shape = RoundedCornerShape(18.dp),
+            .clip(shape)
+            .clickable(enabled = imageByteArray != null, role = Role.Button, onClick = onZoom),
+        shape = shape,
         color = Lipi.Surface,
         border = BorderStroke(1.dp, Lipi.CardBorder),
     ) {
         Row(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            AsyncImage(
-                model = imageByteArray,
-                contentDescription = stringResource(Res.string.content_desc_prescription),
-                modifier = Modifier
-                    .size(40.dp, 50.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Lipi.ImageWell),
-                contentScale = ContentScale.Crop,
-            )
-            Column {
-                Text(stringResource(Res.string.prescription_scanned), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(14.dp), tint = Lipi.Muted)
-                    Text(stringResource(Res.string.tap_to_zoom), fontSize = 12.sp, color = Lipi.Muted)
+            if (imageByteArray != null) {
+                AsyncImage(
+                    model = imageByteArray,
+                    contentDescription = stringResource(Res.string.content_desc_prescription),
+                    modifier = Modifier
+                        .size(48.dp, 60.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Lipi.ImageWell),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = if (medicineCount == 1) "1 medicine found" else "$medicineCount medicines found",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Lipi.Ink
+                )
+                if (imageByteArray != null) {
+                    Text(
+                        text = stringResource(Res.string.prescription_scanned),
+                        fontSize = 12.sp,
+                        color = Lipi.Muted
+                    )
+                }
+            }
+            if (imageByteArray != null) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = Lipi.Primary
+                    )
+                    Text(
+                        text = stringResource(Res.string.tap_to_zoom),
+                        fontSize = 10.sp,
+                        color = Lipi.Muted
+                    )
                 }
             }
         }
     }
 }
+
+@Composable
+private fun FilterPill(
+    text: String,
+    selected: Boolean,
+    accent: Color,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.heightIn(min = 40.dp),
+        shape = CircleShape,
+        color = if (selected) accent.copy(alpha = 0.15f) else Lipi.Surface,
+        border = BorderStroke(1.dp, if (selected) accent else Lipi.Outline)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = accent)
+            }
+            Text(
+                text = text,
+                fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                color = if (selected) accent else Lipi.Muted
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Medicine card
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun MedicineItemCard(index: Int, item: MedicineItem) {
@@ -418,159 +497,172 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
         shape = cardShape,
         color = Lipi.Surface,
         border = BorderStroke(
-            width = 1.dp,
-            color = if (item.needsReview) Lipi.Error.copy(alpha = 0.4f) else Lipi.CardBorder
+            width = if (item.needsReview) 1.5.dp else 1.dp,
+            color = if (item.needsReview) Lipi.Error.copy(alpha = 0.55f) else Lipi.CardBorder
         ),
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .animateContentSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .animateContentSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // 1. Title block
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 1. Title block: brand + strength / company / generic
-                Row(
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(Lipi.Primary, CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .background(Lipi.Primary, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("$index", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "$index",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = cardTitle,
+                        fontSize = 18.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Lipi.Ink
+                    )
+                    if (item.genericName.isNotBlank()) {
                         Text(
-                            text = cardTitle,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Lipi.Ink
+                            text = item.genericName,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Lipi.Ink.copy(alpha = 0.75f)
                         )
-                        if (company.isNotBlank()) {
-                            Text(company, fontSize = 12.sp, color = Lipi.Muted)
-                        }
-                        if (item.genericName.isNotBlank()) {
-                            Text("Generic: ${item.genericName}", fontSize = 13.sp, color = Lipi.Muted)
-                        }
+                    }
+                    if (company.isNotBlank()) {
+                        Text(company, fontSize = 12.sp, color = Lipi.Muted)
                     }
                 }
+            }
 
-                // 2. One merged review banner
-                if (item.needsReview) {
+            // 2. Review banner
+            if (item.needsReview) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Lipi.Error.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp), tint = Lipi.Error)
+                    Text(
+                        text = buildString {
+                            append("Needs review")
+                            if (!reviewNote.isNullOrBlank()) append(": $reviewNote")
+                        },
+                        fontSize = 12.5.sp,
+                        lineHeight = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.Error,
+                    )
+                }
+            }
+
+            // 3. Dose as the hero
+            if (doseSlots != null && doseSlots.size == 3) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Morning", "Noon", "Night").zip(doseSlots).forEach { (label, value) ->
+                        DoseSlot(label, value, Modifier.weight(1f))
+                    }
+                }
+            } else if (item.schedule.isNotBlank()) {
+                Badge("Schedule: ${item.schedule}", Lipi.AmberContainer, Lipi.OnAmber)
+            }
+
+            // 4. Secondary info
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Meal timing is safety-relevant, so it keeps the accent colour.
+                mealLabel?.let { Badge(it, Lipi.AmberContainer, Lipi.OnAmber) }
+
+                Badge("Qty: ${quantityText(item.units, item.unitType)}", Lipi.PrimaryContainer, Lipi.OnPrimaryContainer)
+
+                if (item.dosageForm.isNotBlank() && !item.dosageForm.equals(item.unitType, ignoreCase = true)) {
+                    Badge("Form: ${item.dosageForm}", Lipi.ImageWell, Lipi.Ink)
+                }
+
+                if (cleanInstructions.isNotBlank() && cleanInstructions.length <= 20) {
+                    Badge(cleanInstructions, Lipi.ImageWell, Lipi.Ink)
+                }
+            }
+
+            // Long instruction text
+            if (cleanInstructions.length > 20) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Lipi.ImageWell
+                ) {
+                    Text(
+                        text = cleanInstructions,
+                        modifier = Modifier.padding(12.dp),
+                        fontSize = 12.5.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Lipi.Ink
+                    )
+                }
+            }
+
+            // 5. Collapsible alternatives
+            if (alternatives.isNotEmpty()) {
+                val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Lipi.Background, RoundedCornerShape(14.dp)),
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Lipi.Error.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .heightIn(min = 48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(role = Role.Button) { expanded = !expanded }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp), tint = Lipi.Error)
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Lipi.Muted)
                         Text(
-                            text = buildString {
-                                append("Needs review")
-                                if (!reviewNote.isNullOrBlank()) append(": $reviewNote")
-                            },
-                            fontSize = 12.5.sp,
+                            text = "${alternatives.size} similar brands",
+                            modifier = Modifier.weight(1f),
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Lipi.Error,
+                            color = Lipi.Muted,
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = if (expanded) "Collapse" else "Expand",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .rotate(rotation),
+                            tint = Lipi.Muted
                         )
                     }
-                }
-
-                // 3. Dose as the hero
-                if (doseSlots != null && doseSlots.size == 3) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Morning", "Noon", "Night").zip(doseSlots).forEach { (label, value) ->
-                            DoseSlot(label, value, Modifier.weight(1f))
-                        }
-                    }
-                } else if (item.schedule.isNotBlank()) {
-                    Badge("Schedule: ${item.schedule}", Lipi.AmberContainer, Lipi.OnAmber)
-                }
-
-                // 4. Secondary info badges
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Badge("Qty: ${quantityText(item.units, item.unitType)}", Lipi.PrimaryContainer, Lipi.OnPrimaryContainer)
-
-                    mealLabel?.let { Badge(it, Lipi.AmberContainer, Lipi.OnAmber) }
-
-                    if (item.dosageForm.isNotBlank() && !item.dosageForm.equals(item.unitType, ignoreCase = true)) {
-                        Badge("Form: ${item.dosageForm}", Lipi.ImageWell, Lipi.Ink)
-                    }
-
-                    if (cleanInstructions.isNotBlank() && cleanInstructions.length <= 20) {
-                        Badge(cleanInstructions, Lipi.ImageWell, Lipi.Ink)
-                    }
-                }
-
-                // Detailed long instruction card if instruction is long
-                if (cleanInstructions.length > 20) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = Lipi.ImageWell
-                    ) {
-                        Text(
-                            text = cleanInstructions,
-                            modifier = Modifier.padding(10.dp),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Lipi.Ink
-                        )
-                    }
-                }
-
-                // 5. Collapsible alternatives
-                if (alternatives.isNotEmpty()) {
-                    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Lipi.Background, RoundedCornerShape(14.dp)),
-                    ) {
-                        Row(
+                    if (expanded) {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .clickable { expanded = !expanded }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Lipi.Muted)
-                            Text(
-                                text = "${alternatives.size} similar brands",
-                                modifier = Modifier.weight(1f),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Lipi.Muted,
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = if (expanded) "Collapse" else "Expand",
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .rotate(rotation),
-                                tint = Lipi.Muted
-                            )
-                        }
-                        if (expanded) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                alternatives.forEach { AlternativeChip(it) }
-                            }
+                            alternatives.forEach { AlternativeChip(it) }
                         }
                     }
                 }
@@ -582,15 +674,15 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
 @Composable
 private fun DoseSlot(label: String, value: String, modifier: Modifier = Modifier) {
     val active = value.trim() != "0" && value.isNotBlank()
+    val textColor = if (active) MaterialTheme.colorScheme.onPrimary else Lipi.Muted
     Column(
         modifier = modifier
             .background(if (active) Lipi.Primary else Lipi.ImageWell, RoundedCornerShape(12.dp))
-            .padding(vertical = 8.dp),
+            .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val c = if (active) Color.White else Lipi.Muted
-        Text(label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = c.copy(alpha = 0.9f))
-        Text(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = c)
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(alpha = 0.9f))
+        Text(value, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
     }
 }
 
@@ -605,12 +697,19 @@ private fun AlternativeChip(alt: Alternative) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(alt.brand, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Lipi.Ink)
+            Text(
+                alt.brand,
+                modifier = Modifier.weight(1f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Lipi.Ink
+            )
             if (alt.company.isNotBlank()) {
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(alt.company, fontSize = 11.sp, color = Lipi.Muted)
             }
         }
@@ -620,9 +719,19 @@ private fun AlternativeChip(alt: Alternative) {
 @Composable
 private fun Badge(text: String, container: Color, content: Color) {
     Surface(shape = RoundedCornerShape(10.dp), color = container) {
-        Text(text, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = content)
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = content
+        )
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Parsing helpers (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
 
 private fun parseManufacturer(prescribedBrandFull: String): String {
     if (prescribedBrandFull.contains("(") && prescribedBrandFull.contains(")")) {
@@ -725,4 +834,50 @@ private fun fixInstructionsText(text: String): String {
     var clean = text.trim().removeSuffix("?").trim()
     if (clean == "সাথ") clean = "খাবারের সাথে"
     return clean
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Compose Preview
+// ─────────────────────────────────────────────────────────────────────────────
+@Preview
+@Composable
+fun MedicineListViewPreview() {
+    val sampleMedicines = listOf(
+        MedicineItem(
+            medicineName = "Napa Extra",
+            strengthValue = "500mg+65mg",
+            prescribedBrandFull = "Napa Extra 500mg+65mg (Beximco Pharmaceuticals Ltd.)",
+            genericName = "Paracetamol + Caffeine",
+            dosageForm = "Tablet",
+            schedule = "1 + 0 + 1",
+            units = 10,
+            unitType = "tablets",
+            instructions = "খাবারের পর খাবেন",
+            similarBrands = listOf("Ace Plus (Square Pharmaceuticals)", "Fast Plus (Acme Laboratories)"),
+            needsReview = false
+        ),
+        MedicineItem(
+            medicineName = "Seclo 20",
+            strengthValue = "20mg",
+            prescribedBrandFull = "Seclo 20mg (Square Pharmaceuticals Ltd.)",
+            genericName = "Omeprazole",
+            dosageForm = "Capsule",
+            schedule = "1 + 0 + 1",
+            units = 14,
+            unitType = "capsules",
+            instructions = "খাবারের ৩০ মিনিট আগে",
+            similarBrands = listOf("Losectil 20 (Eskayef Pharmaceuticals)", "Esonix 20 (Incepta Pharmaceuticals)"),
+            needsReview = true,
+            possibleMisreading = "Unclear strength notation"
+        )
+    )
+
+    MedicineListView(
+        imageByteArray = null,
+        medicines = sampleMedicines,
+        onZoom = {},
+        onCopySummary = {},
+        onRescan = {},
+        onApproveAndConfirm = {}
+    )
 }
