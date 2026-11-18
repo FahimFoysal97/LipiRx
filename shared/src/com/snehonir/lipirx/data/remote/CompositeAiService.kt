@@ -49,7 +49,12 @@ class CompositeAiService(
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>> {
         val primaryService = getService(provider)
-        val targetFallbackProvider = fallbackProvider ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
+        val targetFallbackProvider = fallbackProvider ?: when (strategy) {
+            OnDeviceStrategy.CLOUD_ONLY -> if (provider != AiProvider.OnDevice) provider else AiProvider.Gemini
+            OnDeviceStrategy.ON_DEVICE_ONLY -> AiProvider.OnDevice
+            OnDeviceStrategy.HYBRID_FALLBACK -> AiProvider.OnDevice
+            OnDeviceStrategy.ON_DEVICE_FIRST -> AiProvider.Gemini
+        }
         val fallbackService = getService(targetFallbackProvider)
 
         Napier.d("[$flow] Executing processPrescriptionImage with strategy '${strategy.id}' (Primary: ${provider.displayName}, Fallback: ${targetFallbackProvider.displayName})", tag = TAG)
@@ -126,7 +131,12 @@ class CompositeAiService(
         flow: String = "App -> CompositeAiService.processTextPrompt"
     ): Result<String> {
         val primaryService = getService(provider)
-        val targetFallbackProvider = fallbackProvider ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
+        val targetFallbackProvider = fallbackProvider ?: when (strategy) {
+            OnDeviceStrategy.CLOUD_ONLY -> if (provider != AiProvider.OnDevice) provider else AiProvider.Gemini
+            OnDeviceStrategy.ON_DEVICE_ONLY -> AiProvider.OnDevice
+            OnDeviceStrategy.HYBRID_FALLBACK -> AiProvider.OnDevice
+            OnDeviceStrategy.ON_DEVICE_FIRST -> AiProvider.Gemini
+        }
         val fallbackService = getService(targetFallbackProvider)
 
         return when (strategy) {

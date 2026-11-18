@@ -2,6 +2,7 @@ package com.snehonir.lipirx.domain.agent
 
 import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 
 data class TranscriptionInput(
     val imageByteArray: ByteArray,
@@ -10,6 +11,7 @@ data class TranscriptionInput(
     val providedApiKey: String = "",
     val customUrl: String = "",
     val mimeType: String = AppConstants.MIME_TYPE_JPEG,
+    val strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
     val fallbackProvider: AiProvider? = null,
     val fallbackModel: String = "",
     val onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
@@ -23,6 +25,7 @@ data class TranscriptionInput(
                 providedApiKey == otherInput.providedApiKey &&
                 customUrl == otherInput.customUrl &&
                 mimeType == otherInput.mimeType &&
+                strategy == otherInput.strategy &&
                 fallbackProvider == otherInput.fallbackProvider &&
                 fallbackModel == otherInput.fallbackModel
     }
@@ -34,7 +37,8 @@ data class TranscriptionInput(
         result = 31 * result + providedApiKey.hashCode()
         result = 31 * result + customUrl.hashCode()
         result = 31 * result + mimeType.hashCode()
-        result = 31 * result + (fallbackProvider?.hashCode() ?: 0)
+        result = 31 * result + strategy.hashCode()
+        result = 31 * result + fallbackProvider.hashCode()
         result = 31 * result + fallbackModel.hashCode()
         return result
     }

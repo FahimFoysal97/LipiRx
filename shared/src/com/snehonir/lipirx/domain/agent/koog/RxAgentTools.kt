@@ -5,6 +5,7 @@ import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.agent.koog.dto.*
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
 
@@ -21,6 +22,7 @@ class RxAgentTools(
             provider = input.provider,
             customUrl = input.customUrl,
             mimeType = input.mimeType,
+            strategy = input.strategy,
             fallbackProvider = input.fallbackProvider,
             fallbackModel = input.fallbackModel,
             flow = "Koog -> VisionOCRTool",
@@ -100,6 +102,7 @@ class RxAgentTools(
                 providedApiKey = params.apiKey,
                 provider = provider,
                 customUrl = params.customUrl,
+                strategy = OnDeviceStrategy.fromId(params.strategy),
                 fallbackProvider = AiProvider.fromId(params.fallbackProvider),
                 fallbackModel = params.fallbackModel,
                 flow = "Koog -> EntityParsingTool (Attempt ${attempts + 1})"
@@ -160,6 +163,7 @@ class RxAgentTools(
                 providedApiKey = params.apiKey,
                 provider = provider,
                 customUrl = params.customUrl,
+                strategy = OnDeviceStrategy.fromId(params.strategy),
                 fallbackProvider = AiProvider.fromId(params.fallbackProvider),
                 fallbackModel = params.fallbackModel,
                 flow = "Koog -> GenericSubstituteTool (Attempt ${attempts + 1})"
@@ -203,6 +207,7 @@ class RxAgentTools(
                 providedApiKey = params.apiKey,
                 provider = provider,
                 customUrl = params.customUrl,
+                strategy = OnDeviceStrategy.fromId(params.strategy),
                 fallbackProvider = AiProvider.fromId(params.fallbackProvider),
                 fallbackModel = params.fallbackModel,
                 flow = "Koog -> SafetyAuditTool (Attempt ${attempts + 1})"

@@ -8,10 +8,12 @@ import com.snehonir.lipirx.domain.model.MedicineItem
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
@@ -40,14 +42,7 @@ abstract class OpenAiCompatibleAiService(
             }
 
             val endpoint = if (provider == AiProvider.Custom) {
-                val normalizedUrl = normalizeCustomUrl(customUrl)
-                if (normalizedUrl.contains("/chat/completions")) {
-                    normalizedUrl.replace("/chat/completions", "/models")
-                } else if (normalizedUrl.endsWith("/")) {
-                    "${normalizedUrl}models"
-                } else {
-                    "$normalizedUrl/models"
-                }
+                resolveCustomModelsEndpoint(customUrl)
             } else {
                 modelsEndpoint
             }
@@ -109,7 +104,7 @@ abstract class OpenAiCompatibleAiService(
 
             onProgress(1, "Reading handwriting")
             val endpoint = if (provider == AiProvider.Custom) {
-                normalizeCustomUrl(customUrl).ifBlank { completionsEndpoint }
+                resolveCustomCompletionsEndpoint(customUrl)
             } else {
                 completionsEndpoint
             }
@@ -175,7 +170,7 @@ abstract class OpenAiCompatibleAiService(
             }
             val cleanModel = selectedModel.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).ifBlank { provider.defaultModel }
             val endpoint = if (provider == AiProvider.Custom) {
-                normalizeCustomUrl(customUrl).ifBlank { completionsEndpoint }
+                resolveCustomCompletionsEndpoint(customUrl)
             } else {
                 completionsEndpoint
             }
@@ -194,15 +189,31 @@ abstract class OpenAiCompatibleAiService(
             )
 
             val requestJson = jsonParser.encodeToString(requestPayload)
-            val responseText: String = httpClient.post(endpoint) {
-                if (targetApiKey.isNotBlank()) {
-                    header(HttpHeaders.Authorization, "Bearer $targetApiKey")
+            val responseText: String = try {
+                httpClient.post(endpoint) {
+                    if (targetApiKey.isNotBlank()) {
+                        header(HttpHeaders.Authorization, "Bearer $targetApiKey")
+                    }
+                    header("HTTP-Referer", "https://github.com/FahimFoysal97/LipiRx")
+                    header("X-Title", "LipiRx")
+                    contentType(ContentType.Application.Json)
+                    setBody(requestJson)
+                }.body()
+            } catch (postEx: Throwable) {
+                val errorBody = if (postEx is ResponseException) {
+                    runCatching { postEx.response.bodyAsText() }.getOrNull() ?: ""
+                } else {
+                    ""
                 }
-                contentType(ContentType.Application.Json)
-                setBody(requestJson)
-            }.body()
+                val apiErrorMsg = if (errorBody.isNotBlank()) parseOpenAiErrorResponse(errorBody) else null
+                val finalMsg = apiErrorMsg ?: formatErrorMessage(postEx)
+                throw IllegalStateException(finalMsg, postEx)
+            }
 
             val response = jsonParser.decodeFromString<OpenAiChatResponse>(responseText)
+            if (response.error != null) {
+                throw IllegalStateException("API Error: ${response.error.message ?: "Unknown error"}")
+            }
             val content = response.choices?.firstOrNull()?.message?.content
                 ?: throw IllegalStateException("No content received from ${provider.displayName}.")
             Result.success(content)
@@ -253,13 +264,26 @@ abstract class OpenAiCompatibleAiService(
         val requestJson = jsonParser.encodeToString(payload)
         Napier.d("[$flow] Sending OpenAI-compatible POST request (${requestJson.length} bytes) to $endpoint", tag = TAG)
 
-        val responseText: String = httpClient.post(endpoint) {
-            contentType(ContentType.Application.Json)
-            if (apiKey.isNotBlank()) {
-                header(HttpHeaders.Authorization, "Bearer $apiKey")
+        val responseText: String = try {
+            httpClient.post(endpoint) {
+                contentType(ContentType.Application.Json)
+                if (apiKey.isNotBlank()) {
+                    header(HttpHeaders.Authorization, "Bearer $apiKey")
+                }
+                header("HTTP-Referer", "https://github.com/FahimFoysal97/LipiRx")
+                header("X-Title", "LipiRx")
+                setBody(requestJson)
+            }.body()
+        } catch (postEx: Throwable) {
+            val errorBody = if (postEx is ResponseException) {
+                runCatching { postEx.response.bodyAsText() }.getOrNull() ?: ""
+            } else {
+                ""
             }
-            setBody(requestJson)
-        }.body()
+            val apiErrorMsg = if (errorBody.isNotBlank()) parseOpenAiErrorResponse(errorBody) else null
+            val finalMsg = apiErrorMsg ?: formatErrorMessage(postEx)
+            throw IllegalStateException(finalMsg, postEx)
+        }
 
         Napier.d("[$flow -> RawResponse] OpenAI-compatible Raw Response:\n$responseText", tag = TAG)
 
@@ -272,6 +296,13 @@ abstract class OpenAiCompatibleAiService(
             ?: throw IllegalStateException("No text response received from AI model.")
 
         return cleanJsonResponse(content)
+    }
+
+    private fun parseOpenAiErrorResponse(rawJson: String): String? {
+        return runCatching {
+            val openAiResponse = jsonParser.decodeFromString<OpenAiChatResponse>(rawJson)
+            openAiResponse.error?.message?.takeIf { it.isNotBlank() }
+        }.getOrNull()
     }
 
     private fun parseTwoPassResponse(responseText: String): GeminiTwoPassResponse {
@@ -455,6 +486,9 @@ abstract class OpenAiCompatibleAiService(
             msg.contains("404") || msg.contains("NOT_FOUND", ignoreCase = true) -> {
                 "Model not found. Please select an available model."
             }
+            msg.contains("422") || msg.contains("Unprocessable", ignoreCase = true) -> {
+                "Unprocessable request (422) from ${provider.displayName}. Please verify your selected model ID in Model Settings."
+            }
             msg.contains("timeout", ignoreCase = true) -> {
                 "Network request timed out. Please check your internet connection."
             }
@@ -462,11 +496,33 @@ abstract class OpenAiCompatibleAiService(
         }
     }
 
+    private fun resolveCustomCompletionsEndpoint(customUrl: String): String {
+        val normalized = normalizeCustomUrl(customUrl)
+        if (normalized.isBlank()) return completionsEndpoint
+        val clean = normalized.removeSuffix("/")
+        return when {
+            clean.endsWith("/chat/completions") -> clean
+            clean.endsWith("/v1") -> "$clean/chat/completions"
+            else -> "$clean/v1/chat/completions"
+        }
+    }
+
+    private fun resolveCustomModelsEndpoint(customUrl: String): String {
+        val normalized = normalizeCustomUrl(customUrl)
+        if (normalized.isBlank()) return modelsEndpoint
+        val clean = normalized.removeSuffix("/")
+        return when {
+            clean.endsWith("/models") -> clean
+            clean.endsWith("/v1") -> "$clean/models"
+            else -> "$clean/v1/models"
+        }
+    }
+
     private fun normalizeCustomUrl(url: String): String {
         val trimmed = url.trim()
         if (trimmed.isBlank()) return ""
         return if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
-            "http://$trimmed"
+            "https://$trimmed"
         } else {
             trimmed
         }

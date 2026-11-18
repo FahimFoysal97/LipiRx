@@ -783,6 +783,7 @@ class ScanViewModel(
                 provider = visionProvider,
                 providedApiKey = visionApiKey,
                 customUrl = customUrl,
+                strategy = state.onDeviceStrategy,
                 onProgress = { step, statusText ->
                     Napier.d("[$flow -> Progress] Step $step: $statusText", tag = TAG)
                     val agent = RxAgentType.entries.getOrNull(step) ?: RxAgentType.SUPERVISOR

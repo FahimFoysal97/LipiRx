@@ -10,6 +10,7 @@ data class ToolExecutionParams(
     val customUrl: String = "",
     val feedbackPrompt: String = "",
     val memoryContext: String = "",
+    val strategy: String = "hybrid_fallback",
     val fallbackProvider: String = "",
     val fallbackModel: String = ""
 )

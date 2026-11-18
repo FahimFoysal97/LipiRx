@@ -11,6 +11,7 @@ import com.snehonir.lipirx.domain.agent.SupervisorState
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.data.local.getPlatformEpochMillis
 import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
@@ -49,7 +50,8 @@ class KoogRxSupervisorEngine(
                 provider = supervisorRuntime.provider,
                 selectedModel = supervisorRuntime.model,
                 apiKey = supervisorRuntime.apiKey,
-                customUrl = supervisorRuntime.customUrl
+                customUrl = supervisorRuntime.customUrl,
+                strategy = input.strategy
             )
             val supervisorTimeMs = getPlatformEpochMillis() - supervisorStartTime
 
@@ -109,6 +111,7 @@ class KoogRxSupervisorEngine(
                 customUrl = workerRuntime.customUrl,
                 feedbackPrompt = decision.feedbackPrompt,
                 memoryContext = state.episodicMemory,
+                strategy = input.strategy.id,
                 fallbackProvider = workerRuntime.fallbackProvider.id,
                 fallbackModel = workerRuntime.fallbackModel
             )
@@ -252,7 +255,15 @@ class KoogRxSupervisorEngine(
             .ifBlank { provider.defaultModel }
         val model = config.selectedModel.ifBlank { savedProviderModel }
 
-        val fallbackProvider = config.fallbackProvider ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
+        val activeStrategy = database.getOnDeviceStrategy()
+        val defaultFallbackProv = when (activeStrategy) {
+            OnDeviceStrategy.CLOUD_ONLY -> if (provider != AiProvider.OnDevice) provider else AiProvider.Gemini
+            OnDeviceStrategy.ON_DEVICE_ONLY -> AiProvider.OnDevice
+            OnDeviceStrategy.HYBRID_FALLBACK -> AiProvider.OnDevice
+            OnDeviceStrategy.ON_DEVICE_FIRST -> AiProvider.Gemini
+        }
+
+        val fallbackProvider = config.fallbackProvider ?: defaultFallbackProv
         val fallbackModel = config.fallbackModel.ifBlank {
             database.getLastSelectedModel(fallbackProvider, flow = "KoogEngine -> getFallbackModel")
                 .ifBlank { fallbackProvider.defaultModel }

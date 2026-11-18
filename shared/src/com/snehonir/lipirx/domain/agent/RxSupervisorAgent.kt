@@ -7,6 +7,8 @@ import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.getString
 
+import com.snehonir.lipirx.domain.model.OnDeviceStrategy
+
 class RxSupervisorAgent(
     private val aiService: CompositeAiService? = null,
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -18,12 +20,13 @@ class RxSupervisorAgent(
         provider: AiProvider = AiProvider.Gemini,
         selectedModel: String = "",
         apiKey: String = "",
-        customUrl: String = ""
+        customUrl: String = "",
+        strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK
     ): SupervisorDecision {
         Napier.d("[$agentName] Turn ${state.turnCount + 1}: Evaluating state (items=${state.items.size}, historySize=${state.history.size}, memoryLength=${state.episodicMemory.length})...", tag = TAG)
 
         if (canExecuteAiService(provider, apiKey, customUrl)) {
-            executeSupervisorLlmLoop(state, provider, selectedModel, apiKey, customUrl)?.let { decision ->
+            executeSupervisorLlmLoop(state, provider, selectedModel, apiKey, customUrl, strategy)?.let { decision ->
                 Napier.d("[$agentName -> LLM Decision] Next: ${decision.nextAgent?.id ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${decision.reasoning}", tag = TAG)
                 return decision
             }
@@ -43,7 +46,8 @@ class RxSupervisorAgent(
         provider: AiProvider,
         selectedModel: String,
         apiKey: String,
-        customUrl: String
+        customUrl: String,
+        strategy: OnDeviceStrategy
     ): SupervisorDecision? {
         val service = aiService ?: return null
         val initialPrompt = buildSupervisorPrompt(state)
@@ -58,6 +62,7 @@ class RxSupervisorAgent(
                 providedApiKey = apiKey,
                 provider = provider,
                 customUrl = customUrl,
+                strategy = strategy,
                 flow = "Supervisor -> $agentName (Attempt ${attempts + 1})"
             )
 
