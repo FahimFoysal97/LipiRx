@@ -362,7 +362,7 @@ The project includes CLI wrappers `kotlin` (macOS/Linux) and `kotlin.bat` (Windo
 
 You can generate custom-named APKs directly into a dedicated `apks/` directory using the provided build helpers:
 
-- **Generate Custom-Named Debug APK (`apks/LipiRx-v0.3-debug.apk`)**:
+- **Generate Custom-Named Debug APK (`apks/LipiRx-v0.4-debug.apk`)**:
   ```powershell
   # Windows PowerShell
   .\build-apk.bat debug
@@ -371,13 +371,22 @@ You can generate custom-named APKs directly into a dedicated `apks/` directory u
   ./build-apk.sh debug
   ```
 
-- **Generate Custom-Named Release APK (`apks/LipiRx-v0.3-release.apk`)**:
+- **Generate Custom-Named Release APK (`apks/LipiRx-v0.4-release.apk`)**:
   ```powershell
   # Windows PowerShell
   .\build-apk.bat release
 
   # macOS / Linux
   ./build-apk.sh release
+  ```
+
+- **Generate Signed Release APK (`apks/LipiRx-v0.4-release-signed.apk`)**:
+  ```powershell
+  # Windows PowerShell
+  .\sign-release.bat
+
+  # macOS / Linux
+  ./sign-release.sh
   ```
 
 - **Standard Build Task Commands**:

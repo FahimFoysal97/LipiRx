@@ -3,6 +3,8 @@
 build/
 apks/
 *.apk
+*.jks
+*.keystore
 .DS_Store
 captures
 **/module.xcodeproj/*
