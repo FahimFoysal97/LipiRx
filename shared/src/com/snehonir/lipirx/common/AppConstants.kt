@@ -65,4 +65,9 @@ object AppConstants {
     const val HTTP_TIMEOUT_MILLIS = 60_000L
 
     const val EVAL_ACCURACY_THRESHOLD = 0.8f
+
+    const val ERROR_ENTER_VALID_GEMINI_KEY = "error_enter_valid_gemini_key"
+    const val ERROR_ENTER_VALID_URL = "error_enter_valid_url"
+    const val ERROR_NO_MODELS_FOUND = "error_no_models_found"
+    const val ERROR_CONNECTION_FAILED = "error_connection_failed"
 }

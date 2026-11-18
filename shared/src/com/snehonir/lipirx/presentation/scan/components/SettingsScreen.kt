@@ -92,6 +92,9 @@ import com.snehonir.lipirx.resources.content_desc_select_model
 import com.snehonir.lipirx.resources.content_desc_select_provider
 import com.snehonir.lipirx.resources.content_desc_select_strategy
 import com.snehonir.lipirx.resources.content_desc_selected
+import com.snehonir.lipirx.resources.error_enter_valid_gemini_key
+import com.snehonir.lipirx.resources.error_enter_valid_url
+import com.snehonir.lipirx.resources.error_no_models_found
 import com.snehonir.lipirx.resources.label_api_key
 import com.snehonir.lipirx.resources.label_api_key_saved
 import com.snehonir.lipirx.resources.label_custom_url
@@ -104,6 +107,7 @@ import com.snehonir.lipirx.resources.label_locked_by_strategy
 import com.snehonir.lipirx.resources.label_model
 import com.snehonir.lipirx.resources.label_models_available_count
 import com.snehonir.lipirx.resources.label_no_api_key_saved
+import com.snehonir.lipirx.resources.label_no_matches
 import com.snehonir.lipirx.resources.label_no_models_loaded
 import com.snehonir.lipirx.resources.label_provider
 import com.snehonir.lipirx.resources.label_provider_models_count
@@ -115,6 +119,7 @@ import com.snehonir.lipirx.resources.no_local_models_found
 import com.snehonir.lipirx.resources.on_device_info_banner
 import com.snehonir.lipirx.resources.placeholder_custom_url_example
 import com.snehonir.lipirx.resources.placeholder_paste_key
+import com.snehonir.lipirx.resources.placeholder_search
 import com.snehonir.lipirx.resources.section_appearance_theme
 import com.snehonir.lipirx.resources.section_mcp
 import com.snehonir.lipirx.resources.section_mcp_endpoint
@@ -184,10 +189,10 @@ fun SettingsScreen(
     var selectedTabProvider by remember(providerType) { mutableStateOf(providerType) }
 
     val keyForSelectedProvider = when (selectedTabProvider) {
-        "groq" -> groqApiKey.ifBlank { apiKey }
-        "openai" -> openaiApiKey.ifBlank { apiKey }
-        "claude" -> claudeApiKey.ifBlank { apiKey }
-        "custom" -> customApiKey.ifBlank { apiKey }
+        AiProvider.Groq.id -> groqApiKey.ifBlank { apiKey }
+        AiProvider.OpenAi.id -> openaiApiKey.ifBlank { apiKey }
+        AiProvider.Claude.id -> claudeApiKey.ifBlank { apiKey }
+        AiProvider.Custom.id -> customApiKey.ifBlank { apiKey }
         else -> geminiApiKey.ifBlank { apiKey }
     }
 
@@ -284,7 +289,7 @@ fun SettingsScreen(
 
                     // Custom endpoint: only the URL is needed here. The model is picked
                     // per agent, from the list the endpoint returns.
-                    if (selectedTabProvider == "custom") {
+                    if (selectedTabProvider == AiProvider.Custom.id) {
                         OutlinedTextField(
                             value = inputUrl,
                             onValueChange = { inputUrl = it },
@@ -299,7 +304,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    if (selectedTabProvider == "on_device") {
+                    if (selectedTabProvider == AiProvider.OnDevice.id) {
                         InfoNote(
                             text = stringResource(Res.string.on_device_info_banner),
                             icon = Icons.Default.Info
@@ -347,7 +352,15 @@ fun SettingsScreen(
                             },
                             isError = !apiKeyError.isNullOrBlank(),
                             supportingText = if (!apiKeyError.isNullOrBlank()) {
-                                { Text(apiKeyError) }
+                                {
+                                    val resolvedError = when (apiKeyError) {
+                                        AppConstants.ERROR_ENTER_VALID_GEMINI_KEY -> stringResource(Res.string.error_enter_valid_gemini_key)
+                                        AppConstants.ERROR_ENTER_VALID_URL -> stringResource(Res.string.error_enter_valid_url)
+                                        AppConstants.ERROR_NO_MODELS_FOUND -> stringResource(Res.string.error_no_models_found)
+                                        else -> apiKeyError
+                                    }
+                                    Text(resolvedError)
+                                }
                             } else null,
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp)
@@ -393,7 +406,7 @@ fun SettingsScreen(
                             onClick = {
                                 // The custom model is no longer typed here; keep whatever is
                                 // currently selected so saving the endpoint doesn't wipe it.
-                                val modelForSave = if (selectedTabProvider == "custom") selectedModel else ""
+                                val modelForSave = if (selectedTabProvider == AiProvider.Custom.id) selectedModel else ""
                                 onSaveProviderConfig(selectedTabProvider, inputUrl, inputKey, modelForSave)
                             },
                             modifier = Modifier
@@ -1053,7 +1066,7 @@ private fun SearchablePickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp),
-                    placeholder = { Text("Search…", fontSize = 14.sp) },
+                    placeholder = { Text(stringResource(Res.string.placeholder_search), fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, null, Modifier.size(20.dp), tint = Lipi.Muted)
                     },
@@ -1084,7 +1097,7 @@ private fun SearchablePickerDialog(
 
                 if (filtered.isEmpty()) {
                     Text(
-                        text = "No matches",
+                        text = stringResource(Res.string.label_no_matches),
                         fontSize = 13.sp,
                         color = Lipi.Muted,
                         modifier = Modifier
@@ -1266,7 +1279,7 @@ private fun ThemeModeSelector(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = mode.displayName,
+                            text = stringResource(mode.displayNameRes),
                             fontSize = 12.5.sp,
                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
                             color = if (isSelected) Lipi.OnPrimaryContainer else Lipi.Muted,

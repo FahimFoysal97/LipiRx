@@ -479,11 +479,11 @@ class ScanViewModel(
         val cleanModelInput = modelName.trim()
 
         if (providerObj == AiProvider.Gemini && cleanKey.isBlank()) {
-            _uiState.update { it.copy(apiKeyError = "error_enter_valid_gemini_key", apiKeySuccess = null) }
+            _uiState.update { it.copy(apiKeyError = AppConstants.ERROR_ENTER_VALID_GEMINI_KEY, apiKeySuccess = null) }
             return
         }
         if (providerObj == AiProvider.Custom && cleanUrl.isBlank()) {
-            _uiState.update { it.copy(apiKeyError = "error_enter_valid_url", apiKeySuccess = null) }
+            _uiState.update { it.copy(apiKeyError = AppConstants.ERROR_ENTER_VALID_URL, apiKeySuccess = null) }
             return
         }
 
@@ -554,14 +554,14 @@ class ScanViewModel(
                         _uiState.update {
                             it.copy(
                                 isTestingApiKey = false,
-                                apiKeyError = "error_no_models_found",
+                                apiKeyError = AppConstants.ERROR_NO_MODELS_FOUND,
                                 apiKeySuccess = null
                             )
                         }
                     }
                 },
                 onFailure = { ex ->
-                    val errorMsg = ex.message?.ifBlank { "error_connection_failed" } ?: "error_connection_failed"
+                    val errorMsg = ex.message?.ifBlank { AppConstants.ERROR_CONNECTION_FAILED } ?: AppConstants.ERROR_CONNECTION_FAILED
                     Napier.w("[$flow -> Failure] Provider test failed: $errorMsg", throwable = ex, tag = TAG)
                     _uiState.update {
                         it.copy(
