@@ -247,6 +247,7 @@
     <string name="update_checking">Checking for updates...</string>
     <string name="update_up_to_date">You're up to date (%1$s)</string>
     <string name="update_available_title">LipiRx v%1$s is available</string>
+    <string name="update_available_msg">A new version (v%1$s) of LipiRx is available to download and install.</string>
     <string name="update_downloading_title">Downloading update...</string>
     <string name="update_permission_title">Install Permission Required</string>
     <string name="update_permission_msg">LipiRx needs permission to install unknown apps to complete this update.</string>

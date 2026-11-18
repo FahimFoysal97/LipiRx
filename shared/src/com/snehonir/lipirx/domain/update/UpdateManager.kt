@@ -86,7 +86,8 @@ class UpdateManager(
                 val apkAsset = releaseDto.assets?.firstOrNull { it.name?.endsWith(".apk", ignoreCase = true) == true }
                     ?: throw IllegalStateException("No APK asset found in release $tagName.")
 
-                val sha256Asset = releaseDto.assets?.firstOrNull { it.name?.endsWith(".sha256", ignoreCase = true) == true }
+                val sha256Asset =
+                    releaseDto.assets.firstOrNull { it.name?.endsWith(".sha256", ignoreCase = true) == true }
 
                 UpdateInfo(
                     versionName = versionName,
