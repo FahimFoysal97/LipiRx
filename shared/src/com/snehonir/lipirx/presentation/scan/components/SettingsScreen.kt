@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,7 +33,9 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,6 +68,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
@@ -86,7 +94,6 @@ import com.snehonir.lipirx.resources.content_desc_select_strategy
 import com.snehonir.lipirx.resources.content_desc_selected
 import com.snehonir.lipirx.resources.label_api_key
 import com.snehonir.lipirx.resources.label_api_key_saved
-import com.snehonir.lipirx.resources.label_custom_model
 import com.snehonir.lipirx.resources.label_custom_url
 import com.snehonir.lipirx.resources.label_escalation_badge
 import com.snehonir.lipirx.resources.label_escalation_provider
@@ -106,7 +113,6 @@ import com.snehonir.lipirx.resources.mcp_server_running
 import com.snehonir.lipirx.resources.no_live_models_found
 import com.snehonir.lipirx.resources.no_local_models_found
 import com.snehonir.lipirx.resources.on_device_info_banner
-import com.snehonir.lipirx.resources.placeholder_custom_model_example
 import com.snehonir.lipirx.resources.placeholder_custom_url_example
 import com.snehonir.lipirx.resources.placeholder_paste_key
 import com.snehonir.lipirx.resources.section_appearance_theme
@@ -131,6 +137,9 @@ import com.snehonir.lipirx.ui.theme.icons.ProviderSettingsVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.SystemThemeVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.icon
 import org.jetbrains.compose.resources.stringResource
+
+/** Lists longer than this open a searchable full list instead of a small dropdown. */
+private const val SEARCH_THRESHOLD = 8
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen
@@ -184,7 +193,6 @@ fun SettingsScreen(
 
     var inputKey by remember(selectedTabProvider, keyForSelectedProvider) { mutableStateOf(keyForSelectedProvider) }
     var inputUrl by remember(customUrl) { mutableStateOf(customUrl) }
-    var inputCustomModel by remember(selectedModel) { mutableStateOf(if (selectedTabProvider == "custom") selectedModel else "") }
 
     val displayKeyText = remember(inputKey) { formatMaskedApiKey(inputKey) }
 
@@ -274,6 +282,8 @@ fun SettingsScreen(
                         )
                     )
 
+                    // Custom endpoint: only the URL is needed here. The model is picked
+                    // per agent, from the list the endpoint returns.
                     if (selectedTabProvider == "custom") {
                         OutlinedTextField(
                             value = inputUrl,
@@ -281,18 +291,6 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text(stringResource(Res.string.label_custom_url)) },
                             placeholder = { Text(stringResource(Res.string.placeholder_custom_url_example), fontSize = 12.sp) },
-                            leadingIcon = {
-                                Icon(CustomUrlVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        OutlinedTextField(
-                            value = inputCustomModel,
-                            onValueChange = { inputCustomModel = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text(stringResource(Res.string.label_custom_model)) },
-                            placeholder = { Text(stringResource(Res.string.placeholder_custom_model_example), fontSize = 12.sp) },
                             leadingIcon = {
                                 Icon(CustomUrlVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
                             },
@@ -393,7 +391,10 @@ fun SettingsScreen(
 
                         Button(
                             onClick = {
-                                onSaveProviderConfig(selectedTabProvider, inputUrl, inputKey, inputCustomModel)
+                                // The custom model is no longer typed here; keep whatever is
+                                // currently selected so saving the endpoint doesn't wipe it.
+                                val modelForSave = if (selectedTabProvider == "custom") selectedModel else ""
+                                onSaveProviderConfig(selectedTabProvider, inputUrl, inputKey, modelForSave)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -813,7 +814,11 @@ private fun modelOptions(
     )
 }
 
-/** A tappable "field" that opens a menu. One implementation for every dropdown on the screen. */
+/**
+ * A tappable "field" that opens a picker. One implementation for every dropdown on the screen.
+ * Short lists open a small dropdown; lists longer than [SEARCH_THRESHOLD] open a searchable
+ * full list so people don't have to scroll through dozens of models.
+ */
 @Composable
 private fun PickerField(
     valueText: String,
@@ -826,13 +831,14 @@ private fun PickerField(
     contentDescription: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val useSearchDialog = options.size > SEARCH_THRESHOLD
     val scrollState = rememberScrollState()
     var selectedY by remember(expanded) { mutableStateOf<Int?>(null) }
 
-    // Scroll the open menu so the selected item is visible.
+    // Dropdown only: scroll the open menu so the selected item is visible.
     LaunchedEffect(expanded, selectedY) {
         val y = selectedY
-        if (expanded && y != null) {
+        if (!useSearchDialog && expanded && y != null) {
             scrollState.scrollTo(y.coerceAtMost(scrollState.maxValue))
         }
     }
@@ -886,84 +892,279 @@ private fun PickerField(
                     )
                 }
                 Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
+                    imageVector = if (useSearchDialog) Icons.Default.Search else Icons.Default.ArrowDropDown,
                     contentDescription = contentDescription,
                     modifier = Modifier
                         .size(24.dp)
-                        .rotate(arrowRotation),
+                        .rotate(if (useSearchDialog) 0f else arrowRotation),
                     tint = if (isError) Lipi.Error else Lipi.Muted
                 )
             }
         }
 
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .background(Lipi.Surface)
-        ) {
-            Column(
+        if (useSearchDialog) {
+            if (expanded) {
+                SearchablePickerDialog(
+                    title = label ?: contentDescription.orEmpty(),
+                    options = options,
+                    onDismiss = { expanded = false }
+                )
+            }
+        } else {
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 260.dp)
-                    .verticalScroll(scrollState)
+                    .fillMaxWidth(0.85f)
+                    .background(Lipi.Surface)
             ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        modifier = if (option.selected) {
-                            Modifier.onGloballyPositioned { coordinates ->
-                                if (selectedY == null) selectedY = coordinates.positionInParent().y.toInt()
-                            }
-                        } else Modifier,
-                        enabled = option.enabled,
-                        leadingIcon = if (option.icon != null) {
-                            {
-                                Icon(
-                                    imageVector = option.icon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (option.enabled) option.tint else option.tint.copy(alpha = 0.4f)
-                                )
-                            }
-                        } else null,
-                        trailingIcon = if (option.selected) {
-                            {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = stringResource(Res.string.content_desc_selected),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = option.tint
-                                )
-                            }
-                        } else null,
-                        text = {
-                            Column {
-                                Text(
-                                    text = option.title,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (option.selected) FontWeight.Bold else FontWeight.Medium,
-                                    color = when {
-                                        !option.enabled -> Lipi.Muted.copy(alpha = 0.6f)
-                                        option.selected -> option.tint
-                                        else -> Lipi.Ink
-                                    }
-                                )
-                                if (option.subtitle != null) {
-                                    Text(
-                                        text = option.subtitle,
-                                        fontSize = 11.sp,
-                                        color = Lipi.Muted
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 260.dp)
+                        .verticalScroll(scrollState)
+                ) {
+                    options.forEach { option ->
+                        DropdownMenuItem(
+                            modifier = if (option.selected) {
+                                Modifier.onGloballyPositioned { coordinates ->
+                                    if (selectedY == null) selectedY = coordinates.positionInParent().y.toInt()
+                                }
+                            } else Modifier,
+                            enabled = option.enabled,
+                            leadingIcon = if (option.icon != null) {
+                                {
+                                    Icon(
+                                        imageVector = option.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = if (option.enabled) option.tint else option.tint.copy(alpha = 0.4f)
                                     )
                                 }
+                            } else null,
+                            trailingIcon = if (option.selected) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = stringResource(Res.string.content_desc_selected),
+                                        modifier = Modifier.size(16.dp),
+                                        tint = option.tint
+                                    )
+                                }
+                            } else null,
+                            text = {
+                                Column {
+                                    Text(
+                                        text = option.title,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (option.selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = when {
+                                            !option.enabled -> Lipi.Muted.copy(alpha = 0.6f)
+                                            option.selected -> option.tint
+                                            else -> Lipi.Ink
+                                        }
+                                    )
+                                    if (option.subtitle != null) {
+                                        Text(
+                                            text = option.subtitle,
+                                            fontSize = 11.sp,
+                                            color = Lipi.Muted
+                                        )
+                                    }
+                                }
+                            },
+                            onClick = {
+                                option.onClick()
+                                expanded = false
                             }
-                        },
-                        onClick = {
-                            option.onClick()
-                            expanded = false
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Full list with a search box. Opens scrolled to the current selection; typing filters live. */
+@Composable
+private fun SearchablePickerDialog(
+    title: String,
+    options: List<MenuOption>,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+
+    val filtered = remember(query, options) {
+        val q = query.trim()
+        if (q.isEmpty()) options
+        else options.filter {
+            it.title.contains(q, ignoreCase = true) || it.subtitle?.contains(q, ignoreCase = true) == true
+        }
+    }
+
+    val selectedIndex = remember { options.indexOfFirst { it.selected }.coerceAtLeast(0) }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0))
+
+    // When the user starts typing, jump back to the top of the results.
+    LaunchedEffect(query) {
+        if (query.isNotBlank()) listState.scrollToItem(0)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .heightIn(max = 560.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = Lipi.Surface,
+            border = BorderStroke(1.dp, Lipi.CardBorder)
+        ) {
+            Column(modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.Ink,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(Res.string.btn_cancel),
+                            modifier = Modifier.size(20.dp),
+                            tint = Lipi.Muted
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    placeholder = { Text("Search…", fontSize = 14.sp) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, null, Modifier.size(20.dp), tint = Lipi.Muted)
+                    },
+                    trailingIcon = if (query.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = Lipi.Muted
+                                )
+                            }
                         }
+                    } else null,
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                if (query.isNotBlank()) {
+                    Text(
+                        text = "${filtered.size} / ${options.size}",
+                        fontSize = 11.sp,
+                        color = Lipi.Muted,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                     )
                 }
+
+                if (filtered.isEmpty()) {
+                    Text(
+                        text = "No matches",
+                        fontSize = 13.sp,
+                        color = Lipi.Muted,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.weight(1f, fill = false),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(filtered) { option ->
+                            PickerRow(
+                                option = option,
+                                onClick = {
+                                    option.onClick()
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickerRow(option: MenuOption, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        enabled = option.enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = if (option.selected) option.tint.copy(alpha = 0.12f) else Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (option.icon != null) {
+                Icon(
+                    imageVector = option.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = if (option.enabled) option.tint else option.tint.copy(alpha = 0.4f)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = option.title,
+                    fontSize = 13.5.sp,
+                    fontWeight = if (option.selected) FontWeight.Bold else FontWeight.Medium,
+                    color = when {
+                        !option.enabled -> Lipi.Muted.copy(alpha = 0.6f)
+                        option.selected -> option.tint
+                        else -> Lipi.Ink
+                    }
+                )
+                if (option.subtitle != null) {
+                    Text(
+                        text = option.subtitle,
+                        fontSize = 11.sp,
+                        color = Lipi.Muted
+                    )
+                }
+            }
+            if (option.selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = stringResource(Res.string.content_desc_selected),
+                    modifier = Modifier.size(18.dp),
+                    tint = option.tint
+                )
             }
         }
     }
