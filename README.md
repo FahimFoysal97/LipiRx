@@ -7,7 +7,7 @@
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
 [![Release v0.3](https://img.shields.io/badge/Release_v0.3-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
-[![MIT License](https://img.shields.io/badge/MIT_License-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
+[![MIT License](https://img.shields.io/badge/License-MIT-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
 
@@ -40,19 +40,22 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 
 1. **Supervisor-Driven Multi-Agent Orchestration (JetBrains Koog)**:
     - Configurable **Per-Agent AI Assignments Matrix** allowing developers and pharmacists to assign specific primary providers/models AND dedicated fallback providers/models for every agent (including `📱 On-Device SLM`).
+    - Single-expanded **accordion card behavior** in Settings preventing visual clutter.
     - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`decision.reasoning`), per-agent task completion percentages (`0% → 100%`), active agent name banners, and execution timing logs.
 
 2. **Self-Healing & 3-Attempt Retry Execution Wrappers**:
     - **Cloud AI 3-Attempt Retry Rule**: `CompositeAiService` attempts primary Cloud AI model requests up to 3 times before triggering the agent's assigned fallback model.
     - **JSON Self-Healing Wrapper (`SelfHealingAgentExecutor`)**: Automatically catches `SerializationException` and JSON formatting errors, generates targeted schema repair prompts, and retries execution up to 2 times.
 
-3. **Dedicated Full-Screen Settings Screen & Shared Header**:
-    - Full-screen `SettingsScreen` featuring collapsible per-agent cards, dynamic arrow animations, and type-safe `OnDeviceStrategy` explanations.
+3. **Dedicated Full-Screen Settings Screen & High-Contrast Theme System**:
+    - Full-screen `SettingsScreen` featuring single-accordion per-agent cards, live provider model count indicators (e.g. `Google Gemini (8)`), and type-safe `OnDeviceStrategy` explanations.
     - Standardized top navigation header across all secondary screens using a shared `AppHeader` component.
+    - **High-Contrast Theme System**: Refined Light Theme primary (`#267A70`) and red (`#B8463F`) color tokens meeting 5:1 WCAG contrast ratios. Full `surfaceContainer` role mappings ensuring Material 3 dialogs, menus, and bottom sheets adopt app theme colors cleanly.
     - **3-Way Theme Switcher**: Instant switching between **System Default**, **Dark Theme**, and **Light Theme** with persistent SQLDelight storage and clean 3-tab segmented control (`ThemeIcons.kt`).
 
 4. **Per-Scan Accordion AgentOps Telemetry Dashboard**:
     - Grouped raw execution traces into **Per-Scan Session Accordion Cards** (`TelemetryScanSession`), displaying pipeline duration (formatted in hours, minutes, seconds, and milliseconds via localized string resources), total hops, extracted item count, pass/fail status, and AI Engine summary (`Gemini • gemini-2.5-flash` or `Multi-Provider (Gemini, OpenAI)`).
+    - **Individual Session Trace Deletion**: Delete single scan trace sessions or clear all telemetry records with confirmation dialogs.
     - Single-card accordion expansion behavior revealing detailed in-card per-turn agent reasoning and diagnostics.
     - Permanent **"Run Benchmark"** action bar in the telemetry header for instant evaluation triggers.
 
@@ -69,7 +72,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - `RxAgentEvaluator` executes the pipeline against golden benchmark test cases (`RxEvalTestCase`), computing extraction accuracy %, turn counts, and latency.
     - Exposes on-device evaluation runner via MCP Tool `eval_run_benchmark` (`http://localhost:8080/lipirx/mcp`).
 
-8. **Multi-Provider AI Engine with Official Vector Logos**:
+8. **Multi-Provider AI Engine with Live Model Counts & Official Vector Logos**:
     - **Google Gemini** (`Color(0xFF4285F4)`): Dynamic model discovery via Gemini REST API (`gemini-2.5-flash`, etc.).
     - **OpenAI** (`Color(0xFF10A37F)`): Integration with OpenAI Vision models (`gpt-4o`, etc.).
     - **Anthropic Claude** (`Color(0xFFD97757)`): Multimodal Vision integration via Anthropic `/v1/messages` and dynamic model discovery (`claude-3-5-sonnet-20241022`, etc.).
@@ -77,9 +80,9 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Custom Endpoint** (`Color(0xFF546E7A)`): Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
     - **On-Device SLM** (`Color(0xFF0B7A6E)`): Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage with clean extension stripping (`.litertlm`, `.tflite`, `.bin`, `.gguf`).
 
-9. **Scan History & Local Storage Management**:
-    - SQLDelight SQLite storage saving prescription scan history and cross-session episodic dispensing memory.
-    - Interactive `HistoryScreen` supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
+9. **Scan History & Full JSON Local Storage Management**:
+    - SQLDelight SQLite storage saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
+    - Interactive `HistoryScreen` displaying medicine count & review requirement chips, supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
 
 10. **Safety & UX Controls**:
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
@@ -180,7 +183,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 ## 🛠️ Tech Stack & Architecture
 
 - **Platforms**: Android & iOS
-- **UI Framework**: Compose Multiplatform with Material 3 (adaptive layouts, custom themes & 3-way mode toggle)
+- **UI Framework**: Compose Multiplatform with Material 3 (adaptive layouts, high-contrast custom themes & 3-way mode toggle)
 - **Multi-Agent Pipeline**: `KoogRxSupervisorEngine` + `RxSupervisorAgent` dispatching to type-safe `RxAgentTools`
 - **Protocol Integration**: Model Context Protocol (MCP) JSON-RPC 2.0 server (`LipiRxMcpServer` + `McpHttpServer` on port 8080)
 - **Multi-Provider AI Architecture**: Strategy Pattern (`PrescriptionAiService` -> `GeminiAiService`, `OpenAiAiService`, `ClaudeAiService`, `GroqAiService`, `CustomAiService`, `OnDeviceAiService`, managed by `CompositeAiService`)
@@ -359,7 +362,7 @@ The project includes CLI wrappers `kotlin` (macOS/Linux) and `kotlin.bat` (Windo
 
 You can generate custom-named APKs directly into a dedicated `apks/` directory using the provided build helpers:
 
-- **Generate Custom-Named Debug APK (`apks/LipiRx-v1.0.0-debug.apk`)**:
+- **Generate Custom-Named Debug APK (`apks/LipiRx-v0.3-debug.apk`)**:
   ```powershell
   # Windows PowerShell
   .\build-apk.bat debug
@@ -368,7 +371,7 @@ You can generate custom-named APKs directly into a dedicated `apks/` directory u
   ./build-apk.sh debug
   ```
 
-- **Generate Custom-Named Release APK (`apks/LipiRx-v1.0.0-release.apk`)**:
+- **Generate Custom-Named Release APK (`apks/LipiRx-v0.3-release.apk`)**:
   ```powershell
   # Windows PowerShell
   .\build-apk.bat release
@@ -407,6 +410,31 @@ You can generate custom-named APKs directly into a dedicated `apks/` directory u
 
 ---
 
+## 🔮 Future Roadmap & Feature Ideas
+
+The following high-impact features are saved for future implementation:
+
+1. 📦 **Real-Time Pharmacy Stock & Pricing Agent (`InventoryCheckTool`)**:
+   - Add a 6th Koog Agent Tool (`executeInventoryCheck`) querying local SQLite pharmacy inventory (`MedicineStock`).
+   - Displays stock availability (In Stock / Low Stock) and calculates total estimated bill in BDT (৳).
+
+2. 🔊 **Patient Voice Dosage Instructions (TTS / Audio)**:
+   - Add Text-To-Speech audio playback on each extracted medicine card for voice dosage instructions in Bengali/English (*“নাপা এক্সট্রা ৫০০ মিলিগ্রাম — দিনে ২ বার, খাবারের পর”*).
+
+3. 📄 **Export & Print PDF Dispensing Receipt / Slip**:
+   - Generate professional pharmacy dispensing receipts and printable PDF slips formatted for receipt printers with pharmacy branding and pharmacist sign-off block.
+
+4. 📲 **Patient QR Code Label Generator**:
+   - Generate printable QR codes for medicine package labels that patients or pharmacists can scan to view digital prescription instructions and safety warnings.
+
+5. ⏰ **Automatic Refill & Medication Adherence Reminders**:
+   - Calculate prescription end dates from `units` and `schedule` and schedule local system notifications for patient refill reminders.
+
+6. 📥 **In-App SLM Model Download Manager in Settings**:
+   - Download open-source SLM model weights (`Qwen3-0.6B.litertlm`, `Gemma-2B.tflite`) directly over Wi-Fi inside `SettingsScreen.kt` without requiring `adb push`.
+
+---
+
 ## ⚠️ Disclaimer (Reminder)
 
 LipiRx is an educational/learning project, not a business or production product, and not a substitute for professional medical or pharmaceutical judgment. AI output can be wrong. Use it cautiously and entirely at your own responsibility — the author is not responsible for any issues arising from its use.
@@ -418,5 +446,3 @@ LipiRx is an educational/learning project, not a business or production product,
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 The software is provided "as is", without warranty of any kind. Third-party libraries used in this project (Koog, Koin, Ktor, SQLDelight, LiteRT-LM, etc.) are subject to their own licenses.
-
----
