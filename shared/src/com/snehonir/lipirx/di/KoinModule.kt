@@ -22,6 +22,7 @@ import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
 import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
+import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.presentation.scan.ScanViewModel
 import com.snehonir.lipirx.presentation.telemetry.AgentTraceViewModel
 import io.github.aakira.napier.DebugAntilog
@@ -124,6 +125,9 @@ val sharedModule = module {
     single { ProcessPrescriptionUseCase(koogSupervisorEngine = get(), aiService = get()) }
     single { GetScanHistoryUseCase(repository = get()) }
     single { ManageProviderConfigUseCase(repository = get()) }
+
+    // Self-Update Manager
+    single { UpdateManager(httpClient = get(), platformUpdater = get(), jsonParser = get()) }
 
     factory {
         ScanViewModel(

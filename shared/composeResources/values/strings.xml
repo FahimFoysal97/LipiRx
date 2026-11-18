@@ -239,4 +239,22 @@
     <string name="label_generic_substitutes">DGDA Generic Substitutes</string>
     <string name="label_needs_pharmacist_review">Needs Pharmacist Sign-Off</string>
     <string name="label_pharmacist_verified">Pharmacist Verified</string>
+
+    <!-- Self-Update & About Strings -->
+    <string name="section_about">About LipiRx</string>
+    <string name="label_app_version">Version %1$s</string>
+    <string name="btn_check_for_updates">Check for updates</string>
+    <string name="update_checking">Checking for updates...</string>
+    <string name="update_up_to_date">You're up to date (%1$s)</string>
+    <string name="update_available_title">LipiRx v%1$s is available</string>
+    <string name="update_downloading_title">Downloading update...</string>
+    <string name="update_permission_title">Install Permission Required</string>
+    <string name="update_permission_msg">LipiRx needs permission to install unknown apps to complete this update.</string>
+    <string name="update_ready_title">Update Ready to Install</string>
+    <string name="update_ready_msg">LipiRx v%1$s has been downloaded and is ready to install.</string>
+    <string name="btn_update_now">Update now</string>
+    <string name="btn_open_settings">Open Settings</string>
+    <string name="btn_install_now">Install Now</string>
+    <string name="btn_later">Later</string>
+    <string name="btn_retry">Retry</string>
 </resources>

@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +20,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.presentation.scan.components.EmptyStateView
 import com.snehonir.lipirx.presentation.scan.components.FullScreenImagePreviewDialog
 import com.snehonir.lipirx.presentation.scan.components.HistoryScreen
@@ -27,6 +33,7 @@ import com.snehonir.lipirx.presentation.scan.components.MedicineListView
 import com.snehonir.lipirx.presentation.scan.components.SettingsScreen
 import com.snehonir.lipirx.presentation.telemetry.AgentTelemetryScreen
 import com.snehonir.lipirx.presentation.telemetry.AgentTraceViewModel
+import com.snehonir.lipirx.presentation.update.UpdateDialog
 import com.snehonir.lipirx.ui.BackHandler
 import com.snehonir.lipirx.ui.theme.Lipi
 import io.github.aakira.napier.Napier
@@ -61,6 +68,24 @@ fun ScanResultScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val traceViewModel: AgentTraceViewModel = koinInject()
+    val updateManager: UpdateManager = koinInject()
+
+    LaunchedEffect(Unit) {
+        updateManager.checkForUpdates(silent = true)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                updateManager.onPermissionResultCheck()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
@@ -287,5 +312,8 @@ fun ScanResultScreen(
                     onDismiss = { showViewer = false }
                 )
             }
+
+            // Self-Update Prompt Dialog
+            UpdateDialog(updateManager = updateManager)
         }
 }

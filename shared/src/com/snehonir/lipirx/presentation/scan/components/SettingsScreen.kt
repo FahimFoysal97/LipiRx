@@ -35,12 +35,14 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +53,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,8 +80,15 @@ import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.model.ThemeMode
 import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.domain.update.UpdateManager
+import com.snehonir.lipirx.domain.update.UpdateState
+import com.snehonir.lipirx.presentation.update.UpdateContent
 import com.snehonir.lipirx.resources.btn_cancel
+import com.snehonir.lipirx.resources.btn_check_for_updates
 import com.snehonir.lipirx.resources.btn_connecting_saving
+import com.snehonir.lipirx.resources.label_app_version
+import com.snehonir.lipirx.resources.section_about
+import org.koin.compose.koinInject
 import com.snehonir.lipirx.resources.btn_save_config
 import com.snehonir.lipirx.resources.btn_view_telemetry
 import com.snehonir.lipirx.resources.cd_collapse
@@ -181,6 +191,7 @@ fun SettingsScreen(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onSelectThemeMode: (ThemeMode) -> Unit = {},
     onViewTelemetry: (() -> Unit)? = null,
+    updateManager: UpdateManager = koinInject(),
     onClose: () -> Unit
 ) {
     @Suppress("DEPRECATION")
@@ -546,6 +557,57 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            // ── 6. ABOUT LIPIRX & UPDATES ────────────────────────────────────
+            SettingsSection(
+                icon = Icons.Default.Info,
+                title = stringResource(Res.string.section_about)
+            ) {
+                val updateState by updateManager.updateState.collectAsState()
+                val currentVer = updateManager.currentVersionName
+
+                SettingsCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "LipiRx",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Lipi.Ink
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(Res.string.label_app_version, currentVer),
+                                fontSize = 12.5.sp,
+                                color = Lipi.Muted
+                            )
+                        }
+
+                        val isCheckingOrDownloading = updateState is UpdateState.Checking || updateState is UpdateState.Downloading
+
+                        SecondaryButton(
+                            text = stringResource(Res.string.btn_check_for_updates),
+                            icon = Icons.Default.Refresh,
+                            enabled = !isCheckingOrDownloading,
+                            onClick = { updateManager.checkForUpdates(silent = false) },
+                            height = 44.dp,
+                            fontSize = 13
+                        )
+                    }
+
+                    if (updateState !is UpdateState.Idle) {
+                        HorizontalDivider(color = Lipi.Outline.copy(alpha = 0.5f), thickness = 1.dp)
+                        UpdateContent(
+                            state = updateState,
+                            updateManager = updateManager
+                        )
                     }
                 }
             }
