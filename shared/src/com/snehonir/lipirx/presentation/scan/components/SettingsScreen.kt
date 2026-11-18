@@ -596,7 +596,7 @@ fun SettingsScreen(
                             text = stringResource(Res.string.btn_check_for_updates),
                             icon = Icons.Default.Refresh,
                             enabled = !isCheckingOrDownloading,
-                            onClick = { updateManager.checkForUpdates(silent = false) },
+                            onClick = { updateManager.checkForUpdates(silent = false, fromSettings = true) },
                             height = 44.dp,
                             fontSize = 13
                         )

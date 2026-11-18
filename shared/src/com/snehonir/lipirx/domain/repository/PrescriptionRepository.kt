@@ -20,6 +20,8 @@ interface PrescriptionRepository {
     fun getOnDeviceStrategy(): OnDeviceStrategy
     fun saveMcpServerEnabled(enabled: Boolean, flow: String = "")
     fun isMcpServerEnabled(): Boolean
+    fun saveDismissedUpdateVersion(version: String, flow: String = "")
+    fun getDismissedUpdateVersion(): String
     fun saveSelectedModel(modelName: String, provider: AiProvider = AiProvider.Gemini, flow: String = "")
     fun getLastSelectedModel(provider: AiProvider = AiProvider.Gemini, flow: String = ""): String
     fun saveApiKey(apiKey: String, flow: String = "")

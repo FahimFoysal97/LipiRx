@@ -256,6 +256,22 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
         return raw.toBooleanStrictOrNull() ?: false
     }
 
+    override fun saveDismissedUpdateVersion(version: String, flow: String) {
+        Napier.d("[$flow] Saving dismissed update version '$version' into SQLite", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.DISMISSED_UPDATE_VERSION.key)
+            bindString(1, version)
+        }
+    }
+
+    override fun getDismissedUpdateVersion(): String {
+        return getConfigValue(AppConfigKey.DISMISSED_UPDATE_VERSION.key)
+    }
+
     override fun saveSelectedModel(
         modelName: String,
         provider: AiProvider,

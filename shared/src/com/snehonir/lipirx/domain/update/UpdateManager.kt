@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.domain.update
 
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.domain.update.dto.GitHubReleaseDto
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
@@ -19,10 +20,14 @@ import kotlinx.serialization.json.Json
 class UpdateManager(
     private val httpClient: HttpClient,
     private val platformUpdater: PlatformUpdater,
+    private val repository: PrescriptionRepository,
     private val jsonParser: Json
 ) {
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+
+    private val _isDialogDismissed = MutableStateFlow(false)
+    val isDialogDismissed: StateFlow<Boolean> = _isDialogDismissed.asStateFlow()
 
     private var downloadJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -30,10 +35,14 @@ class UpdateManager(
     val currentVersionName: String
         get() = platformUpdater.getAppVersionName()
 
-    fun checkForUpdates(silent: Boolean = false) {
+    fun checkForUpdates(silent: Boolean = false, fromSettings: Boolean = false) {
         val current = _updateState.value
         if (current is UpdateState.Checking || current is UpdateState.Downloading) {
             return
+        }
+
+        if (fromSettings) {
+            _isDialogDismissed.value = true
         }
 
         if (!silent) {
@@ -45,6 +54,14 @@ class UpdateManager(
             result.fold(
                 onSuccess = { updateInfo ->
                     if (updateInfo != null) {
+                        val dismissedVersion = repository.getDismissedUpdateVersion()
+                        if (fromSettings) {
+                            _isDialogDismissed.value = true
+                        } else if (silent && updateInfo.versionName == dismissedVersion) {
+                            _isDialogDismissed.value = true
+                        } else {
+                            _isDialogDismissed.value = false
+                        }
                         _updateState.value = UpdateState.Available(updateInfo)
                     } else {
                         if (!silent) {
@@ -138,7 +155,7 @@ class UpdateManager(
                         }
                     }
 
-                    // Check install permission
+                    // Check installation permission
                     if (platformUpdater.canRequestPackageInstalls()) {
                         platformUpdater.installApk(apkPath)
                         _updateState.value = UpdateState.ReadyToInstall(updateInfo, apkPath)
@@ -187,7 +204,21 @@ class UpdateManager(
         platformUpdater.installApk(apkPath)
     }
 
+    fun dismissDialog() {
+        val versionName = when (val current = _updateState.value) {
+            is UpdateState.Available -> current.updateInfo.versionName
+            is UpdateState.NeedsInstallPermission -> current.updateInfo.versionName
+            is UpdateState.ReadyToInstall -> current.updateInfo.versionName
+            else -> null
+        }
+        if (!versionName.isNullOrBlank()) {
+            repository.saveDismissedUpdateVersion(versionName)
+        }
+        _isDialogDismissed.value = true
+    }
+
     fun resetState() {
+        _isDialogDismissed.value = false
         _updateState.value = UpdateState.Idle
     }
 

@@ -13,7 +13,8 @@ enum class AppConfigKey(val key: String) {
     CUSTOM_API_KEY("custom_api_key"),
     ON_DEVICE_STRATEGY("on_device_strategy"),
     MCP_SERVER_ENABLED("mcp_server_enabled"),
-    THEME_MODE("theme_mode");
+    THEME_MODE("theme_mode"),
+    DISMISSED_UPDATE_VERSION("dismissed_update_version");
 
     companion object {
         fun keyForProvider(provider: AiProvider): AppConfigKey = when (provider) {

@@ -1,5 +1,16 @@
 package com.snehonir.lipirx.presentation.update
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,7 +48,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -56,6 +73,7 @@ import com.snehonir.lipirx.resources.update_available_msg
 import com.snehonir.lipirx.resources.update_available_title
 import com.snehonir.lipirx.resources.update_checking
 import com.snehonir.lipirx.resources.update_downloading_title
+import com.snehonir.lipirx.resources.update_keep_open_hint
 import com.snehonir.lipirx.resources.update_permission_msg
 import com.snehonir.lipirx.resources.update_permission_title
 import com.snehonir.lipirx.resources.update_ready_msg
@@ -69,6 +87,7 @@ fun UpdateDialog(
     updateManager: UpdateManager
 ) {
     val state by updateManager.updateState.collectAsState()
+    val isDialogDismissed by updateManager.isDialogDismissed.collectAsState()
 
     // An Error that follows a real update step (e.g. the download failed) must be shown,
     // otherwise the dialog just vanishes. An Error from a silent background check must stay hidden.
@@ -83,41 +102,61 @@ fun UpdateDialog(
         lastWasActive = active
     }
 
-    val showDialog = showError || when (state) {
+    val showDialog = !isDialogDismissed && (showError || when (state) {
         is UpdateState.Available,
         is UpdateState.Downloading,
         is UpdateState.NeedsInstallPermission,
         is UpdateState.ReadyToInstall -> true
         else -> false
-    }
+    })
 
     if (showDialog) {
         val isDownloading = state is UpdateState.Downloading
 
         Dialog(
             onDismissRequest = {
-                if (!isDownloading) updateManager.resetState()
+                if (!isDownloading) updateManager.dismissDialog()
             },
             properties = DialogProperties(
                 dismissOnBackPress = !isDownloading,
-                dismissOnClickOutside = false,
+                // Tapping outside is a natural "later" everywhere except mid-download,
+                // where an accidental tap shouldn't hide progress.
+                dismissOnClickOutside = !isDownloading,
                 usePlatformDefaultWidth = false
             )
         ) {
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp)
+                    .widthIn(max = 420.dp) // keeps the card tidy on tablets / desktop
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
                 color = Lipi.Surface,
                 border = BorderStroke(1.dp, Lipi.CardBorder),
                 shadowElevation = 8.dp
             ) {
-                UpdateContent(
-                    state = state,
-                    updateManager = updateManager,
-                    modifier = Modifier.padding(20.dp)
-                )
+                // Smoothly resize + crossfade between steps instead of snapping.
+                AnimatedContent(
+                    targetState = state,
+                    contentKey = { it::class },
+                    transitionSpec = {
+                        (fadeIn(tween(220, delayMillis = 60)) +
+                                slideInVertically(tween(260)) { it / 10 }) togetherWith
+                                fadeOut(tween(120))
+                    },
+                    modifier = Modifier.animateContentSize(tween(240, easing = FastOutSlowInEasing)),
+                    label = "update_step"
+                ) { animatedState ->
+                    // During the exit animation `animatedState` is the old state; during
+                    // progress ticks inside the same class we use the live `state`.
+                    val shown = if (animatedState::class == state::class) state else animatedState
+                    UpdateContent(
+                        state = shown,
+                        updateManager = updateManager,
+                        modifier = Modifier.padding(22.dp),
+                        isDialog = true
+                    )
+                }
             }
         }
     }
@@ -127,7 +166,8 @@ fun UpdateDialog(
 fun UpdateContent(
     state: UpdateState,
     updateManager: UpdateManager,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDialog: Boolean = false
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -196,19 +236,23 @@ fun UpdateContent(
                     title = stringResource(Res.string.update_available_title, state.updateInfo.versionName)
                 )
 
-                Text(
-                    text = stringResource(Res.string.update_available_msg, state.updateInfo.versionName),
-                    fontSize = 13.5.sp,
-                    lineHeight = 19.sp,
-                    color = Lipi.Muted
-                )
+                BodyText(stringResource(Res.string.update_available_msg, state.updateInfo.versionName))
 
-                TwoButtonRow(
-                    secondaryText = stringResource(Res.string.btn_later),
-                    onSecondary = { updateManager.resetState() },
-                    primaryText = stringResource(Res.string.btn_update_now),
-                    onPrimary = { updateManager.startDownload(state.updateInfo) }
-                )
+                if (isDialog) {
+                    TwoButtonRow(
+                        secondaryText = stringResource(Res.string.btn_later),
+                        onSecondary = { updateManager.dismissDialog() },
+                        primaryText = stringResource(Res.string.btn_update_now),
+                        onPrimary = { updateManager.startDownload(state.updateInfo) }
+                    )
+                } else {
+                    PrimaryButton(
+                        text = stringResource(Res.string.btn_update_now),
+                        icon = null,
+                        onClick = { updateManager.startDownload(state.updateInfo) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             is UpdateState.Downloading -> {
@@ -220,15 +264,21 @@ fun UpdateContent(
                 )
 
                 val sizeKnown = state.totalBytes > 0L
+                val animatedProgress by animateFloatAsState(
+                    targetValue = state.progress.coerceIn(0f, 1f),
+                    animationSpec = tween(300),
+                    label = "download_progress"
+                )
 
                 // Unknown size: show a moving bar instead of a stuck 0%.
                 if (sizeKnown) {
                     LinearProgressIndicator(
-                        progress = { state.progress },
+                        progress = { animatedProgress },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(CircleShape),
+                            .height(10.dp)
+                            .clip(CircleShape)
+                            .semantics { contentDescription = "${(animatedProgress * 100).toInt()}%" },
                         color = Lipi.Primary,
                         trackColor = Lipi.ImageWell,
                     )
@@ -236,7 +286,7 @@ fun UpdateContent(
                     LinearProgressIndicator(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(8.dp)
+                            .height(10.dp)
                             .clip(CircleShape),
                         color = Lipi.Primary,
                         trackColor = Lipi.ImageWell,
@@ -245,7 +295,8 @@ fun UpdateContent(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = if (sizeKnown) "${formatMb(state.bytesDownloaded)} / ${formatMb(state.totalBytes)}"
@@ -255,13 +306,22 @@ fun UpdateContent(
                     )
                     if (sizeKnown) {
                         Text(
-                            text = "${(state.progress * 100).toInt()}%",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "${(animatedProgress * 100).toInt()}%",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
                             color = Lipi.Primary
                         )
                     }
                 }
+
+                Text(
+                    text = stringResource(Res.string.update_keep_open_hint),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = Lipi.Muted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             is UpdateState.NeedsInstallPermission -> {
@@ -272,19 +332,23 @@ fun UpdateContent(
                     title = stringResource(Res.string.update_permission_title)
                 )
 
-                Text(
-                    text = stringResource(Res.string.update_permission_msg),
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = Lipi.Muted
-                )
+                BodyText(stringResource(Res.string.update_permission_msg))
 
-                TwoButtonRow(
-                    secondaryText = stringResource(Res.string.btn_later),
-                    onSecondary = { updateManager.resetState() },
-                    primaryText = stringResource(Res.string.btn_open_settings),
-                    onPrimary = { updateManager.openInstallSettings() }
-                )
+                if (isDialog) {
+                    TwoButtonRow(
+                        secondaryText = stringResource(Res.string.btn_later),
+                        onSecondary = { updateManager.dismissDialog() },
+                        primaryText = stringResource(Res.string.btn_open_settings),
+                        onPrimary = { updateManager.openInstallSettings() }
+                    )
+                } else {
+                    PrimaryButton(
+                        text = stringResource(Res.string.btn_open_settings),
+                        icon = null,
+                        onClick = { updateManager.openInstallSettings() },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             is UpdateState.ReadyToInstall -> {
@@ -295,24 +359,30 @@ fun UpdateContent(
                     title = stringResource(Res.string.update_ready_title)
                 )
 
-                Text(
-                    text = stringResource(Res.string.update_ready_msg, state.updateInfo.versionName),
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = Lipi.Muted
-                )
+                BodyText(stringResource(Res.string.update_ready_msg, state.updateInfo.versionName))
 
-                TwoButtonRow(
-                    secondaryText = stringResource(Res.string.btn_later),
-                    onSecondary = { updateManager.resetState() },
-                    primaryText = stringResource(Res.string.btn_install_now),
-                    onPrimary = { updateManager.installNow(state.apkPath) }
-                )
+                if (isDialog) {
+                    TwoButtonRow(
+                        secondaryText = stringResource(Res.string.btn_later),
+                        onSecondary = { updateManager.dismissDialog() },
+                        primaryText = stringResource(Res.string.btn_install_now),
+                        onPrimary = { updateManager.installNow(state.apkPath) }
+                    )
+                } else {
+                    PrimaryButton(
+                        text = stringResource(Res.string.btn_install_now),
+                        icon = null,
+                        onClick = { updateManager.installNow(state.apkPath) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             is UpdateState.Error -> {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { liveRegion = LiveRegionMode.Assertive },
                     shape = RoundedCornerShape(14.dp),
                     color = Lipi.Error.copy(alpha = 0.12f)
                 ) {
@@ -337,14 +407,22 @@ fun UpdateContent(
                     }
                 }
 
-                // Close on the left, Retry on the right (same layout as every other state).
-                TwoButtonRow(
-                    secondaryText = stringResource(Res.string.btn_cancel),
-                    onSecondary = { updateManager.resetState() },
-                    primaryText = stringResource(Res.string.btn_retry),
-                    onPrimary = { updateManager.checkForUpdates(silent = false) },
-                    primaryIcon = Icons.Default.Refresh
-                )
+                if (isDialog) {
+                    TwoButtonRow(
+                        secondaryText = stringResource(Res.string.btn_cancel),
+                        onSecondary = { updateManager.dismissDialog() },
+                        primaryText = stringResource(Res.string.btn_retry),
+                        onPrimary = { updateManager.checkForUpdates(silent = false, fromSettings = false) },
+                        primaryIcon = Icons.Default.Refresh
+                    )
+                } else {
+                    PrimaryButton(
+                        text = stringResource(Res.string.btn_retry),
+                        icon = Icons.Default.Refresh,
+                        onClick = { updateManager.checkForUpdates(silent = false, fromSettings = true) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
@@ -360,11 +438,11 @@ private fun UpdateHeader(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .background(iconContainer),
             contentAlignment = Alignment.Center
@@ -372,19 +450,29 @@ private fun UpdateHeader(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(24.dp),
                 tint = iconTint
             )
         }
         Text(
             text = title,
             modifier = Modifier.weight(1f),
-            fontSize = 17.sp,
-            lineHeight = 22.sp,
+            fontSize = 18.sp,
+            lineHeight = 23.sp,
             fontWeight = FontWeight.ExtraBold,
             color = Lipi.Ink
         )
     }
+}
+
+@Composable
+private fun BodyText(text: String) {
+    Text(
+        text = text,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        color = Lipi.Muted
+    )
 }
 
 @Composable
@@ -396,7 +484,9 @@ private fun TwoButtonRow(
     primaryIcon: ImageVector? = null,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         SecondaryButton(

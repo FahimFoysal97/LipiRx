@@ -127,7 +127,7 @@ val sharedModule = module {
     single { ManageProviderConfigUseCase(repository = get()) }
 
     // Self-Update Manager
-    single { UpdateManager(httpClient = get(), platformUpdater = get(), jsonParser = get()) }
+    single { UpdateManager(httpClient = get(), platformUpdater = get(), repository = get(), jsonParser = get()) }
 
     factory {
         ScanViewModel(
