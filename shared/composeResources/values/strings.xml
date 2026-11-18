@@ -217,6 +217,13 @@
     <string name="error_unknown">Unknown error</string>
     <string name="error_cloud_failed_max_attempts">%1$s Cloud AI failed after %2$d attempts.</string>
 
+    <!-- Telemetry Confirmation Dialogs & Status Strings -->
+    <string name="progress_running_benchmark">Running benchmark...</string>
+    <string name="confirm_delete_scan_traces_title">Delete this scan\'s traces?</string>
+    <string name="confirm_delete_scan_traces_msg">This removes the %1$d recorded steps from %2$s. This can\'t be undone.</string>
+    <string name="confirm_clear_all_traces_title">Clear all traces?</string>
+    <string name="confirm_clear_all_traces_msg">This permanently deletes every recorded agent trace. This can\'t be undone.</string>
+
     <!-- Clinical Warnings & Pharmacist Gate -->
     <string name="gate_title">Pharmacist Review Required</string>
     <string name="gate_subtitle">Safety Gate Triggered: Unverified dosage or interaction risk detected</string>

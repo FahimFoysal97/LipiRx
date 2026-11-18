@@ -1,35 +1,51 @@
 package com.snehonir.lipirx.presentation.scan.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.snehonir.lipirx.domain.model.ThemeMode
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_choose_gallery
 import com.snehonir.lipirx.resources.btn_take_photo
@@ -51,7 +67,18 @@ fun EmptyStateView(
     onOpenSettings: (() -> Unit)? = null,
     onOpenAiStudio: (() -> Unit)? = onOpenSettings
 ) {
+    // Read theme colours here, in composable scope, then use them inside draw lambdas.
     val primaryColor = Lipi.Primary
+    val settingsAction = onOpenSettings ?: onOpenAiStudio
+
+    // Gentle "the camera is live" pulse on the viewfinder brackets.
+    val pulseTransition = rememberInfiniteTransition(label = "viewfinderPulse")
+    val bracketAlpha by pulseTransition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse),
+        label = "bracketAlpha"
+    )
 
     Column(
         modifier = Modifier
@@ -59,89 +86,42 @@ fun EmptyStateView(
             .background(Lipi.Background)
             .statusBarsPadding()
     ) {
-        // Clean Top Bar Header
         AppHeader()
 
-        // Viewfinder hero
-        Box(
+        // ── Viewfinder hero ─────────────────────────────────────────────────
+        // Takes whatever vertical space is left, so small phones never overflow.
+        BoxWithConstraints(
             modifier = Modifier
-                .padding(start = 24.dp, end = 24.dp, top = 16.dp)
+                .weight(1f)
+                .heightIn(min = 220.dp)
+                .padding(start = 24.dp, end = 24.dp, top = 12.dp)
                 .fillMaxWidth()
-                .height(330.dp)
                 .clip(RoundedCornerShape(32.dp))
                 .background(Lipi.PrimaryContainer),
             contentAlignment = Alignment.Center,
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
-                val armLength = 36.dp.toPx()
+                val arm = 36.dp.toPx()
                 val radius = 18.dp.toPx()
                 val margin = 24.dp.toPx()
-                val strokeWidth = 3.5.dp.toPx()
+                val stroke = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                val color = primaryColor.copy(alpha = bracketAlpha)
 
-                // Top-Left L-bracket
-                drawPath(
-                    path = Path().apply {
-                        moveTo(margin + armLength, margin)
-                        lineTo(margin + radius, margin)
-                        quadraticTo(margin, margin, margin, margin + radius)
-                        lineTo(margin, margin + armLength)
-                    },
-                    color = primaryColor,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
-
-                // Top-Right L-bracket
-                drawPath(
-                    path = Path().apply {
-                        moveTo(size.width - margin - armLength, margin)
-                        lineTo(size.width - margin - radius, margin)
-                        quadraticTo(size.width - margin, margin, size.width - margin, margin + radius)
-                        lineTo(size.width - margin, margin + armLength)
-                    },
-                    color = primaryColor,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
-
-                // Bottom-Left L-bracket
-                drawPath(
-                    path = Path().apply {
-                        moveTo(margin + armLength, size.height - margin)
-                        lineTo(margin + radius, size.height - margin)
-                        quadraticTo(margin, size.height - margin, margin, size.height - margin - radius)
-                        lineTo(margin, size.height - margin - armLength)
-                    },
-                    color = primaryColor,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
-
-                // Bottom-Right L-bracket
-                drawPath(
-                    path = Path().apply {
-                        moveTo(size.width - margin - armLength, size.height - margin)
-                        lineTo(size.width - margin - radius, size.height - margin)
-                        quadraticTo(size.width - margin, size.height - margin, size.width - margin, size.height - margin - radius)
-                        lineTo(size.width - margin, size.height - margin - armLength)
-                    },
-                    color = primaryColor,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
+                drawCorner(margin, margin, 1f, 1f, arm, radius, color, stroke)                             // top-left
+                drawCorner(size.width - margin, margin, -1f, 1f, arm, radius, color, stroke)               // top-right
+                drawCorner(margin, size.height - margin, 1f, -1f, arm, radius, color, stroke)              // bottom-left
+                drawCorner(size.width - margin, size.height - margin, -1f, -1f, arm, radius, color, stroke) // bottom-right
             }
 
-            // Central illustration
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                PaperIllustration(190.dp, 250.dp)
-                //Text("Place prescription inside frame", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Lipi.OnPrimaryContainer)
-            }
+            // Scale the paper to the space available (max 250dp tall, 0.76 aspect ratio).
+            val paperHeight = (maxHeight - 72.dp).coerceIn(120.dp, 250.dp)
+            PaperIllustration(paperHeight * 0.76f, paperHeight)
         }
 
-        // Headline & Description Text Block
+        // ── Headline, description, tip ──────────────────────────────────────
         Column(
-            modifier = Modifier
-                .padding(horizontal = 24.dp, vertical = 26.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = stringResource(Res.string.empty_headline),
@@ -150,71 +130,144 @@ fun EmptyStateView(
                 fontWeight = FontWeight.ExtraBold,
                 color = Lipi.Ink,
             )
-            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = stringResource(Res.string.empty_description),
                 fontSize = 15.sp,
                 lineHeight = 22.sp,
                 color = Lipi.Muted,
             )
+            Row(
+                modifier = Modifier.padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = Lipi.Primary
+                )
+                Text(
+                    text = "Tip: lay the page flat in good light for the best read.",
+                    fontSize = 12.sp,
+                    color = Lipi.Muted
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Action Control Dashboard (Row 1: Camera + Gallery | Row 2: Scan History + AI Pipeline)
+        // ── Actions ─────────────────────────────────────────────────────────
+        // One clear primary action, one alternative, two quiet shortcuts.
         Column(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Row 1: Primary Capture Controls (Both full 50% equal width)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PrimaryButton(
-                    text = stringResource(Res.string.btn_take_photo),
-                    icon = CameraVectorIcon,
-                    onClick = onTakePhoto,
-                    modifier = Modifier.weight(1f)
-                )
+            PrimaryButton(
+                text = stringResource(Res.string.btn_take_photo),
+                icon = CameraVectorIcon,
+                onClick = onTakePhoto,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-                SecondaryButton(
-                    text = stringResource(Res.string.btn_choose_gallery),
-                    icon = GalleryVectorIcon,
-                    onClick = onChooseGallery,
-                    modifier = Modifier.weight(1f)
-                )
+            SecondaryButton(
+                text = stringResource(Res.string.btn_choose_gallery),
+                icon = GalleryVectorIcon,
+                onClick = onChooseGallery,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (onHistoryClick != null || settingsAction != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onHistoryClick != null) {
+                        QuietAction(
+                            text = stringResource(Res.string.header_history),
+                            icon = Icons.Default.DateRange,
+                            tint = Lipi.Primary,
+                            onClick = onHistoryClick,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (settingsAction != null) {
+                        QuietAction(
+                            text = stringResource(Res.string.header_settings),
+                            icon = Icons.Default.Settings,
+                            tint = Lipi.Muted,
+                            onClick = settingsAction,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
 
-            // Row 2: System Tools & Settings (Both full 50% equal width)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SecondaryButton(
-                    text = stringResource(Res.string.header_history),
-                    icon = Icons.Default.DateRange,
-                    onClick = { onHistoryClick?.invoke() },
-                    modifier = Modifier.weight(1f),
-                    contentColor = Lipi.Primary
-                )
-
-                SecondaryButton(
-                    text = stringResource(Res.string.header_settings),
-                    icon = Icons.Default.Settings,
-                    onClick = { (onOpenSettings ?: onOpenAiStudio)?.invoke() },
-                    modifier = Modifier.weight(1f),
-                    contentColor = Lipi.Ink
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
+}
+
+/** Low-emphasis action: icon + label, no border or fill. */
+@Composable
+private fun QuietAction(
+    text: String,
+    icon: ImageVector,
+    tint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = tint
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = tint,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/**
+ * Draws one L-shaped viewfinder corner. (dx, dy) point inward from the corner:
+ * (1, 1) top-left, (-1, 1) top-right, (1, -1) bottom-left, (-1, -1) bottom-right.
+ */
+private fun DrawScope.drawCorner(
+    x: Float,
+    y: Float,
+    dx: Float,
+    dy: Float,
+    arm: Float,
+    radius: Float,
+    color: Color,
+    stroke: Stroke,
+) {
+    val path = Path().apply {
+        moveTo(x + dx * arm, y)
+        lineTo(x + dx * radius, y)
+        quadraticTo(x, y, x, y + dy * radius)
+        lineTo(x, y + dy * arm)
+    }
+    drawPath(path = path, color = color, style = stroke)
 }
 
 @Preview
@@ -223,7 +276,22 @@ fun EmptyStateViewPreview() {
     LipiRxTheme {
         EmptyStateView(
             onTakePhoto = {},
-            onChooseGallery = {}
+            onChooseGallery = {},
+            onHistoryClick = {},
+            onOpenSettings = {}
+        )
+    }
+}
+
+@Preview
+@Composable
+fun EmptyStateViewDarkPreview() {
+    LipiRxTheme(themeMode = ThemeMode.DARK) {
+        EmptyStateView(
+            onTakePhoto = {},
+            onChooseGallery = {},
+            onHistoryClick = {},
+            onOpenSettings = {}
         )
     }
 }

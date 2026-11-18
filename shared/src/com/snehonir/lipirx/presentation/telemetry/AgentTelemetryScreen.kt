@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -30,11 +31,15 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,7 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,12 +59,20 @@ import com.snehonir.lipirx.data.local.entity.AgentExecutionTraceEntity
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.presentation.scan.components.AppHeader
 import com.snehonir.lipirx.presentation.scan.components.PrimaryButton
+import com.snehonir.lipirx.presentation.scan.components.SecondaryButton
 import com.snehonir.lipirx.resources.Res
-import com.snehonir.lipirx.resources.btn_clear_history
+import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_clear_traces
+import com.snehonir.lipirx.resources.btn_delete
 import com.snehonir.lipirx.resources.btn_run_sample_benchmark
+import com.snehonir.lipirx.resources.btn_show_less
+import com.snehonir.lipirx.resources.btn_show_more
 import com.snehonir.lipirx.resources.cd_collapse
 import com.snehonir.lipirx.resources.cd_expand
+import com.snehonir.lipirx.resources.confirm_clear_all_traces_msg
+import com.snehonir.lipirx.resources.confirm_clear_all_traces_title
+import com.snehonir.lipirx.resources.confirm_delete_scan_traces_msg
+import com.snehonir.lipirx.resources.confirm_delete_scan_traces_title
 import com.snehonir.lipirx.resources.header_trace_history
 import com.snehonir.lipirx.resources.label_hops
 import com.snehonir.lipirx.resources.label_items
@@ -69,6 +82,7 @@ import com.snehonir.lipirx.resources.label_turn_number
 import com.snehonir.lipirx.resources.metric_success_rate
 import com.snehonir.lipirx.resources.metric_total_hops
 import com.snehonir.lipirx.resources.metric_total_latency
+import com.snehonir.lipirx.resources.progress_running_benchmark
 import com.snehonir.lipirx.resources.status_failed
 import com.snehonir.lipirx.resources.status_passed
 import com.snehonir.lipirx.resources.telemetry_empty_subtitle
@@ -107,6 +121,8 @@ fun AgentTelemetryScreen(
     }
 
     var expandedSessionId by remember { mutableStateOf<String?>(null) }
+    var showClearConfirm by remember { mutableStateOf(false) }
+    var sessionToDelete by remember { mutableStateOf<TelemetryScanSession?>(null) }
 
     Column(
         modifier = Modifier
@@ -115,7 +131,6 @@ fun AgentTelemetryScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        // App Header
         AppHeader(
             onBack = onClose,
             backContentDescription = stringResource(Res.string.telemetry_title),
@@ -123,178 +138,231 @@ fun AgentTelemetryScreen(
             subtitle = stringResource(Res.string.telemetry_subtitle)
         )
 
-        // Metrics Summary Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            MetricCard(
-                title = stringResource(Res.string.metric_total_latency),
-                value = formatDuration(state.totalPipelineTimeMs),
-                modifier = Modifier.weight(1f)
-            )
-            MetricCard(
-                title = stringResource(Res.string.metric_success_rate),
-                value = "${(state.successRate * 100).toInt()}%",
-                modifier = Modifier.weight(1f)
-            )
-            MetricCard(
-                title = stringResource(Res.string.metric_total_hops),
-                value = "${state.traces.size}",
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Row 1: Section Title
-        Text(
-            text = stringResource(Res.string.header_trace_history),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = Lipi.Ink,
-            modifier = Modifier.padding(horizontal = 20.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Row 2: Action Bar (Run Benchmark & Clear Traces buttons)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (state.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Lipi.Primary,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Surface(
-                    onClick = { viewModel.runSampleBenchmarkTest() },
-                    shape = CircleShape,
-                    color = Lipi.PrimaryContainer,
-                    border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(Res.string.btn_run_sample_benchmark),
-                            modifier = Modifier.size(14.dp),
-                            tint = Lipi.OnPrimaryContainer
-                        )
-                        Text(
-                            text = stringResource(Res.string.btn_run_sample_benchmark),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Lipi.OnPrimaryContainer
-                        )
-                    }
-                }
-            }
-
-            if (state.traces.isNotEmpty()) {
-                Surface(
-                    onClick = { viewModel.clearAllTraces() },
-                    shape = CircleShape,
-                    color = Lipi.Error.copy(alpha = 0.1f),
-                    border = BorderStroke(1.dp, Lipi.Error.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(Res.string.btn_clear_history),
-                            modifier = Modifier.size(14.dp),
-                            tint = Lipi.Error
-                        )
-                        Text(
-                            text = stringResource(Res.string.btn_clear_traces),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Lipi.Error
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
         if (scanSessions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
+            TelemetryEmptyState(
+                isLoading = state.isLoading,
+                onRunBenchmark = { viewModel.runSampleBenchmarkTest() }
+            )
+        } else {
+            // The whole page is one scroll: metrics, actions and sessions move together,
+            // so the list gets the full screen height.
+            LazyColumn(
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = Lipi.Muted
-                    )
-                    Text(
-                        text = stringResource(Res.string.telemetry_empty_title),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Lipi.Ink
-                    )
-                    Text(
-                        text = stringResource(Res.string.telemetry_empty_subtitle),
-                        fontSize = 13.sp,
-                        color = Lipi.Muted,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (state.isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(28.dp),
-                            color = Lipi.Primary,
-                            strokeWidth = 2.5.dp
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        MetricCard(
+                            title = stringResource(Res.string.metric_total_latency),
+                            value = formatDuration(state.totalPipelineTimeMs),
+                            modifier = Modifier.weight(1f)
                         )
+                        MetricCard(
+                            title = stringResource(Res.string.metric_success_rate),
+                            value = "${(state.successRate * 100).toInt()}%",
+                            modifier = Modifier.weight(1f)
+                        )
+                        MetricCard(
+                            title = stringResource(Res.string.metric_total_hops),
+                            value = "${state.traces.size}",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.header_trace_history),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Lipi.Ink,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                        TextButton(
+                            onClick = { showClearConfirm = true },
+                            colors = ButtonDefaults.textButtonColors(contentColor = Lipi.Danger)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(Res.string.btn_clear_traces),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    if (state.isLoading) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 14.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Lipi.Primary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = stringResource(Res.string.progress_running_benchmark),
+                                fontSize = 13.sp,
+                                color = Lipi.Muted
+                            )
+                        }
                     } else {
-                        PrimaryButton(
+                        SecondaryButton(
                             text = stringResource(Res.string.btn_run_sample_benchmark),
                             icon = Icons.Default.Refresh,
                             onClick = { viewModel.runSampleBenchmarkTest() },
-                            modifier = Modifier.fillMaxWidth(0.85f)
+                            modifier = Modifier.fillMaxWidth(),
+                            height = 48.dp,
+                            contentColor = Lipi.Primary,
+                            fontSize = 14
                         )
                     }
                 }
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+
                 items(scanSessions, key = { it.sessionId }) { session ->
                     ScanSessionCard(
                         session = session,
                         isExpanded = expandedSessionId == session.sessionId,
                         onToggleExpand = {
                             expandedSessionId = if (expandedSessionId == session.sessionId) null else session.sessionId
-                        }
+                        },
+                        onDelete = { sessionToDelete = session }
                     )
                 }
+            }
+        }
+    }
+
+    // Deleting one scan's traces also asks first.
+    sessionToDelete?.let { session ->
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = { Text(stringResource(Res.string.confirm_delete_scan_traces_title)) },
+            text = {
+                Text(stringResource(Res.string.confirm_delete_scan_traces_msg, session.totalHops, session.formattedDateTime))
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteTraces(session.traces.map { it.id })
+                        if (expandedSessionId == session.sessionId) expandedSessionId = null
+                        sessionToDelete = null
+                    }
+                ) {
+                    Text(stringResource(Res.string.btn_delete), color = Lipi.Danger)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionToDelete = null }) {
+                    Text(stringResource(Res.string.btn_cancel))
+                }
+            }
+        )
+    }
+
+    // Clearing is destructive, so it asks first.
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text(stringResource(Res.string.confirm_clear_all_traces_title)) },
+            text = { Text(stringResource(Res.string.confirm_clear_all_traces_msg)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAllTraces()
+                        showClearConfirm = false
+                    }
+                ) {
+                    Text(stringResource(Res.string.btn_clear_traces), color = Lipi.Danger)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text(stringResource(Res.string.btn_cancel))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun TelemetryEmptyState(
+    isLoading: Boolean,
+    onRunBenchmark: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .background(Lipi.PrimaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DateRange,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = Lipi.Primary
+                )
+            }
+            Text(
+                text = stringResource(Res.string.telemetry_empty_title),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = Lipi.Ink,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = stringResource(Res.string.telemetry_empty_subtitle),
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = Lipi.Muted,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    color = Lipi.Primary,
+                    strokeWidth = 2.5.dp
+                )
+            } else {
+                PrimaryButton(
+                    text = stringResource(Res.string.btn_run_sample_benchmark),
+                    icon = Icons.Default.Refresh,
+                    onClick = onRunBenchmark,
+                    modifier = Modifier.fillMaxWidth(0.85f)
+                )
             }
         }
     }
@@ -310,11 +378,25 @@ private fun MetricCard(title: String, value: String, modifier: Modifier = Modifi
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.Start
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(text = title, fontSize = 11.sp, color = Lipi.Muted, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = value, fontSize = 16.sp, color = Lipi.Ink, fontWeight = FontWeight.ExtraBold)
+            Text(
+                text = title,
+                fontSize = 11.sp,
+                color = Lipi.Muted,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = value,
+                fontSize = 17.sp,
+                color = Lipi.Ink,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -323,10 +405,15 @@ private fun MetricCard(title: String, value: String, modifier: Modifier = Modifi
 private fun ScanSessionCard(
     session: TelemetryScanSession,
     isExpanded: Boolean,
-    onToggleExpand: () -> Unit
+    onToggleExpand: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    val statusColor = if (session.isSuccess) Lipi.Primary else Lipi.Error
+    // Green for pass / red for fail reads faster than brand teal vs red.
+    val statusColor = if (session.isSuccess) Lipi.StatusActiveGreen else Lipi.Error
     val formattedTimeText = formatDuration(session.totalTimeMs)
+    val slowestTurnMs = remember(session.traces) {
+        (session.traces.maxOfOrNull { it.executionTimeMs } ?: 1L).coerceAtLeast(1L)
+    }
 
     Surface(
         onClick = onToggleExpand,
@@ -430,20 +517,33 @@ private fun ScanSessionCard(
                     }
                 }
 
-                Surface(
-                    shape = CircleShape,
-                    color = Lipi.Background
-                ) {
-                    Box(
-                        modifier = Modifier.size(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Muted (not red) so a list of cards isn't a wall of red icons;
+                    // the confirmation dialog carries the warning.
+                    IconButton(onClick = onDelete) {
                         Icon(
-                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (isExpanded) stringResource(Res.string.cd_collapse) else stringResource(Res.string.cd_expand),
-                            tint = Lipi.Ink,
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(Res.string.btn_delete),
+                            tint = Lipi.Muted,
                             modifier = Modifier.size(20.dp)
                         )
+                    }
+
+                    Surface(
+                        shape = CircleShape,
+                        color = Lipi.Background
+                    ) {
+                        Box(
+                            modifier = Modifier.size(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isExpanded) stringResource(Res.string.cd_collapse) else stringResource(Res.string.cd_expand),
+                                tint = Lipi.Ink,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -469,7 +569,7 @@ private fun ScanSessionCard(
                     )
 
                     session.traces.forEach { trace ->
-                        TraceTurnItem(trace = trace)
+                        TraceTurnItem(trace = trace, slowestTurnMs = slowestTurnMs)
                     }
                 }
             }
@@ -478,18 +578,30 @@ private fun ScanSessionCard(
 }
 
 @Composable
-private fun TraceTurnItem(trace: AgentExecutionTraceEntity) {
-    val statusColor = if (trace.isSuccess) Lipi.Primary else Lipi.Error
+private fun TraceTurnItem(
+    trace: AgentExecutionTraceEntity,
+    slowestTurnMs: Long
+) {
+    val statusColor = if (trace.isSuccess) Lipi.StatusActiveGreen else Lipi.Error
     val agentDisplayName = stringResource(RxAgentType.fromId(trace.agentType).displayNameRes)
 
+    // Long reasoning is clamped to 4 lines; tapping the turn expands it.
+    var reasoningExpanded by remember { mutableStateOf(false) }
+    val isLongReasoning = trace.reasoning.length > 180
+
+    // Share of the slowest turn in this scan: shows at a glance which agent is the bottleneck.
+    val latencyShare = (trace.executionTimeMs.toFloat() / slowestTurnMs.toFloat()).coerceIn(0.03f, 1f)
+
     Surface(
+        onClick = { reasoningExpanded = !reasoningExpanded },
+        enabled = isLongReasoning,
         shape = RoundedCornerShape(12.dp),
         color = Lipi.Background,
         border = BorderStroke(1.dp, Lipi.Outline.copy(alpha = 0.5f))
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -529,6 +641,22 @@ private fun TraceTurnItem(trace: AgentExecutionTraceEntity) {
                 )
             }
 
+            // Latency bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(Lipi.CardBorder)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(latencyShare)
+                        .height(4.dp)
+                        .background(statusColor, CircleShape)
+                )
+            }
+
             Text(
                 text = "${trace.provider} • ${trace.modelName}",
                 fontSize = 10.5.sp,
@@ -540,10 +668,19 @@ private fun TraceTurnItem(trace: AgentExecutionTraceEntity) {
                 Text(
                     text = trace.reasoning,
                     fontSize = 11.5.sp,
+                    lineHeight = 16.sp,
                     color = Lipi.Ink,
-                    maxLines = 4,
+                    maxLines = if (reasoningExpanded) Int.MAX_VALUE else 4,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (isLongReasoning) {
+                    Text(
+                        text = if (reasoningExpanded) stringResource(Res.string.btn_show_less) else stringResource(Res.string.btn_show_more),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.Primary
+                    )
+                }
             }
 
             if (trace.errorMessage.isNotBlank()) {

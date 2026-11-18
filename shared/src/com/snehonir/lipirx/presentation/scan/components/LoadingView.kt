@@ -34,13 +34,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -55,26 +51,31 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.snehonir.lipirx.domain.agent.RxAgentType
+import com.snehonir.lipirx.domain.model.ThemeMode
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_stop_analysis
 import com.snehonir.lipirx.resources.content_desc_prescription
-import com.snehonir.lipirx.resources.content_desc_stop_analysis
 import com.snehonir.lipirx.resources.loading_default_subtitle
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
-import io.github.aakira.napier.Napier
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * Segmented layout: scanner, one segmented progress bar (one segment per agent),
- * a single "now" card, and a quiet Stop button.
- * Same parameters as LoadingView, so it can be swapped in with a one-line change.
+ * a single "now" card, and a Stop button pinned to the bottom so it is always reachable.
+ * Same parameters as before, so call sites don't change.
  */
 @Composable
 fun LoadingView(
@@ -87,6 +88,7 @@ fun LoadingView(
 ) {
     val total = RxAgentType.ALL.size
     val percent = agentProgressPercent.coerceIn(0, 100)
+    // Read theme colours in composable scope, then use them inside draw lambdas.
     val primaryColor = Lipi.Primary
 
     val infinite = rememberInfiniteTransition(label = "segmentedLoading")
@@ -118,9 +120,10 @@ fun LoadingView(
     val defaultSubtitle = stringResource(Res.string.loading_default_subtitle)
     val status = statusText.ifBlank { defaultSubtitle }
     val currentAgentName = stringResource(currentAgent.displayNameRes)
-    val doneCount = (activeStep + 1).coerceIn(1, total)
+    val stepNumber = (activeStep + 1).coerceIn(1, total)
+    val overallProgress = ((activeStep.coerceIn(0, total - 1) + percent / 100f) / total).coerceIn(0f, 1f)
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Lipi.Background)
@@ -136,7 +139,12 @@ fun LoadingView(
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        // ── Content (vertically centred; scrolls on very small screens) ─────
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
             val minHeight = maxHeight
             Column(
                 modifier = Modifier
@@ -150,8 +158,14 @@ fun LoadingView(
                 SegScannerCard(imageByteArray = imageByteArray, scan = scan, pulse = pulse)
 
                 // One segment per agent: done = solid, active = filling, waiting = empty.
+                // Exposed to screen readers as a single progress bar.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "Analysis progress"
+                            progressBarRangeInfo = ProgressBarRangeInfo(overallProgress, 0f..1f)
+                        },
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     repeat(total) { i ->
@@ -167,9 +181,11 @@ fun LoadingView(
                     }
                 }
 
-                // The single "now" card
+                // The single "now" card. Live region: TalkBack announces status changes.
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { liveRegion = LiveRegionMode.Polite },
                     shape = RoundedCornerShape(20.dp),
                     color = Lipi.Surface,
                     border = BorderStroke(1.dp, Lipi.CardBorder),
@@ -215,7 +231,6 @@ fun LoadingView(
                             animationSpec = tween(300),
                             label = "status",
                         ) { text ->
-                            Napier.d { "LoadingView status text: $text" }
                             Text(
                                 text = text,
                                 fontSize = 13.sp,
@@ -224,50 +239,35 @@ fun LoadingView(
                             )
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = Lipi.Muted,
+                        Crossfade(
+                            targetState = "Step $stepNumber of $total",
+                            animationSpec = tween(300),
+                            label = "stepCount",
+                        ) { label ->
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Lipi.Muted,
                             )
-                            Spacer(Modifier.width(4.dp))
-                            Crossfade(
-                                targetState = "$doneCount / $total",
-                                animationSpec = tween(300),
-                                label = "stepCount",
-                            ) { count ->
-                                Text(
-                                    text = count,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Lipi.Muted,
-                                )
-                            }
                         }
                     }
                 }
-
-                TextButton(
-                    onClick = onStopAnalysis,
-                    colors = ButtonDefaults.textButtonColors(contentColor = Lipi.Error),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.content_desc_stop_analysis),
-                        modifier = Modifier.size(16.dp),
-                        tint = Lipi.Error,
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(Res.string.btn_stop_analysis),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Lipi.Error,
-                    )
-                }
             }
         }
+
+        // ── Stop (pinned, always reachable, quiet red outline) ──────────────
+        SecondaryButton(
+            text = stringResource(Res.string.btn_stop_analysis),
+            icon = Icons.Default.Close,
+            onClick = onStopAnalysis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            height = 52.dp,
+            contentColor = Lipi.Error,
+            fontSize = 15,
+        )
     }
 }
 
@@ -336,6 +336,7 @@ private fun SegScannerCard(
                     spotColor = primaryColor.copy(alpha = 0.35f),
                 )
                 .clip(shape)
+                // Paper stays white in both themes on purpose.
                 .background(Color.White),
             contentAlignment = Alignment.Center,
         ) {
@@ -380,18 +381,17 @@ private fun SegScannerCard(
                 val inset = 12.dp.toPx()
                 val len = 22.dp.toPx()
                 val sw = 3.dp.toPx()
-                val c = primaryColor
                 val r = size.width - inset
                 val b = size.height - inset
 
-                drawLine(c, Offset(inset, inset), Offset(inset + len, inset), sw, StrokeCap.Round)
-                drawLine(c, Offset(inset, inset), Offset(inset, inset + len), sw, StrokeCap.Round)
-                drawLine(c, Offset(r, inset), Offset(r - len, inset), sw, StrokeCap.Round)
-                drawLine(c, Offset(r, inset), Offset(r, inset + len), sw, StrokeCap.Round)
-                drawLine(c, Offset(inset, b), Offset(inset + len, b), sw, StrokeCap.Round)
-                drawLine(c, Offset(inset, b), Offset(inset, b - len), sw, StrokeCap.Round)
-                drawLine(c, Offset(r, b), Offset(r - len, b), sw, StrokeCap.Round)
-                drawLine(c, Offset(r, b), Offset(r, b - len), sw, StrokeCap.Round)
+                drawLine(primaryColor, Offset(inset, inset), Offset(inset + len, inset), sw, StrokeCap.Round)
+                drawLine(primaryColor, Offset(inset, inset), Offset(inset, inset + len), sw, StrokeCap.Round)
+                drawLine(primaryColor, Offset(r, inset), Offset(r - len, inset), sw, StrokeCap.Round)
+                drawLine(primaryColor, Offset(r, inset), Offset(r, inset + len), sw, StrokeCap.Round)
+                drawLine(primaryColor, Offset(inset, b), Offset(inset + len, b), sw, StrokeCap.Round)
+                drawLine(primaryColor, Offset(inset, b), Offset(inset, b - len), sw, StrokeCap.Round)
+                drawLine(primaryColor, Offset(r, b), Offset(r - len, b), sw, StrokeCap.Round)
+                drawLine(primaryColor, Offset(r, b), Offset(r, b - len), sw, StrokeCap.Round)
             }
         }
     }
@@ -458,6 +458,19 @@ fun LoadingViewSafetyAuditorPreview() {
             statusText = "Auditing clinical dosage safety & interaction risks...",
             agentProgressPercent = 95,
             currentAgent = RxAgentType.SAFETY_AUDITOR
+        )
+    }
+}
+
+@Preview(name = "Dark - Step 2")
+@Composable
+fun LoadingViewDarkPreview() {
+    LipiRxTheme(themeMode = ThemeMode.DARK) {
+        LoadingView(
+            activeStep = 2,
+            statusText = "Parsing brand names, dosages & schedules...",
+            agentProgressPercent = 45,
+            currentAgent = RxAgentType.ENTITY_PARSER
         )
     }
 }

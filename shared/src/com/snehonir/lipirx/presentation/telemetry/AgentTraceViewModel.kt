@@ -63,6 +63,16 @@ class AgentTraceViewModel(
         }
     }
 
+    fun deleteTraces(traceIds: List<Long>, flow: String = "App -> AgentTraceViewModel.deleteTraces") {
+        if (traceIds.isEmpty()) return
+        viewModelScope.launch {
+            runCatching {
+                database.deleteAgentTraces(traceIds = traceIds, flow = flow)
+            }
+            loadAgentTraces(flow = flow)
+        }
+    }
+
     fun clearAllTraces(flow: String = "App -> AgentTraceViewModel.clearAllTraces") {
         viewModelScope.launch {
             runCatching {

@@ -620,6 +620,24 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
         }.getOrElse { emptyList() }
     }
 
+    override fun deleteAgentTraces(traceIds: List<Long>, flow: String) {
+        if (traceIds.isEmpty()) return
+        Napier.d("[$flow] Deleting ${traceIds.size} trace records from AgentExecutionTrace in SQLite", tag = TAG)
+        traceIds.forEach { id ->
+            runCatching {
+                driver.execute(
+                    identifier = null,
+                    sql = "DELETE FROM AgentExecutionTrace WHERE id = ?",
+                    parameters = 1
+                ) {
+                    bindLong(0, id)
+                }
+            }.onFailure { ex ->
+                Napier.w("[$flow -> Warning] Failed to delete trace ID $id: ${ex.message}", throwable = ex, tag = TAG)
+            }
+        }
+    }
+
     override fun clearAgentTraces(flow: String) {
         Napier.d("[$flow] Deleting all records from AgentExecutionTrace table in SQLite", tag = TAG)
         val doDelete = {

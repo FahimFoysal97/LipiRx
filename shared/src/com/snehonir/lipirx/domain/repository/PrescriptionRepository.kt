@@ -35,5 +35,6 @@ interface PrescriptionRepository {
     fun getAllProviderModelsMap(): Map<String, List<String>>
     fun saveAgentTrace(turnNumber: Int, agentType: String, provider: String, modelName: String, reasoning: String, feedbackPrompt: String = "", itemCount: Int, executionTimeMs: Long, isSuccess: Boolean, errorMessage: String = "", flow: String = "")
     fun getAgentTraces(limit: Int = 100, flow: String = ""): List<AgentExecutionTraceEntity>
+    fun deleteAgentTraces(traceIds: List<Long>, flow: String = "")
     fun clearAgentTraces(flow: String = "")
 }

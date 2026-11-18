@@ -1,5 +1,7 @@
 package com.snehonir.lipirx.presentation.scan.components
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -14,15 +17,14 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
@@ -37,8 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,19 +54,26 @@ import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_analyze_prescription
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_change
-import com.snehonir.lipirx.resources.btn_clear
 import com.snehonir.lipirx.resources.btn_configure
 import com.snehonir.lipirx.resources.btn_retake
 import com.snehonir.lipirx.resources.btn_show_less
 import com.snehonir.lipirx.resources.btn_show_more
 import com.snehonir.lipirx.resources.content_desc_prescription
-import com.snehonir.lipirx.resources.header_settings
 import com.snehonir.lipirx.resources.hint_zoom_pan
 import com.snehonir.lipirx.resources.title_analysis_notice
 import com.snehonir.lipirx.resources.title_prescription_preview
 import com.snehonir.lipirx.ui.theme.Lipi
+import com.snehonir.lipirx.ui.theme.icons.CameraVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.GalleryVectorIcon
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Layout: header → (error notice) → image (fills the remaining space) → pinned action panel.
+ * The Analyze button is always on screen; nothing scrolls except a very long error message.
+ *
+ * Note: the old "Clear" button is gone because the header back arrow (and the system back
+ * gesture) already call onClear. The parameter is kept so call sites don't change.
+ */
 @Composable
 fun ImagePreviewAndProcessView(
     imageByteArray: ByteArray,
@@ -75,12 +86,13 @@ fun ImagePreviewAndProcessView(
     onClear: () -> Unit,
     onOpenSettings: (() -> Unit)? = null,
 ) {
+    val zoomHint = stringResource(Res.string.hint_zoom_pan)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Lipi.Background)
             .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
     ) {
         AppHeader(
             onBack = onClear,
@@ -88,20 +100,25 @@ fun ImagePreviewAndProcessView(
             title = stringResource(Res.string.title_prescription_preview)
         )
 
+        // ── Error / notice (tap to expand when long) ────────────────────────
         if (!errorMessage.isNullOrBlank()) {
             var isErrorExpanded by remember { mutableStateOf(false) }
             val isLongError = errorMessage.length > 120 || errorMessage.count { it == '\n' } >= 3
 
             Surface(
+                onClick = { isErrorExpanded = !isErrorExpanded },
+                enabled = isLongError,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 4.dp)
-                    .clickable(enabled = isLongError) { isErrorExpanded = !isErrorExpanded },
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(14.dp),
-                color = Lipi.AmberContainer
+                color = Lipi.AmberContainer,
+                border = BorderStroke(1.dp, Lipi.OnAmber.copy(alpha = 0.25f))
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .animateContentSize(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Row(
@@ -123,34 +140,44 @@ fun ImagePreviewAndProcessView(
                         )
                         if (isLongError) {
                             Text(
-                                text = if (isErrorExpanded) stringResource(Res.string.btn_show_less) else stringResource(Res.string.btn_show_more),
+                                text = if (isErrorExpanded) stringResource(Res.string.btn_show_less)
+                                else stringResource(Res.string.btn_show_more),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Lipi.OnAmber
                             )
                         }
                     }
-                    Text(
-                        text = errorMessage,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Lipi.OnAmber,
-                        maxLines = if (isErrorExpanded) Int.MAX_VALUE else 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    // Capped + scrollable so a huge error can never push the image off screen.
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 140.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Lipi.OnAmber,
+                            maxLines = if (isErrorExpanded) Int.MAX_VALUE else 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
 
-        // Image card with rounded outer container and rounded inner image
+        // ── Image (takes all remaining space) ───────────────────────────────
         Box(
             modifier = Modifier
-                .padding(horizontal = 24.dp, vertical = 10.dp)
+                .weight(1f)
                 .fillMaxWidth()
-                .heightIn(min = 280.dp, max = 380.dp)
-                .clip(RoundedCornerShape(28.dp))
+                .heightIn(min = 160.dp)
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .clip(RoundedCornerShape(24.dp))
                 .background(Lipi.ImageWell)
-                .clickable(onClick = onZoom),
+                .clickable(role = Role.Button, onClickLabel = zoomHint, onClick = onZoom),
         ) {
             AsyncImage(
                 model = imageByteArray,
@@ -158,14 +185,14 @@ fun ImagePreviewAndProcessView(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(12.dp)
-                    .clip(RoundedCornerShape(20.dp)),
+                    .clip(RoundedCornerShape(16.dp)),
                 contentScale = ContentScale.Fit,
             )
 
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 20.dp),
+                    .padding(bottom = 16.dp),
                 shape = CircleShape,
                 color = Lipi.ViewerBg.copy(alpha = 0.88f),
             ) {
@@ -175,139 +202,198 @@ fun ImagePreviewAndProcessView(
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
                     Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
-                    Text(stringResource(Res.string.hint_zoom_pan), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    Text(zoomHint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
         }
 
-        Column(
-            modifier = Modifier
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        // ── Pinned action panel ─────────────────────────────────────────────
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Lipi.Surface,
+            shadowElevation = 16.dp,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            border = BorderStroke(1.dp, Lipi.CardBorder),
         ) {
-            PipelineSummaryCard(
-                agentConfigs = agentConfigs,
-                onClick = onOpenSettings
-            )
+            Column(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                PipelineSummary(
+                    agentConfigs = agentConfigs,
+                    onConfigure = onOpenSettings
+                )
 
-            PrimaryButton(
-                text = stringResource(Res.string.btn_analyze_prescription),
-                icon = Icons.Default.PlayArrow,
-                onClick = onAnalyze
-            )
+                PrimaryButton(
+                    text = stringResource(Res.string.btn_analyze_prescription),
+                    icon = Icons.Default.PlayArrow,
+                    onClick = onAnalyze
+                )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SecondaryButton(stringResource(Res.string.btn_retake), Icons.Default.Refresh, onRetake, Modifier.weight(1f), fontSize = 13)
-                SecondaryButton(stringResource(Res.string.btn_change), Icons.Default.Search, onChange, Modifier.weight(1f), fontSize = 13)
-                SecondaryButton(stringResource(Res.string.btn_clear), Icons.Default.Clear, onClear, Modifier.weight(1f), contentColor = Lipi.Error, fontSize = 13)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SecondaryButton(
+                        text = stringResource(Res.string.btn_retake),
+                        icon = CameraVectorIcon,
+                        onClick = onRetake,
+                        modifier = Modifier.weight(1f),
+                        height = 48.dp,
+                        fontSize = 14
+                    )
+                    SecondaryButton(
+                        text = stringResource(Res.string.btn_change),
+                        icon = GalleryVectorIcon,
+                        onClick = onChange,
+                        modifier = Modifier.weight(1f),
+                        height = 48.dp,
+                        fontSize = 14
+                    )
+                }
             }
         }
     }
 }
 
-/** Shows summary of all 4 active AI pipeline agents & models. Tappable to open theme-matched bottom sheet. */
+/**
+ * Compact one-line summary of the AI pipeline. Tap the row to expand the per-agent list;
+ * "Configure" opens settings (only shown when a handler is provided).
+ */
 @Composable
-private fun PipelineSummaryCard(
+private fun PipelineSummary(
     agentConfigs: Map<RxAgentType, AgentConfig>,
-    onClick: (() -> Unit)? = null
+    onConfigure: (() -> Unit)?,
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    var expanded by remember { mutableStateOf(false) }
+    val chevronRotation by animateFloatAsState(if (expanded) 180f else 0f, label = "pipelineChevron")
+
+    val assignments = RxAgentType.ALL.map { agentType ->
+        val config = agentConfigs[agentType]
+        val provider = config?.provider ?: agentType.defaultProvider
+        val model = config?.selectedModel?.ifBlank { agentType.defaultModel } ?: agentType.defaultModel
+        Triple(agentType, provider, model)
+    }
+    val providerNames = assignments.map { it.second.displayName }.distinct().joinToString(" · ")
+
     Surface(
-        onClick = { onClick?.invoke() },
+        onClick = { expanded = !expanded },
         modifier = Modifier.fillMaxWidth(),
-        shape = shape,
-        color = Lipi.Surface,
+        shape = RoundedCornerShape(16.dp),
+        color = Lipi.Background,
         border = BorderStroke(1.dp, Lipi.Outline)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .animateContentSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(Lipi.PrimaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .background(Lipi.PrimaryContainer, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Lipi.Primary
-                        )
-                    }
-                    Text(
-                        text = stringResource(Res.string.header_settings),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Lipi.Ink
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(stringResource(Res.string.btn_configure), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Lipi.Primary)
                     Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
+                        imageVector = Icons.Default.Settings,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = Lipi.Primary
                     )
                 }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "AI pipeline",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Lipi.Ink
+                    )
+                    Text(
+                        text = providerNames,
+                        fontSize = 11.sp,
+                        color = Lipi.Muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (onConfigure != null) {
+                    Surface(
+                        onClick = onConfigure,
+                        modifier = Modifier.heightIn(min = 36.dp),
+                        shape = CircleShape,
+                        color = Lipi.PrimaryContainer
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.btn_configure),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.OnPrimaryContainer
+                            )
+                        }
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = if (expanded) "Hide pipeline details" else "Show pipeline details",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .rotate(chevronRotation),
+                    tint = Lipi.Muted
+                )
             }
 
-            RxAgentType.ALL.forEach { agentType ->
-                val config = agentConfigs[agentType]
-                val provider = config?.provider ?: agentType.defaultProvider
-                val model = config?.selectedModel?.ifBlank { agentType.defaultModel } ?: agentType.defaultModel
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(agentType.displayNameRes),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Lipi.Muted
-                    )
-
-                    Surface(
-                        shape = CircleShape,
-                        color = provider.brandColor.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, provider.brandColor.copy(alpha = 0.3f))
+            if (expanded) {
+                assignments.forEach { (agentType, provider, model) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Text(
+                            text = stringResource(agentType.displayNameRes),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Lipi.Muted,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            modifier = Modifier.weight(1.4f, fill = false),
+                            shape = CircleShape,
+                            color = provider.brandColor.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, provider.brandColor.copy(alpha = 0.3f))
                         ) {
-                            Icon(
-                                imageVector = provider.icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(10.dp),
-                                tint = provider.brandColor
-                            )
-                            Text(
-                                text = "${provider.displayName} ($model)",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = provider.brandColor,
-                                maxLines = 1
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = provider.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = provider.brandColor
+                                )
+                                Text(
+                                    text = "${provider.displayName} ($model)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = provider.brandColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
