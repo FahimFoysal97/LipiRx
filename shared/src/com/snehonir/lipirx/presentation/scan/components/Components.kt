@@ -51,7 +51,7 @@ import org.jetbrains.compose.resources.stringResource
 // The paper illustration should look like paper in BOTH themes, so it uses fixed colours
 // instead of theme tokens (Lipi.Surface turns dark navy in dark mode).
 private val PaperColor = Color(0xFFFCFDFC)
-private val PaperBrand = Color(0xFF0B7A6E)
+private val PaperBrand = Color(0xFF267A70) // same as the light-theme primary
 private val PaperInkLine = Color(0xFF9FB0C8)
 
 @Composable

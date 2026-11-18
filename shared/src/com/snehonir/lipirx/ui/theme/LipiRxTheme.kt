@@ -38,8 +38,10 @@ data class LipiColors(
 
 // Soft light: warm off-white surfaces (no pure white), slightly desaturated teal,
 // softer ink instead of near-black.
+// primary 0xFF267A70: ~5:1 against white, so small bold labels stay readable.
+// red 0xFFB8463F: ~5:1 against the surface, for small error text.
 private val LightLipiColors = LipiColors(
-    primary = Color(0xFF2F8A7F),
+    primary = Color(0xFF267A70),
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFE6F1EE),
     onPrimaryContainer = Color(0xFF1F5F57),
@@ -51,7 +53,7 @@ private val LightLipiColors = LipiColors(
     muted = Color(0xFF66777B),
     amberContainer = Color(0xFFFBEFDA),
     onAmber = Color(0xFF7A5420),
-    red = Color(0xFFC4554D),
+    red = Color(0xFFB8463F),
     onError = Color(0xFFFFFFFF),
     imageWell = Color(0xFFECF0EE),
     inkLine = Color(0xFFA9B7C6),
@@ -145,6 +147,13 @@ fun LipiRxTheme(
             onSurface = lipi.ink,
             surfaceVariant = lipi.imageWell,
             onSurfaceVariant = lipi.muted,
+            // Dialogs, menus and bottom sheets read these container roles,
+            // so they must be set or Material falls back to its default purple-gray.
+            surfaceContainerLowest = lipi.background,
+            surfaceContainerLow = lipi.background,
+            surfaceContainer = lipi.surface,
+            surfaceContainerHigh = lipi.surface,
+            surfaceContainerHighest = lipi.imageWell,
             outline = lipi.outline,
             outlineVariant = lipi.cardBorder,
             error = lipi.red,
@@ -162,6 +171,11 @@ fun LipiRxTheme(
             onSurface = lipi.ink,
             surfaceVariant = lipi.imageWell,
             onSurfaceVariant = lipi.muted,
+            surfaceContainerLowest = lipi.background,
+            surfaceContainerLow = lipi.background,
+            surfaceContainer = lipi.surface,
+            surfaceContainerHigh = lipi.surface,
+            surfaceContainerHighest = lipi.imageWell,
             outline = lipi.outline,
             outlineVariant = lipi.cardBorder,
             error = lipi.red,
