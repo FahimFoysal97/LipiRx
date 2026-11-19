@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,8 +71,11 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -205,12 +209,27 @@ fun SettingsScreen(
 
     var selectedTabProvider by remember(providerType) { mutableStateOf(providerType) }
 
-    val keyForSelectedProvider = when (selectedTabProvider) {
-        AiProvider.Groq.id -> groqApiKey.ifBlank { apiKey }
-        AiProvider.OpenAi.id -> openaiApiKey.ifBlank { apiKey }
-        AiProvider.Claude.id -> claudeApiKey.ifBlank { apiKey }
-        AiProvider.Custom.id -> customApiKey.ifBlank { apiKey }
-        else -> geminiApiKey.ifBlank { apiKey }
+    val keyFor: (String) -> String = { providerId ->
+        when (providerId) {
+            AiProvider.Groq.id -> groqApiKey.ifBlank { apiKey }
+            AiProvider.OpenAi.id -> openaiApiKey.ifBlank { apiKey }
+            AiProvider.Claude.id -> claudeApiKey.ifBlank { apiKey }
+            AiProvider.Custom.id -> customApiKey.ifBlank { apiKey }
+            else -> geminiApiKey.ifBlank { apiKey }
+        }
+    }
+    val keyForSelectedProvider = keyFor(selectedTabProvider)
+
+    // Setup status for the card at the top: is the app actually ready to scan?
+    // A custom endpoint may not need a key, and on-device needs none.
+    val activeProvider = AiProvider.fromId(providerType)
+    val needsApiKey = activeProvider != AiProvider.OnDevice &&
+            activeProvider != AiProvider.Custom &&
+            keyFor(providerType).isBlank()
+    val agentsNeedingModel = RxAgentType.ALL.count { agent ->
+        val config = agentConfigs[agent]
+        val agentProvider = config?.provider ?: agent.defaultProvider
+        providerModelsMap[agentProvider.id].isNullOrEmpty() && config?.selectedModel.isNullOrBlank()
     }
 
     var inputKey by remember(selectedTabProvider, keyForSelectedProvider) { mutableStateOf(keyForSelectedProvider) }
@@ -239,6 +258,15 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+
+            // ── 0. SETUP STATUS ──────────────────────────────────────────────
+            // First thing on screen: is everything configured, and if not, what is missing.
+            SetupStatusCard(
+                providerName = activeProvider.displayName,
+                needsApiKey = needsApiKey,
+                agentsNeedingModel = agentsNeedingModel,
+                totalAgents = RxAgentType.ALL.size
+            )
 
             // ── 1. APPEARANCE ────────────────────────────────────────────────
             SettingsSection(
@@ -317,6 +345,8 @@ fun SettingsScreen(
                                 Icon(CustomUrlVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
                             },
                             singleLine = true,
+                            // URL keyboard (has "/" and ".com") and a Done key that closes it.
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
@@ -391,6 +421,13 @@ fun SettingsScreen(
                                 stringResource(Res.string.label_no_api_key_saved)
                             }
                         )
+
+                        // Pasting a key (or changing the URL) does nothing until Save, so say so.
+                        val hasUnsavedChanges = inputKey != keyForSelectedProvider ||
+                                (selectedTabProvider == AiProvider.Custom.id && inputUrl != customUrl)
+                        if (hasUnsavedChanges) {
+                            UnsavedNote()
+                        }
 
                         if (!apiKeySuccess.isNullOrBlank()) {
                             Surface(
@@ -1278,7 +1315,9 @@ private fun SettingsSection(
                 text = title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Lipi.Ink
+                color = Lipi.Ink,
+                // Lets screen-reader users jump between sections.
+                modifier = Modifier.semantics { heading() }
             )
         }
         content()
@@ -1440,6 +1479,83 @@ private fun Divider() {
             .height(1.dp)
             .background(Lipi.CardBorder)
     )
+}
+
+/** Green "ready" or amber "setup needed" summary, shown at the top of the screen. */
+@Composable
+private fun SetupStatusCard(
+    providerName: String,
+    needsApiKey: Boolean,
+    agentsNeedingModel: Int,
+    totalAgents: Int,
+) {
+    val ready = !needsApiKey && agentsNeedingModel == 0
+    val accent = if (ready) Lipi.StatusActiveGreen else Lipi.OnAmber
+
+    val title = if (ready) "Ready to scan" else "Setup needed"
+    val detail = if (ready) {
+        "$providerName · $totalAgents agents configured"
+    } else {
+        buildList {
+            if (needsApiKey) add("Add your $providerName API key below.")
+            if (agentsNeedingModel > 0) add("$agentsNeedingModel of $totalAgents agents have no model selected.")
+        }.joinToString(" ")
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = if (ready) Lipi.PrimaryContainer.copy(alpha = 0.5f) else Lipi.AmberContainer,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = if (ready) Icons.Default.CheckCircle else Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = accent
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Lipi.Ink
+                )
+                Text(
+                    text = detail,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = Lipi.Muted
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UnsavedNote() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = Lipi.OnAmber
+        )
+        Text(
+            text = "Unsaved changes. Tap Save to apply.",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = Lipi.OnAmber
+        )
+    }
 }
 
 private fun formatMaskedApiKey(key: String): String {
