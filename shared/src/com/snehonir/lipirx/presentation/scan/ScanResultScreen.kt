@@ -193,6 +193,10 @@ fun ScanResultScreen(
                             onSelectOnDeviceStrategy = { strat ->
                                 viewModel.onSelectOnDeviceStrategy(strat, flow = "$flow -> ScanResultScreen.onSelectOnDeviceStrategy")
                             },
+                            slmModelDirectory = uiState.slmModelDirectory,
+                            onSaveSlmDirectoryPath = { path ->
+                                viewModel.onSaveSlmDirectoryPath(path, flow = "$flow -> ScanResultScreen.onSaveSlmDirectoryPath")
+                            },
                             themeMode = uiState.themeMode,
                             onSelectThemeMode = { mode ->
                                 viewModel.updateThemeMode(mode, flow = "$flow -> ScanResultScreen.onSelectThemeMode")

@@ -39,6 +39,7 @@ data class ScanUiState(
     val isTestingApiKey: Boolean = false,
     val isMcpServerEnabled: Boolean = false,
     val onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
+    val slmModelDirectory: String = "",
     val agentConfigs: ImmutableMap<RxAgentType, AgentConfig> = persistentMapOf(),
     val providerModelsMap: ImmutableMap<String, ImmutableList<String>> = persistentMapOf(),
     val historyList: ImmutableList<PrescriptionHistoryEntity> = persistentListOf(),
@@ -90,7 +91,9 @@ data class ScanUiState(
         if (apiKeyError != other.apiKeyError) return false
         if (apiKeySuccess != other.apiKeySuccess) return false
         if (isTestingApiKey != other.isTestingApiKey) return false
+        if (isMcpServerEnabled != other.isMcpServerEnabled) return false
         if (onDeviceStrategy != other.onDeviceStrategy) return false
+        if (slmModelDirectory != other.slmModelDirectory) return false
         if (agentConfigs != other.agentConfigs) return false
         if (providerModelsMap != other.providerModelsMap) return false
         if (historyList != other.historyList) return false
@@ -124,7 +127,9 @@ data class ScanUiState(
         result = 31 * result + apiKeyError.hashCode()
         result = 31 * result + apiKeySuccess.hashCode()
         result = 31 * result + isTestingApiKey.hashCode()
+        result = 31 * result + isMcpServerEnabled.hashCode()
         result = 31 * result + onDeviceStrategy.hashCode()
+        result = 31 * result + slmModelDirectory.hashCode()
         result = 31 * result + agentConfigs.hashCode()
         result = 31 * result + providerModelsMap.hashCode()
         result = 31 * result + historyList.hashCode()

@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -92,6 +93,7 @@ import com.snehonir.lipirx.domain.update.UpdateState
 import com.snehonir.lipirx.presentation.update.UpdateContent
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.app_name
+import com.snehonir.lipirx.resources.btn_browse_folder
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_check_for_updates
 import com.snehonir.lipirx.resources.btn_connecting_saving
@@ -108,6 +110,7 @@ import com.snehonir.lipirx.resources.content_desc_select_model
 import com.snehonir.lipirx.resources.content_desc_select_provider
 import com.snehonir.lipirx.resources.content_desc_select_strategy
 import com.snehonir.lipirx.resources.content_desc_selected
+import com.snehonir.lipirx.resources.default_slm_directory_name
 import com.snehonir.lipirx.resources.error_enter_valid_gemini_key
 import com.snehonir.lipirx.resources.error_enter_valid_url
 import com.snehonir.lipirx.resources.error_no_models_found
@@ -115,6 +118,8 @@ import com.snehonir.lipirx.resources.label_api_key
 import com.snehonir.lipirx.resources.label_api_key_saved
 import com.snehonir.lipirx.resources.label_app_version
 import com.snehonir.lipirx.resources.label_custom_url
+import com.snehonir.lipirx.resources.label_slm_directory
+import com.snehonir.lipirx.resources.note_unsaved_changes
 import com.snehonir.lipirx.resources.label_escalation_badge
 import com.snehonir.lipirx.resources.label_escalation_provider
 import com.snehonir.lipirx.resources.label_fallback_badge
@@ -137,6 +142,12 @@ import com.snehonir.lipirx.resources.on_device_info_banner
 import com.snehonir.lipirx.resources.placeholder_custom_url_example
 import com.snehonir.lipirx.resources.placeholder_paste_key
 import com.snehonir.lipirx.resources.placeholder_search
+import com.snehonir.lipirx.resources.slm_models_found_count
+import com.snehonir.lipirx.resources.status_add_api_key_detail
+import com.snehonir.lipirx.resources.status_agents_no_model_detail
+import com.snehonir.lipirx.resources.status_ready_detail
+import com.snehonir.lipirx.resources.status_ready_to_scan
+import com.snehonir.lipirx.resources.status_setup_needed
 import com.snehonir.lipirx.resources.section_about
 import com.snehonir.lipirx.resources.section_appearance_theme
 import com.snehonir.lipirx.resources.section_mcp
@@ -198,6 +209,8 @@ fun SettingsScreen(
     onProviderTabSelected: (String) -> Unit = {},
     onSaveProviderConfig: (providerType: String, customUrl: String, apiKey: String, modelName: String) -> Unit = { _, _, _, _ -> },
     onSelectOnDeviceStrategy: (OnDeviceStrategy) -> Unit = {},
+    slmModelDirectory: String = "",
+    onSaveSlmDirectoryPath: (String) -> Unit = {},
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onSelectThemeMode: (ThemeMode) -> Unit = {},
     onViewTelemetry: (() -> Unit)? = null,
@@ -356,6 +369,108 @@ fun SettingsScreen(
                             text = stringResource(Res.string.on_device_info_banner),
                             icon = Icons.Default.Info
                         )
+
+                        val onDeviceModelsList = providerModelsMap[AiProvider.OnDevice.id] ?: emptyList()
+
+                        val launchFolderPicker = rememberFolderPickerLauncher { selectedPath ->
+                            onSaveSlmDirectoryPath(selectedPath)
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Lipi.ImageWell,
+                                border = BorderStroke(1.dp, Lipi.Outline.copy(alpha = 0.4f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = Lipi.Primary
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = stringResource(Res.string.label_slm_directory),
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Lipi.Muted
+                                        )
+                                        Text(
+                                            text = slmModelDirectory.ifBlank { stringResource(Res.string.default_slm_directory_name) },
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Lipi.Ink,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    if (slmModelDirectory.isNotBlank()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .background(Lipi.Muted.copy(alpha = 0.15f))
+                                                .clickable { onSaveSlmDirectoryPath("") },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = stringResource(Res.string.content_desc_clear_api_key),
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Lipi.Ink
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            SecondaryButton(
+                                text = stringResource(Res.string.btn_browse_folder),
+                                icon = Icons.Default.Search,
+                                onClick = launchFolderPicker,
+                                modifier = Modifier.fillMaxWidth(),
+                                height = 44.dp,
+                                fontSize = 13
+                            )
+
+                            if (onDeviceModelsList.isNotEmpty()) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Lipi.PrimaryContainer.copy(alpha = 0.5f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Lipi.Primary
+                                        )
+                                        Text(
+                                            text = stringResource(Res.string.slm_models_found_count, onDeviceModelsList.size),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Lipi.OnPrimaryContainer
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         // API key: masked, with Paste / Clear actions.
                         OutlinedTextField(
@@ -683,10 +798,10 @@ private fun AgentAssignmentCard(
     val provider = config?.provider ?: agentType.defaultProvider
     val assignedModel = config?.selectedModel?.ifBlank { "" } ?: ""
     val liveModels = providerModelsMap[provider.id] ?: emptyList()
-    val hasProblem = liveModels.isEmpty() && assignedModel.isBlank()
+    val hasProblem = liveModels.isEmpty() || (assignedModel.isNotBlank() && !liveModels.contains(assignedModel))
 
     val rawModelText = when {
-        assignedModel.isNotBlank() -> assignedModel
+        assignedModel.isNotBlank() && liveModels.contains(assignedModel) -> assignedModel
         liveModels.isNotEmpty() -> liveModels.first()
         provider == AiProvider.OnDevice -> stringResource(Res.string.no_local_models_found)
         else -> stringResource(Res.string.configure_key_to_load_models)
@@ -811,10 +926,13 @@ private fun AgentAssignmentCard(
                             ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
                         val fallbackModel = config?.fallbackModel?.ifBlank { "" } ?: ""
                         val fallbackModels = providerModelsMap[fallbackProvider.id] ?: emptyList()
-                        val fallbackList = fallbackModels.ifEmpty { listOf(fallbackProvider.defaultModel) }
+                        val hasFallbackProblem = fallbackModels.isEmpty() || (fallbackModel.isNotBlank() && !fallbackModels.contains(fallbackModel))
+
                         val rawFallbackModelText = when {
-                            fallbackModel.isNotBlank() -> fallbackModel
-                            else -> fallbackList.first()
+                            fallbackModel.isNotBlank() && fallbackModels.contains(fallbackModel) -> fallbackModel
+                            fallbackModels.isNotEmpty() -> fallbackModels.first()
+                            fallbackProvider == AiProvider.OnDevice -> stringResource(Res.string.no_local_models_found)
+                            else -> stringResource(Res.string.configure_key_to_load_models)
                         }
                         val fallbackModelText = if (fallbackProvider == AiProvider.OnDevice) formatModelDisplayName(rawFallbackModelText) else rawFallbackModelText
 
@@ -857,8 +975,24 @@ private fun AgentAssignmentCard(
                             label = stringResource(Res.string.label_fallback_model),
                             valueText = fallbackModelText,
                             accent = fallbackProvider.brandColor,
+                            isError = hasFallbackProblem,
                             contentDescription = stringResource(Res.string.content_desc_select_fallback_model),
-                            options = modelOptions(fallbackList, fallbackModel, fallbackProvider.brandColor, onFallbackModelSelected)
+                            options = if (fallbackModels.isNotEmpty()) {
+                                modelOptions(fallbackModels, fallbackModel, fallbackProvider.brandColor, onFallbackModelSelected)
+                            } else {
+                                listOf(
+                                    MenuOption(
+                                        title = if (fallbackProvider == AiProvider.OnDevice) {
+                                            stringResource(Res.string.no_local_models_found)
+                                        } else {
+                                            stringResource(Res.string.no_live_models_found, fallbackProvider.displayName)
+                                        },
+                                        tint = Lipi.Error,
+                                        selected = false,
+                                        onClick = {}
+                                    )
+                                )
+                            }
                         )
                     }
                 }
@@ -1492,13 +1626,13 @@ private fun SetupStatusCard(
     val ready = !needsApiKey && agentsNeedingModel == 0
     val accent = if (ready) Lipi.StatusActiveGreen else Lipi.OnAmber
 
-    val title = if (ready) "Ready to scan" else "Setup needed"
+    val title = if (ready) stringResource(Res.string.status_ready_to_scan) else stringResource(Res.string.status_setup_needed)
     val detail = if (ready) {
-        "$providerName · $totalAgents agents configured"
+        stringResource(Res.string.status_ready_detail, providerName, totalAgents)
     } else {
         buildList {
-            if (needsApiKey) add("Add your $providerName API key below.")
-            if (agentsNeedingModel > 0) add("$agentsNeedingModel of $totalAgents agents have no model selected.")
+            if (needsApiKey) add(stringResource(Res.string.status_add_api_key_detail, providerName))
+            if (agentsNeedingModel > 0) add(stringResource(Res.string.status_agents_no_model_detail, agentsNeedingModel, totalAgents))
         }.joinToString(" ")
     }
 
@@ -1550,7 +1684,7 @@ private fun UnsavedNote() {
             tint = Lipi.OnAmber
         )
         Text(
-            text = "Unsaved changes. Tap Save to apply.",
+            text = stringResource(Res.string.note_unsaved_changes),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = Lipi.OnAmber

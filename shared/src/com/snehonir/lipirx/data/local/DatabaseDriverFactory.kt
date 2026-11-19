@@ -8,7 +8,7 @@ import io.github.aakira.napier.Napier
 
 expect fun getPlatformEpochMillis(): Long
 expect fun formatEpochMillisToDateTime(epochMillis: Long): String
-expect fun scanInstalledOnDeviceModels(): List<ModelInfoDto>
+expect fun scanInstalledOnDeviceModels(customDirectoryPath: String? = null): List<ModelInfoDto>
 
 val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
     override val version: Long = 1

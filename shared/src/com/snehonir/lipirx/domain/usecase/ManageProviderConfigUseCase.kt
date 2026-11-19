@@ -46,6 +46,14 @@ class ManageProviderConfigUseCase(
         repository.saveMcpServerEnabled(enabled, flow)
     }
 
+    fun getSlmModelDirectory(): String {
+        return repository.getSlmModelDirectory()
+    }
+
+    fun saveSlmModelDirectory(path: String, flow: String = "") {
+        repository.saveSlmModelDirectory(path, flow)
+    }
+
     fun getAgentConfig(agentType: RxAgentType): AgentConfig {
         return repository.getAgentConfig(agentType)
     }

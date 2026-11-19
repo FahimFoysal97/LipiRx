@@ -82,7 +82,7 @@ val sharedModule = module {
             AiProvider.OpenAi to OpenAiAiService(httpClient = client, jsonParser = json),
             AiProvider.Claude to ClaudeAiService(httpClient = client, jsonParser = json),
             AiProvider.Custom to CustomAiService(httpClient = client, jsonParser = json),
-            AiProvider.OnDevice to OnDeviceAiService(jsonParser = json)
+            AiProvider.OnDevice to OnDeviceAiService(jsonParser = json, repository = get())
         )
 
         CompositeAiService(services)

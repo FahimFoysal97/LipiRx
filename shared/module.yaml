@@ -33,6 +33,7 @@ dependencies:
 
 dependencies@android:
   - $compose.uiTooling
+  - $libs.androidx.activity.compose
   - $libs.ktor.client.okhttp
   - $libs.koin.android
   - $libs.sqldelight.android.driver

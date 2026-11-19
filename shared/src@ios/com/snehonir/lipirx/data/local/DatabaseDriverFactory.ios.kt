@@ -24,7 +24,7 @@ actual fun formatEpochMillisToDateTime(epochMillis: Long): String {
     return formatter.stringFromDate(date)
 }
 
-actual fun scanInstalledOnDeviceModels(): List<ModelInfoDto> {
+actual fun scanInstalledOnDeviceModels(customDirectoryPath: String?): List<ModelInfoDto> {
     return emptyList()
 }
 

@@ -272,6 +272,22 @@ class LipiRxLocalDatabase(private val driver: SqlDriver) : PrescriptionRepositor
         return getConfigValue(AppConfigKey.DISMISSED_UPDATE_VERSION.key)
     }
 
+    override fun saveSlmModelDirectory(path: String, flow: String) {
+        Napier.d("[$flow] Saving SLM model directory path '$path' into SQLite", tag = TAG)
+        driver.execute(
+            identifier = null,
+            sql = "INSERT OR REPLACE INTO AppConfig (configKey, configValue) VALUES (?, ?)",
+            parameters = 2
+        ) {
+            bindString(0, AppConfigKey.SLM_MODEL_DIRECTORY.key)
+            bindString(1, path)
+        }
+    }
+
+    override fun getSlmModelDirectory(): String {
+        return getConfigValue(AppConfigKey.SLM_MODEL_DIRECTORY.key)
+    }
+
     override fun saveSelectedModel(
         modelName: String,
         provider: AiProvider,

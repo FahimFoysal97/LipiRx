@@ -22,6 +22,8 @@ interface PrescriptionRepository {
     fun isMcpServerEnabled(): Boolean
     fun saveDismissedUpdateVersion(version: String, flow: String = "")
     fun getDismissedUpdateVersion(): String
+    fun saveSlmModelDirectory(path: String, flow: String = "")
+    fun getSlmModelDirectory(): String
     fun saveSelectedModel(modelName: String, provider: AiProvider = AiProvider.Gemini, flow: String = "")
     fun getLastSelectedModel(provider: AiProvider = AiProvider.Gemini, flow: String = ""): String
     fun saveApiKey(apiKey: String, flow: String = "")

@@ -20,19 +20,38 @@ actual fun formatEpochMillisToDateTime(epochMillis: Long): String {
     return sdf.format(date)
 }
 
-actual fun scanInstalledOnDeviceModels(): List<ModelInfoDto> {
+actual fun scanInstalledOnDeviceModels(customDirectoryPath: String?): List<ModelInfoDto> {
     val foundModels = mutableListOf<ModelInfoDto>()
     val context = appContextRef ?: return emptyList()
 
-    val dirsToScan = listOfNotNull(
-        context.filesDir,
-        context.getExternalFilesDir(null)
-    )
+    val dirsToScan = mutableListOf<java.io.File>()
+
+    if (!customDirectoryPath.isNullOrBlank()) {
+        val customDir = java.io.File(customDirectoryPath.trim())
+        if (customDir.exists() && customDir.isDirectory) {
+            dirsToScan.add(customDir)
+        }
+    }
+
+    context.filesDir?.let { dirsToScan.add(it) }
+    context.getExternalFilesDir(null)?.let { dirsToScan.add(it) }
+
+    runCatching {
+        val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+        if (downloadDir != null && downloadDir.exists() && downloadDir.isDirectory) {
+            dirsToScan.add(downloadDir)
+        }
+    }
 
     dirsToScan.forEach { dir ->
         dir.listFiles()?.forEach { file ->
             val name = file.name
-            if (file.isFile && (name.endsWith(AppConstants.EXTENSION_LITETRLM, ignoreCase = true) || name.endsWith(AppConstants.EXTENSION_TFLITE, ignoreCase = true))) {
+            if (file.isFile && (
+                name.endsWith(AppConstants.EXTENSION_LITETRLM, ignoreCase = true) ||
+                name.endsWith(AppConstants.EXTENSION_TFLITE, ignoreCase = true) ||
+                name.endsWith(".bin", ignoreCase = true) ||
+                name.endsWith(".gguf", ignoreCase = true)
+            )) {
                 val sizeMb = file.length() / AppConstants.BYTES_PER_MB
                 foundModels.add(
                     ModelInfoDto(

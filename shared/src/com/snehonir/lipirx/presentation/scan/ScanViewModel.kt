@@ -77,6 +77,7 @@ class ScanViewModel(
 
         val loadedProviderModelsMap = loadProviderModelsMap()
         val mcpEnabled = runCatching { manageProviderConfigUseCase.isMcpServerEnabled() }.getOrDefault(false)
+        val slmDir = runCatching { manageProviderConfigUseCase.getSlmModelDirectory() }.getOrDefault("")
         val themeMode = ThemeMode.fromId(config.themeMode)
 
         _uiState.update {
@@ -84,6 +85,7 @@ class ScanViewModel(
                 provider = providerObj,
                 customUrl = config.customUrl,
                 onDeviceStrategy = savedStrategy,
+                slmModelDirectory = slmDir,
                 geminiApiKey = geminiKey,
                 groqApiKey = groqKey,
                 openaiApiKey = openaiKey,
@@ -328,6 +330,16 @@ class ScanViewModel(
         }
     }
 
+    fun onSaveSlmDirectoryPath(path: String, flow: String = "App -> ScanViewModel.onSaveSlmDirectoryPath") {
+        val trimmed = path.trim()
+        Napier.d("[$flow] Saving custom SLM model directory path: '$trimmed'", tag = TAG)
+        runCatching {
+            manageProviderConfigUseCase.saveSlmModelDirectory(trimmed, flow = flow)
+        }
+        _uiState.update { it.copy(slmModelDirectory = trimmed) }
+        fetchModelsForProvider(AiProvider.OnDevice, flow = "$flow -> fetchModelsForProvider.OnDevice")
+    }
+
     fun onSelectOnDeviceStrategy(strategy: OnDeviceStrategy, flow: String = "App -> ScanViewModel.onSelectOnDeviceStrategy") {
         Napier.d("[$flow] User selected On-Device strategy '${strategy.id}'", tag = TAG)
         runCatching { manageProviderConfigUseCase.saveOnDeviceStrategy(strategy, flow = flow) }
@@ -351,7 +363,7 @@ class ScanViewModel(
                         val primaryProv = if (currentProv == AiProvider.OnDevice) AiProvider.Gemini else currentProv
                         val cloudModels = currentState.providerModelsMap[primaryProv.id] ?: emptyList()
                         val primaryModel = currentConfig?.selectedModel?.takeIf { it.isNotBlank() && currentProv != AiProvider.OnDevice }
-                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else primaryProv.defaultModel
+                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else ""
 
                         // Fallback must be On-Device SLM
                         val fallbackProv = AiProvider.OnDevice
@@ -393,7 +405,7 @@ class ScanViewModel(
                         }
                         val cloudModels = currentState.providerModelsMap[fallbackProv.id] ?: emptyList()
                         val fallbackModel = currentConfig?.fallbackModel?.takeIf { it.isNotBlank() }
-                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else fallbackProv.defaultModel
+                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else ""
 
                         runCatching {
                             manageProviderConfigUseCase.saveAgentConfig(
@@ -429,7 +441,7 @@ class ScanViewModel(
                         val cloudProv = if (currentProv == AiProvider.OnDevice) AiProvider.Gemini else currentProv
                         val cloudModels = currentState.providerModelsMap[cloudProv.id] ?: emptyList()
                         val chosenModel = currentConfig?.selectedModel?.takeIf { it.isNotBlank() && currentProv != AiProvider.OnDevice }
-                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else cloudProv.defaultModel
+                            ?: if (cloudModels.isNotEmpty()) cloudModels.first() else ""
 
                         runCatching {
                             manageProviderConfigUseCase.saveAgentConfig(agentType, cloudProv, chosenModel, null, "", flow)

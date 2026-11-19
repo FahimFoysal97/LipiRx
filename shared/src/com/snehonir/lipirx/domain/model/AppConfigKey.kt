@@ -14,7 +14,8 @@ enum class AppConfigKey(val key: String) {
     ON_DEVICE_STRATEGY("on_device_strategy"),
     MCP_SERVER_ENABLED("mcp_server_enabled"),
     THEME_MODE("theme_mode"),
-    DISMISSED_UPDATE_VERSION("dismissed_update_version");
+    DISMISSED_UPDATE_VERSION("dismissed_update_version"),
+    SLM_MODEL_DIRECTORY("slm_model_directory");
 
     companion object {
         fun keyForProvider(provider: AiProvider): AppConfigKey = when (provider) {

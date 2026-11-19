@@ -4,12 +4,14 @@ import com.snehonir.lipirx.data.local.scanInstalledOnDeviceModels
 import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
 
 class OnDeviceAiService(
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; isLenient = true },
-    private val onDeviceEngine: OnDeviceLlmEngine = OnDeviceLlmEngine()
+    private val onDeviceEngine: OnDeviceLlmEngine = OnDeviceLlmEngine(),
+    private val repository: PrescriptionRepository? = null
 ) : PrescriptionAiService {
 
     override val provider: AiProvider = AiProvider.OnDevice
@@ -19,8 +21,9 @@ class OnDeviceAiService(
         customUrl: String,
         flow: String
     ): Result<List<ModelInfoDto>> {
-        val installedModels = scanInstalledOnDeviceModels()
-        Napier.d("[$flow -> OnDevice Models] Scanned ${installedModels.size} installed local model files from device storage: ${installedModels.map { it.name }}", tag = TAG)
+        val customPath = repository?.getSlmModelDirectory()
+        val installedModels = scanInstalledOnDeviceModels(customPath)
+        Napier.d("[$flow -> OnDevice Models] Scanned ${installedModels.size} installed local model files from device storage (customPath='$customPath'): ${installedModels.map { it.name }}", tag = TAG)
         return Result.success(installedModels)
     }
 

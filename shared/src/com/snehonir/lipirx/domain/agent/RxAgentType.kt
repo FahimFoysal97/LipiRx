@@ -1,7 +1,6 @@
 package com.snehonir.lipirx.domain.agent
 
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.agent_entity_parser_desc
@@ -27,7 +26,7 @@ enum class RxAgentType(
     val descriptionRes: StringResource,
     val icon: ImageVector,
     val defaultProvider: AiProvider,
-    val defaultModel: String
+    val defaultModel: String = ""
 ) {
     SUPERVISOR(
         id = "supervisor",
@@ -35,7 +34,7 @@ enum class RxAgentType(
         descriptionRes = Res.string.agent_supervisor_desc,
         icon = SupervisorAgentVectorIcon,
         defaultProvider = AiProvider.Gemini,
-        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
+        defaultModel = ""
     ),
     TRANSCRIPTION(
         id = "transcription",
@@ -43,7 +42,7 @@ enum class RxAgentType(
         descriptionRes = Res.string.agent_transcription_desc,
         icon = VisionOcrAgentVectorIcon,
         defaultProvider = AiProvider.Gemini,
-        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
+        defaultModel = ""
     ),
     ENTITY_PARSER(
         id = "entity_parser",
@@ -51,7 +50,7 @@ enum class RxAgentType(
         descriptionRes = Res.string.agent_entity_parser_desc,
         icon = MedicalParserAgentVectorIcon,
         defaultProvider = AiProvider.Gemini,
-        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
+        defaultModel = ""
     ),
     GENERIC_SUBSTITUTE(
         id = "generic_substitute",
@@ -59,7 +58,7 @@ enum class RxAgentType(
         descriptionRes = Res.string.agent_generic_substitute_desc,
         icon = GenericSubstituteAgentVectorIcon,
         defaultProvider = AiProvider.Gemini,
-        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
+        defaultModel = ""
     ),
     SAFETY_AUDITOR(
         id = "safety_auditor",
@@ -67,7 +66,7 @@ enum class RxAgentType(
         descriptionRes = Res.string.agent_safety_auditor_desc,
         icon = SafetyAuditorAgentVectorIcon,
         defaultProvider = AiProvider.Gemini,
-        defaultModel = AppConstants.GEMINI_DEFAULT_MODEL
+        defaultModel = ""
     );
 
     companion object {

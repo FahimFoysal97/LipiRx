@@ -13,6 +13,21 @@
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
 
+    <!-- SLM Model Directory & Setup Status -->
+    <string name="label_slm_directory">SLM Models Folder Path</string>
+    <string name="placeholder_slm_directory">e.g. /storage/emulated/0/Download or /sdcard/Models</string>
+    <string name="btn_browse_folder">Browse &amp; Select Folder</string>
+    <string name="btn_save_slm_directory">Save &amp; Scan Folder</string>
+    <string name="hint_slm_directory">Specify a custom directory path on your device containing .litertlm, .tflite, or .bin model files.</string>
+    <string name="default_slm_directory_name">Default Device App Storage</string>
+    <string name="slm_models_found_count">Found %1$d SLM model file(s) in device storage</string>
+    <string name="status_ready_to_scan">Ready to scan</string>
+    <string name="status_setup_needed">Setup needed</string>
+    <string name="status_ready_detail">%1$s · %2$d agents configured</string>
+    <string name="status_add_api_key_detail">Add your %1$s API key below.</string>
+    <string name="status_agents_no_model_detail">%1$d of %2$d agents have no model selected.</string>
+    <string name="note_unsaved_changes">Unsaved changes. Tap Save to apply.</string>
+
     <!-- Error & Dialog Strings -->
     <string name="placeholder_search">Search…</string>
     <string name="label_no_matches">No matches</string>

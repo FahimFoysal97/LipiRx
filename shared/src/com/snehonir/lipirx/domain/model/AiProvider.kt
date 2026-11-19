@@ -79,7 +79,7 @@ sealed interface AiProvider {
         override val id: String = "on_device"
         override val displayName: String = "On-Device SLM"
         override val defaultEndpoint: String = "local://on-device"
-        override val defaultModel: String = AppConstants.ON_DEVICE_DEFAULT_MODEL
+        override val defaultModel: String = ""
         override val requiresCustomUrl: Boolean = false
         override val requiresApiKey: Boolean = false
         override val icon: ImageVector = OnDeviceVectorIcon
