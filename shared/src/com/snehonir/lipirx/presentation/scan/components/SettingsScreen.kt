@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -67,7 +69,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,16 +83,14 @@ import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.model.ThemeMode
-import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.domain.update.UpdateState
 import com.snehonir.lipirx.presentation.update.UpdateContent
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.app_name
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_check_for_updates
 import com.snehonir.lipirx.resources.btn_connecting_saving
-import com.snehonir.lipirx.resources.label_app_version
-import com.snehonir.lipirx.resources.section_about
-import org.koin.compose.koinInject
 import com.snehonir.lipirx.resources.btn_save_config
 import com.snehonir.lipirx.resources.btn_view_telemetry
 import com.snehonir.lipirx.resources.cd_collapse
@@ -107,6 +109,7 @@ import com.snehonir.lipirx.resources.error_enter_valid_url
 import com.snehonir.lipirx.resources.error_no_models_found
 import com.snehonir.lipirx.resources.label_api_key
 import com.snehonir.lipirx.resources.label_api_key_saved
+import com.snehonir.lipirx.resources.label_app_version
 import com.snehonir.lipirx.resources.label_custom_url
 import com.snehonir.lipirx.resources.label_escalation_badge
 import com.snehonir.lipirx.resources.label_escalation_provider
@@ -130,6 +133,7 @@ import com.snehonir.lipirx.resources.on_device_info_banner
 import com.snehonir.lipirx.resources.placeholder_custom_url_example
 import com.snehonir.lipirx.resources.placeholder_paste_key
 import com.snehonir.lipirx.resources.placeholder_search
+import com.snehonir.lipirx.resources.section_about
 import com.snehonir.lipirx.resources.section_appearance_theme
 import com.snehonir.lipirx.resources.section_mcp
 import com.snehonir.lipirx.resources.section_mcp_endpoint
@@ -138,6 +142,7 @@ import com.snehonir.lipirx.resources.section_per_agent_assignments
 import com.snehonir.lipirx.resources.section_provider_settings
 import com.snehonir.lipirx.resources.studio_subtitle
 import com.snehonir.lipirx.resources.studio_title
+import com.snehonir.lipirx.resources.update_checking
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.ApiKeyVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
@@ -152,13 +157,14 @@ import com.snehonir.lipirx.ui.theme.icons.ProviderSettingsVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.SystemThemeVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.icon
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 /** Lists longer than this open a searchable full list instead of a small dropdown. */
 private const val SEARCH_THRESHOLD = 8
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen
-// Order: Appearance → AI execution → Provider & key → Agents → Integrations.
+// Order: Appearance → AI execution → Provider & key → Agents → Integrations → About.
 // Things people touch most / must do first come first; advanced stuff is last.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -569,40 +575,41 @@ fun SettingsScreen(
                 val updateState by updateManager.updateState.collectAsState()
                 val currentVer = updateManager.currentVersionName
 
+                val isChecking = updateState is UpdateState.Checking
+                val isBusy = isChecking || updateState is UpdateState.Downloading
+
+                val showInlineStatus = updateState !is UpdateState.Idle && updateState !is UpdateState.Checking
+
                 SettingsCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "LipiRx",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Lipi.Ink
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = stringResource(Res.string.label_app_version, currentVer),
-                                fontSize = 12.5.sp,
-                                color = Lipi.Muted
-                            )
-                        }
-
-                        val isCheckingOrDownloading = updateState is UpdateState.Checking || updateState is UpdateState.Downloading
-
-                        SecondaryButton(
-                            text = stringResource(Res.string.btn_check_for_updates),
-                            icon = Icons.Default.Refresh,
-                            enabled = !isCheckingOrDownloading,
-                            onClick = { updateManager.checkForUpdates(silent = false, fromSettings = true) },
-                            height = 44.dp,
-                            fontSize = 13
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = stringResource(Res.string.app_name),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Lipi.Ink
+                        )
+                        Text(
+                            text = stringResource(Res.string.label_app_version, currentVer),
+                            fontSize = 12.5.sp,
+                            color = Lipi.Muted
                         )
                     }
 
-                    if (updateState !is UpdateState.Idle) {
+                    // Full width so a long translated label never squeezes the version text.
+                    // While checking, the button itself says so (no second spinner row).
+                    SecondaryButton(
+                        text = stringResource(
+                            if (isChecking) Res.string.update_checking else Res.string.btn_check_for_updates
+                        ),
+                        icon = Icons.Default.Refresh,
+                        enabled = !isBusy,
+                        onClick = { updateManager.checkForUpdates(silent = false, fromSettings = true) },
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 48.dp,
+                        fontSize = 14
+                    )
+
+                    if (showInlineStatus) {
                         HorizontalDivider(color = Lipi.Outline.copy(alpha = 0.5f), thickness = 1.dp)
                         UpdateContent(
                             state = updateState,
@@ -1068,6 +1075,7 @@ private fun SearchablePickerDialog(
     onDismiss: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
 
     val filtered = remember(query, options) {
         val q = query.trim()
@@ -1122,6 +1130,7 @@ private fun SearchablePickerDialog(
                     }
                 }
 
+                // The keyboard's Search key just hides the keyboard so the full result list is visible.
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -1145,6 +1154,8 @@ private fun SearchablePickerDialog(
                         }
                     } else null,
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     shape = RoundedCornerShape(12.dp)
                 )
 

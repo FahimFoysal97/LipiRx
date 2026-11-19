@@ -25,4 +25,10 @@ class IosPlatformUpdater : PlatformUpdater {
     override fun installApk(filePath: String): Result<Unit> {
         return Result.failure(UnsupportedOperationException("APK installation is not supported on iOS."))
     }
+
+    override fun clearUpdateCache() {
+        // No-op on iOS
+    }
+
+    override fun getCachedApkPath(fileName: String): String? = null
 }

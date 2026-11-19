@@ -11,4 +11,6 @@ interface PlatformUpdater {
     fun canRequestPackageInstalls(): Boolean
     fun openInstallPermissionSettings()
     fun installApk(filePath: String): Result<Unit>
+    fun clearUpdateCache()
+    fun getCachedApkPath(fileName: String): String?
 }

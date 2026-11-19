@@ -1,15 +1,12 @@
 package com.snehonir.lipirx.presentation.update
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,12 +17,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
@@ -48,9 +48,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -135,16 +135,17 @@ fun UpdateDialog(
                 border = BorderStroke(1.dp, Lipi.CardBorder),
                 shadowElevation = 8.dp
             ) {
-                // Smoothly resize + crossfade between steps instead of snapping.
+                // Crossfade between steps. The height is deliberately NOT animated: a Dialog is its
+                // own window that re-centres itself on every size change, so animating the height
+                // (and especially two size animations at once) makes the whole card shake.
+                // Fade only, and let the size change once.
                 AnimatedContent(
                     targetState = state,
                     contentKey = { it::class },
                     transitionSpec = {
-                        (fadeIn(tween(220, delayMillis = 60)) +
-                                slideInVertically(tween(260)) { it / 10 }) togetherWith
-                                fadeOut(tween(120))
+                        (fadeIn(tween(180, delayMillis = 60)) togetherWith fadeOut(tween(120))) using
+                                SizeTransform(clip = false) { _, _ -> snap() }
                     },
-                    modifier = Modifier.animateContentSize(tween(240, easing = FastOutSlowInEasing)),
                     label = "update_step"
                 ) { animatedState ->
                     // During the exit animation `animatedState` is the old state; during
@@ -236,7 +237,34 @@ fun UpdateContent(
                     title = stringResource(Res.string.update_available_title, state.updateInfo.versionName)
                 )
 
+                // Shows exactly what is changing: "installed -> new".
+                VersionChange(
+                    from = updateManager.currentVersionName,
+                    to = state.updateInfo.versionName
+                )
+
                 BodyText(stringResource(Res.string.update_available_msg, state.updateInfo.versionName))
+
+                // Release notes (when the release has any): short, scrollable, never pushes the buttons off screen.
+                if (state.updateInfo.releaseNotes.isNotBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 180.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = Lipi.ImageWell,
+                        border = BorderStroke(1.dp, Lipi.CardBorder)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(14.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            // Release notes are written in Markdown, so render them instead of showing raw symbols.
+                            MarkdownText(markdown = state.updateInfo.releaseNotes)
+                        }
+                    }
+                }
 
                 if (isDialog) {
                     TwoButtonRow(
@@ -293,8 +321,12 @@ fun UpdateContent(
                     )
                 }
 
+                // Fixed minimum height: the big "%" text appears once the total size is known, and
+                // without this the row grows by a few dp mid-download and resizes the whole dialog.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 24.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -461,6 +493,23 @@ private fun UpdateHeader(
             lineHeight = 23.sp,
             fontWeight = FontWeight.ExtraBold,
             color = Lipi.Ink
+        )
+    }
+}
+
+/** Small pill: installed version -> new version. */
+@Composable
+private fun VersionChange(from: String, to: String) {
+    Surface(
+        shape = CircleShape,
+        color = Lipi.PrimaryContainer
+    ) {
+        Text(
+            text = "$from  →  $to",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Lipi.OnPrimaryContainer
         )
     }
 }

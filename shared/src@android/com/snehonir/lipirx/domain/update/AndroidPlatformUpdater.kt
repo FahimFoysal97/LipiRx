@@ -2,22 +2,20 @@ package com.snehonir.lipirx.domain.update
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
-import io.ktor.http.HttpHeaders
 import io.ktor.http.contentLength
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readAvailable
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
-import androidx.core.net.toUri
 
 class AndroidPlatformUpdater(
     private val context: Context,
@@ -26,6 +24,10 @@ class AndroidPlatformUpdater(
 
     companion object {
         private const val TAG = "AndroidPlatformUpdater"
+    }
+
+    init {
+        clearUpdateCache()
     }
 
     override fun getAppVersionName(): String {
@@ -40,6 +42,7 @@ class AndroidPlatformUpdater(
         onProgress: (bytesDownloaded: Long, totalBytes: Long) -> Unit
     ): Result<String> {
         return runCatching {
+            clearUpdateCache()
             val updatesDir = File(context.cacheDir, "updates")
             if (!updatesDir.exists()) {
                 updatesDir.mkdirs()
@@ -60,7 +63,7 @@ class AndroidPlatformUpdater(
                 var bytesDownloaded = 0L
                 val buffer = ByteArray(8192)
 
-                try {
+                outputStream.use { outputStream ->
                     while (!channel.isClosedForRead) {
                         val read = channel.readAvailable(buffer, 0, buffer.size)
                         if (read <= 0) break
@@ -69,8 +72,6 @@ class AndroidPlatformUpdater(
                         onProgress(bytesDownloaded, totalBytes)
                     }
                     outputStream.flush()
-                } finally {
-                    outputStream.close()
                 }
             }
 
@@ -96,11 +97,7 @@ class AndroidPlatformUpdater(
     }
 
     override fun canRequestPackageInstalls(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.packageManager.canRequestPackageInstalls()
-        } else {
-            true
-        }
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
     }
 
     override fun openInstallPermissionSettings() {
@@ -137,5 +134,24 @@ class AndroidPlatformUpdater(
             Napier.d("[$TAG] Launching Android package installer for $contentUri", tag = TAG)
             context.startActivity(intent)
         }
+    }
+
+    override fun clearUpdateCache() {
+        runCatching {
+            val updatesDir = File(context.cacheDir, "updates")
+            if (updatesDir.exists() && updatesDir.isDirectory) {
+                updatesDir.listFiles()?.forEach { file ->
+                    val deleted = file.delete()
+                    Napier.d("[$TAG] Cleaned cached update file '${file.name}': deleted=$deleted", tag = TAG)
+                }
+            }
+        }.onFailure { ex ->
+            Napier.w("[$TAG] Failed to clear update cache: ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
+    override fun getCachedApkPath(fileName: String): String? {
+        val file = File(File(context.cacheDir, "updates"), fileName)
+        return if (file.exists() && file.length() > 0L) file.absolutePath else null
     }
 }

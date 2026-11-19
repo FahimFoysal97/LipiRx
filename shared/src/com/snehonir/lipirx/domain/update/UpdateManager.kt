@@ -51,6 +51,9 @@ class UpdateManager(
 
         scope.launch {
             val result = fetchLatestReleaseFromGitHub()
+
+            if (_updateState.value is UpdateState.Downloading) return@launch
+
             result.fold(
                 onSuccess = { updateInfo ->
                     if (updateInfo != null) {
@@ -62,7 +65,15 @@ class UpdateManager(
                         } else {
                             _isDialogDismissed.value = false
                         }
-                        _updateState.value = UpdateState.Available(updateInfo)
+
+                        val cachedApkPath = platformUpdater.getCachedApkPath(updateInfo.apkFileName)
+                        if (cachedApkPath != null && platformUpdater.canRequestPackageInstalls()) {
+                            _updateState.value = UpdateState.ReadyToInstall(updateInfo, cachedApkPath)
+                        } else if (cachedApkPath != null) {
+                            _updateState.value = UpdateState.NeedsInstallPermission(updateInfo, cachedApkPath)
+                        } else {
+                            _updateState.value = UpdateState.Available(updateInfo)
+                        }
                     } else {
                         if (!silent) {
                             _updateState.value = UpdateState.UpToDate
@@ -157,8 +168,10 @@ class UpdateManager(
 
                     // Check installation permission
                     if (platformUpdater.canRequestPackageInstalls()) {
-                        platformUpdater.installApk(apkPath)
+                        // Set the state first, so anything that reacts to the installer opening
+                        // (app pause / resume) already sees "ready to install".
                         _updateState.value = UpdateState.ReadyToInstall(updateInfo, apkPath)
+                        platformUpdater.installApk(apkPath)
                     } else {
                         _updateState.value = UpdateState.NeedsInstallPermission(updateInfo, apkPath)
                     }
@@ -186,17 +199,19 @@ class UpdateManager(
         platformUpdater.openInstallPermissionSettings()
     }
 
+    /**
+     * Call when the app comes back from the "allow installs" settings screen.
+     *
+     * Only acts in NeedsInstallPermission. It used to handle ReadyToInstall as well, which
+     * re-launched the system installer on EVERY resume: cancel the installer, the app resumes,
+     * the installer opens again, and so on.
+     */
     fun onPermissionResultCheck() {
-        val currentState = _updateState.value
-        val (updateInfo, apkPath) = when (currentState) {
-            is UpdateState.NeedsInstallPermission -> currentState.updateInfo to currentState.apkPath
-            is UpdateState.ReadyToInstall -> currentState.updateInfo to currentState.apkPath
-            else -> return
-        }
+        val current = _updateState.value as? UpdateState.NeedsInstallPermission ?: return
 
         if (platformUpdater.canRequestPackageInstalls()) {
-            platformUpdater.installApk(apkPath)
-            _updateState.value = UpdateState.ReadyToInstall(updateInfo, apkPath)
+            _updateState.value = UpdateState.ReadyToInstall(current.updateInfo, current.apkPath)
+            platformUpdater.installApk(current.apkPath)
         }
     }
 
