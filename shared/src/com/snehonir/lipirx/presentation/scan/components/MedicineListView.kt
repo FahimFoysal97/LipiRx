@@ -29,10 +29,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -87,6 +89,7 @@ fun MedicineListView(
     onCopySummary: () -> Unit,
     onRescan: () -> Unit,
     onApproveAndConfirm: () -> Unit = {},
+    onUpdateMedicineItem: ((index: Int, updatedItem: MedicineItem) -> Unit)? = null,
     onHistoryClick: (() -> Unit)? = null,
     onBackFromHistory: (() -> Unit)? = null
 ) {
@@ -240,7 +243,14 @@ fun MedicineListView(
                 }
 
                 items(visibleItems) { (originalIndex, item) ->
-                    MedicineItemCard(originalIndex + 1, item)
+                    MedicineItemCard(
+                        index = originalIndex + 1,
+                        item = item,
+                        isEditable = selectedHistoryItem == null,
+                        onUpdateItem = { updated ->
+                            onUpdateMedicineItem?.invoke(originalIndex, updated)
+                        }
+                    )
                 }
 
                 item {
@@ -475,8 +485,25 @@ private fun FilterPill(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-fun MedicineItemCard(index: Int, item: MedicineItem) {
+fun MedicineItemCard(
+    index: Int,
+    item: MedicineItem,
+    isEditable: Boolean = true,
+    onUpdateItem: (MedicineItem) -> Unit = {}
+) {
     var expanded by rememberSaveable(item.medicineName, index) { mutableStateOf(false) }
+    var showEditDialog by rememberSaveable(item.medicineName, index) { mutableStateOf(false) }
+
+    if (showEditDialog) {
+        EditMedicineDialog(
+            item = item,
+            onDismiss = { showEditDialog = false },
+            onSave = { updated ->
+                showEditDialog = false
+                onUpdateItem(updated)
+            }
+        )
+    }
 
     val company = remember(item.prescribedBrandFull) { parseManufacturer(item.prescribedBrandFull) }
     val doseSlots = remember(item.schedule) { parseDoseSlots(item.schedule) }
@@ -544,6 +571,19 @@ fun MedicineItemCard(index: Int, item: MedicineItem) {
                     }
                     if (company.isNotBlank()) {
                         Text(company, fontSize = 12.sp, color = Lipi.Muted)
+                    }
+                }
+                if (isEditable) {
+                    IconButton(
+                        onClick = { showEditDialog = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit medicine item",
+                            modifier = Modifier.size(18.dp),
+                            tint = Lipi.Primary
+                        )
                     }
                 }
             }

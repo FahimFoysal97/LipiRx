@@ -296,6 +296,9 @@ fun ScanResultScreen(
                             onApproveAndConfirm = {
                                 viewModel.approveAndResumeAnalysis(flow = "$flow -> ScanResultScreen.onApproveAndConfirm")
                             },
+                            onUpdateMedicineItem = { index, updatedItem ->
+                                viewModel.onUpdateMedicineItem(index, updatedItem, flow = "$flow -> ScanResultScreen.onUpdateMedicineItem")
+                            },
                             onHistoryClick = {
                                 viewModel.loadHistoryList(flow = "$flow -> ScanResultScreen.onHistoryClick")
                                 showHistoryScreen = true

@@ -28,6 +28,20 @@
     <string name="status_agents_no_model_detail">%1$d of %2$d agents have no model selected.</string>
     <string name="note_unsaved_changes">Unsaved changes. Tap Save to apply.</string>
 
+    <!-- Medicine Item Editing -->
+    <string name="title_edit_medicine">Edit Medicine Item</string>
+    <string name="label_medicine_name">Medicine / Brand Name</string>
+    <string name="label_generic_name_field">Generic Name</string>
+    <string name="label_dosage_schedule">Dosage Schedule</string>
+    <string name="label_duration">Duration</string>
+    <string name="label_instructions_field">Instructions &amp; Notes</string>
+    <string name="label_needs_review">Requires Pharmacist Review</string>
+    <string name="btn_save_changes">Save Changes</string>
+    <string name="label_strength_value">Strength Value</string>
+    <string name="label_strength_unit">Strength Unit</string>
+    <string name="label_quantity">Quantity</string>
+    <string name="label_unit_type">Unit Type</string>
+
     <!-- Error & Dialog Strings -->
     <string name="placeholder_search">Search…</string>
     <string name="label_no_matches">No matches</string>

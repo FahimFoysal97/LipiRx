@@ -991,6 +991,29 @@ class ScanViewModel(
         }
     }
 
+    fun onUpdateMedicineItem(
+        index: Int,
+        updatedItem: MedicineItem,
+        flow: String = "App -> ScanViewModel.onUpdateMedicineItem"
+    ) {
+        Napier.d("[$flow] Updating medicine item at index $index: '${updatedItem.medicineName}'", tag = TAG)
+        _uiState.update { currentState ->
+            if (index < 0 || index >= currentState.medicines.size) return@update currentState
+            val updatedList = currentState.medicines.toMutableList()
+            updatedList[index] = updatedItem
+            val persistentList = updatedList.toImmutableList()
+
+            currentState.selectedHistoryItem?.let { historyRecord ->
+                val updatedJsonSummary = jsonParser.encodeToString(persistentList)
+                runCatching {
+                    getScanHistoryUseCase.saveSummary(updatedJsonSummary, historyRecord.scannedAt, flow = "$flow -> saveSummary")
+                }
+            }
+
+            currentState.copy(medicines = persistentList)
+        }
+    }
+
     fun openHistoryRecord(
         record: PrescriptionHistoryEntity,
         flow: String = "App -> ScanViewModel.openHistoryRecord"
