@@ -25,7 +25,7 @@ DEFAULT_CONFIG = {
     # Optional keystore file in repo root; if empty, auto-detects *.jks in root
     "keystore_file": "",
     # Android / KMP APK build command (can be your .bat or gradlew.bat / ./gradlew)
-    "build_cmd": "./sign-release.bat",
+    "build_cmd": "sign-release.bat",
     # Expected APK path(s) relative to repo root (first existing match is used)
     "apk_candidates": [
         "composeApp/build/outputs/apk/release/composeApp-release.apk",
