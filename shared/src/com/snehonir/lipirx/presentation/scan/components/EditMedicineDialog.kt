@@ -7,23 +7,29 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,7 +37,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -71,9 +81,41 @@ fun EditMedicineDialog(
     var instructions by remember(item) { mutableStateOf(item.instructions) }
     var needsReview by remember(item) { mutableStateOf(item.needsReview) }
 
+    // A prescription item without a name, or with 0 / empty quantity, is not a valid item.
+    val parsedUnits = unitsText.toIntOrNull()
+    val nameValid = medicineName.isNotBlank()
+    val unitsValid = parsedUnits != null && parsedUnits > 0
+
+    val isDirty = medicineName != item.medicineName ||
+            genericName != item.genericName ||
+            strengthValue != item.strengthValue ||
+            strengthUnit != item.strengthUnit ||
+            schedule != item.schedule ||
+            duration != item.duration ||
+            unitsText != item.units.toString() ||
+            unitType != item.unitType ||
+            instructions != item.instructions ||
+            needsReview != item.needsReview
+
+    // Save is only offered when there is something to save and it is valid.
+    val canSave = isDirty && nameValid && unitsValid
+
+    // Leaving with unsaved edits asks first, so a stray back press can't throw them away.
+    var showDiscardConfirm by remember { mutableStateOf(false) }
+    val requestClose: () -> Unit = {
+        if (isDirty) showDiscardConfirm = true else onDismiss()
+    }
+
+    val nextField = KeyboardOptions(imeAction = ImeAction.Next)
+    val nextWords = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next)
+
     Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        onDismissRequest = requestClose,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            // Tapping outside after typing a lot of edits must not wipe them.
+            dismissOnClickOutside = false
+        )
     ) {
         Surface(
             modifier = Modifier
@@ -95,6 +137,7 @@ fun EditMedicineDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
+                        modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -111,7 +154,7 @@ fun EditMedicineDialog(
                             color = Lipi.Ink
                         )
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = requestClose) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(Res.string.btn_cancel),
@@ -130,13 +173,15 @@ fun EditMedicineDialog(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Medicine Name
+                    // Medicine Name (required)
                     OutlinedTextField(
                         value = medicineName,
                         onValueChange = { medicineName = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text(stringResource(Res.string.label_medicine_name)) },
+                        isError = !nameValid,
                         singleLine = true,
+                        keyboardOptions = nextWords,
                         shape = RoundedCornerShape(12.dp)
                     )
 
@@ -147,6 +192,7 @@ fun EditMedicineDialog(
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text(stringResource(Res.string.label_generic_name_field)) },
                         singleLine = true,
+                        keyboardOptions = nextWords,
                         shape = RoundedCornerShape(12.dp)
                     )
 
@@ -161,6 +207,7 @@ fun EditMedicineDialog(
                             modifier = Modifier.weight(1f),
                             label = { Text(stringResource(Res.string.label_strength_value)) },
                             singleLine = true,
+                            keyboardOptions = nextField,
                             shape = RoundedCornerShape(12.dp)
                         )
                         OutlinedTextField(
@@ -169,6 +216,7 @@ fun EditMedicineDialog(
                             modifier = Modifier.weight(1f),
                             label = { Text(stringResource(Res.string.label_strength_unit)) },
                             singleLine = true,
+                            keyboardOptions = nextField,
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
@@ -183,7 +231,11 @@ fun EditMedicineDialog(
                             onValueChange = { schedule = it },
                             modifier = Modifier.weight(1f),
                             label = { Text(stringResource(Res.string.label_dosage_schedule)) },
+                            // The result card turns "1 + 0 + 1" into Morning / Noon / Night slots,
+                            // so show the format that works. Language-neutral, no translation needed.
+                            placeholder = { Text("1 + 0 + 1") },
                             singleLine = true,
+                            keyboardOptions = nextField,
                             shape = RoundedCornerShape(12.dp)
                         )
                         OutlinedTextField(
@@ -192,6 +244,7 @@ fun EditMedicineDialog(
                             modifier = Modifier.weight(1f),
                             label = { Text(stringResource(Res.string.label_duration)) },
                             singleLine = true,
+                            keyboardOptions = nextField,
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
@@ -206,7 +259,10 @@ fun EditMedicineDialog(
                             onValueChange = { unitsText = it.filter { char -> char.isDigit() } },
                             modifier = Modifier.weight(1f),
                             label = { Text(stringResource(Res.string.label_quantity)) },
+                            isError = !unitsValid,
                             singleLine = true,
+                            // Number pad: quantity is digits only.
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                             shape = RoundedCornerShape(12.dp)
                         )
                         OutlinedTextField(
@@ -215,6 +271,7 @@ fun EditMedicineDialog(
                             modifier = Modifier.weight(1f),
                             label = { Text(stringResource(Res.string.label_unit_type)) },
                             singleLine = true,
+                            keyboardOptions = nextField,
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
@@ -230,19 +287,27 @@ fun EditMedicineDialog(
                         shape = RoundedCornerShape(12.dp)
                     )
 
-                    // Needs Review Checkbox
+                    // Needs Review: the whole row is the tap target (48dp), not only the small box.
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .heightIn(min = 48.dp)
+                            .toggleable(
+                                value = needsReview,
+                                role = Role.Checkbox,
+                                onValueChange = { needsReview = it }
+                            ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
                             checked = needsReview,
-                            onCheckedChange = { needsReview = it },
-                            colors = CheckboxDefaults.colors(checkedColor = Lipi.Primary)
+                            onCheckedChange = null, // the Row handles the click
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Lipi.Primary,
+                                checkmarkColor = MaterialTheme.colorScheme.onPrimary
+                            )
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = stringResource(Res.string.label_needs_review),
                             fontSize = 13.sp,
@@ -262,7 +327,7 @@ fun EditMedicineDialog(
                     SecondaryButton(
                         text = stringResource(Res.string.btn_cancel),
                         icon = Icons.Default.Close,
-                        onClick = onDismiss,
+                        onClick = requestClose,
                         modifier = Modifier.weight(1f),
                         height = 48.dp,
                         fontSize = 14
@@ -271,17 +336,22 @@ fun EditMedicineDialog(
                     PrimaryButton(
                         text = stringResource(Res.string.btn_save_changes),
                         icon = Icons.Default.Check,
+                        enabled = canSave,
                         onClick = {
-                            val parsedUnits = unitsText.toIntOrNull() ?: item.units
                             val updatedItem = item.copy(
                                 medicineName = medicineName.trim(),
-                                prescribedBrandFull = if (strengthValue.isNotBlank()) "${medicineName.trim()} ${strengthValue.trim()} ${strengthUnit.trim()}".trim() else medicineName.trim(),
+                                prescribedBrandFull = rebuildBrandFull(
+                                    original = item.prescribedBrandFull,
+                                    name = medicineName,
+                                    strengthValue = strengthValue,
+                                    strengthUnit = strengthUnit
+                                ),
                                 genericName = genericName.trim(),
                                 strengthValue = strengthValue.trim(),
                                 strengthUnit = strengthUnit.trim(),
                                 schedule = schedule.trim(),
                                 duration = duration.trim(),
-                                units = parsedUnits,
+                                units = parsedUnits ?: item.units,
                                 unitType = unitType.trim().ifBlank { "pcs" },
                                 instructions = instructions.trim(),
                                 needsReview = needsReview
@@ -294,4 +364,55 @@ fun EditMedicineDialog(
             }
         }
     }
+
+    if (showDiscardConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDiscardConfirm = false },
+            title = { Text("Discard changes?") },
+            text = { Text("Your edits to this medicine will be lost.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardConfirm = false
+                        onDismiss()
+                    }
+                ) {
+                    Text("Discard", color = Lipi.Danger)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardConfirm = false }) {
+                    Text("Keep editing")
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Rebuilds "Brand 500 mg (Manufacturer)" after an edit.
+ *
+ * The old code rebuilt only "Brand 500 mg" and silently dropped the "(Manufacturer)" part,
+ * which the result card reads to show the company name. Keep it.
+ */
+private fun rebuildBrandFull(
+    original: String,
+    name: String,
+    strengthValue: String,
+    strengthUnit: String,
+): String {
+    val manufacturer = if (original.contains("(") && original.contains(")")) {
+        original.substringAfter("(").substringBefore(")").trim()
+    } else {
+        ""
+    }
+
+    val strength = if (strengthValue.isNotBlank()) {
+        "${strengthValue.trim()} ${strengthUnit.trim()}".trim()
+    } else {
+        ""
+    }
+
+    val core = if (strength.isNotEmpty()) "${name.trim()} $strength" else name.trim()
+    return if (manufacturer.isNotBlank()) "$core ($manufacturer)" else core
 }

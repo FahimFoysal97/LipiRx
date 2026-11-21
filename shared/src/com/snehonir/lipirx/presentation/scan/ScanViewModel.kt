@@ -706,7 +706,8 @@ class ScanViewModel(
             it.copy(
                 capturedImageByteArray = imageByteArray,
                 errorMessage = null,
-                medicines = persistentListOf()
+                medicines = persistentListOf(),
+                selectedHistoryItem = null
             )
         }
     }
@@ -718,6 +719,7 @@ class ScanViewModel(
             _uiState.update { it.copy(errorMessage = "Please capture or select an image first.") }
             return
         }
+        _uiState.update { it.copy(selectedHistoryItem = null) }
         Napier.d("[$flow] User confirmed process button. Initiating Vision AI execution...", tag = TAG)
         processPrescriptionImage(bytes, flow = flow)
     }

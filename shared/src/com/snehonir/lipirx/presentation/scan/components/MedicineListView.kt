@@ -74,6 +74,7 @@ import com.snehonir.lipirx.resources.prescription_scanned
 import com.snehonir.lipirx.resources.results_title
 import com.snehonir.lipirx.resources.saved_prescription_record
 import com.snehonir.lipirx.resources.tap_to_zoom
+import com.snehonir.lipirx.resources.title_edit_medicine
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.CopyVectorIcon
 import org.jetbrains.compose.resources.stringResource
@@ -102,6 +103,10 @@ fun MedicineListView(
     val visibleItems = remember(medicines, filterActive) {
         medicines.withIndex().filter { !filterActive || it.value.needsReview }
     }
+
+    // Editing is offered only for a fresh scan AND only when the caller can actually save it.
+    // Before, the pencil showed even with no handler and did nothing when tapped.
+    val canEdit = selectedHistoryItem == null && onUpdateMedicineItem != null
 
     Box(
         modifier = Modifier
@@ -242,11 +247,13 @@ fun MedicineListView(
                     }
                 }
 
-                items(visibleItems) { (originalIndex, item) ->
+                // Keyed by the original position, so a card keeps its state (expanded, edit dialog)
+                // when the filter changes or another card is edited.
+                items(visibleItems, key = { it.index }) { (originalIndex, item) ->
                     MedicineItemCard(
                         index = originalIndex + 1,
                         item = item,
-                        isEditable = selectedHistoryItem == null,
+                        isEditable = canEdit,
                         onUpdateItem = { updated ->
                             onUpdateMedicineItem?.invoke(originalIndex, updated)
                         }
@@ -492,7 +499,7 @@ fun MedicineItemCard(
     onUpdateItem: (MedicineItem) -> Unit = {}
 ) {
     var expanded by rememberSaveable(item.medicineName, index) { mutableStateOf(false) }
-    var showEditDialog by rememberSaveable(item.medicineName, index) { mutableStateOf(false) }
+    var showEditDialog by rememberSaveable(index) { mutableStateOf(false) }
 
     if (showEditDialog) {
         EditMedicineDialog(
@@ -574,14 +581,16 @@ fun MedicineItemCard(
                     }
                 }
                 if (isEditable) {
+                    // 40dp tap target (was 32dp). Pulled up a little so the larger button
+                    // doesn't push the title block down.
                     IconButton(
                         onClick = { showEditDialog = true },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit medicine item",
-                            modifier = Modifier.size(18.dp),
+                            contentDescription = stringResource(Res.string.title_edit_medicine),
+                            modifier = Modifier.size(20.dp),
                             tint = Lipi.Primary
                         )
                     }
@@ -918,6 +927,7 @@ fun MedicineListViewPreview() {
         onZoom = {},
         onCopySummary = {},
         onRescan = {},
-        onApproveAndConfirm = {}
+        onApproveAndConfirm = {},
+        onUpdateMedicineItem = { _, _ -> }
     )
 }
