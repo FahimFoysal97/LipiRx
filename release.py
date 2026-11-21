@@ -18,25 +18,27 @@ DEFAULT_CONFIG = {
     "project_type": "kmp",
     # File(s) holding version / versionCode / build number / iOS marketing & build version
     "version_files": [
+        "androidApp/module.yaml",
         "composeApp/build.gradle.kts",
         "iosApp/Configuration/Config.xcconfig",
     ],
     # Whether release.py updates version_files locally before building (never commits/pushes)
-    "sync_version_files": True,
+    "sync_version_files": False,
     # Release note markdown file (supports {version} and {tag} placeholders)
     "release_notes_file": "RELEASE_NOTES.md",
     # Optional keystore file in repo root; if empty, auto-detects *.jks in root
     "keystore_file": "",
-    # Android / KMP APK build command (e.g. your .bat file or gradlew.bat)
-    "build_cmd": "sign-release.bat",
+    # Build command (supports {keystore}, {version}, {tag})
+    "build_cmd": "sign-release.bat release",
     # Expected APK path(s) or glob pattern(s) relative to repo root
     "apk_candidates": [
+        "apks/LipiRx-v*-release.apk",
         "apks/*.apk",
-        "apks/composeApp-release.apk",
-        "apks/app-release.apk",
     ],
     # Publish as a GitHub pre-release by default so you can finalize on the web UI
     "prerelease": True,
+    # Skip GitHub release confirmation prompt if True
+    "auto_publish": False,
     # Optional iOS build support (typically true on macOS with Xcode)
     "build_ios": False,
     "ios_build_cmd": "",
@@ -62,6 +64,9 @@ def load_config() -> dict:
     cfg_path = ROOT_DIR / "release.config.json"
     if cfg_path.exists():
         loaded = json.loads(cfg_path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            print("[ERROR] release.config.json must contain a JSON object.", file=sys.stderr)
+            sys.exit(1)
         cfg.update(loaded)
     return cfg
 
@@ -83,15 +88,16 @@ def run(cmd: list[str], check: bool = True) -> str:
 
 def run_interactive_shell(command: str, extra_env: dict[str, str] | None = None) -> None:
     """
-    Runs build commands attached to the real terminal so password prompts
-    (such as keystore passwords in .bat or Gradle) work interactively.
+    Runs build commands attached to the real terminal so interactive scripts
+    can prompt or read environment variables directly when needed.
     """
     env = os.environ.copy()
+    env["FROM_RELEASE_PY"] = "1"
     if extra_env:
         env.update(extra_env)
 
     if os.name == "nt":
-        cmd = ["cmd", "/c", command]
+        cmd = ["cmd", "/d", "/s", "/c", command]
     else:
         cmd = ["sh", "-c", command]
 
@@ -104,11 +110,21 @@ def run_interactive_shell(command: str, extra_env: dict[str, str] | None = None)
         sys.exit(result.returncode)
 
 
-def resolve_android_build_cmd(cfg: dict) -> str:
-    if cfg.get("build_cmd"):
-        return cfg["build_cmd"]
+def resolve_android_build_cmd(
+        cfg: dict,
+        version: str = "",
+        tag: str = "",
+        keystore_path: Path | None = None,
+) -> str:
+    raw_cmd = str(cfg.get("build_cmd", "")).strip()
+    if raw_cmd:
+        return raw_cmd.format(
+            version=version,
+            tag=tag,
+            keystore=str(keystore_path) if keystore_path else "",
+        )
 
-    ptype = cfg.get("project_type", "kmp").lower()
+    ptype = str(cfg.get("project_type", "kmp")).lower()
     if ptype == "flutter":
         return "flutter build apk --release"
 
@@ -136,7 +152,7 @@ def resolve_gh_executable() -> str | None:
 
 
 def find_jks_keystore(cfg: dict) -> Path | None:
-    explicit = cfg.get("keystore_file", "").strip()
+    explicit = str(cfg.get("keystore_file", "")).strip()
     if explicit:
         candidate = ROOT_DIR / explicit
         if not candidate.exists():
@@ -185,9 +201,9 @@ def resolve_notes_path(cfg: dict) -> Path:
 def parse_release_note_metadata(notes_text: str) -> tuple[str | None, str | None, int | None]:
     """
     Extracts:
-      - version (from top markdown heading, e.g. '# v0.4.4 - Title')
-      - release_title (e.g. 'v0.4.4 - Title')
-      - optional version_code if present in heading or metadata line (e.g. 'code: 44' or '(build 44)')
+    - version (from a markdown heading, e.g. '# v0.4.4 - Title')
+    - release_title (e.g. 'v0.4.4 - Title')
+    - optional version_code if present in metadata or '(build 44)'
     """
     version: str | None = None
     title: str | None = None
@@ -195,28 +211,26 @@ def parse_release_note_metadata(notes_text: str) -> tuple[str | None, str | None
 
     for line in notes_text.splitlines():
         stripped = line.strip()
-        if not stripped:
+        if not stripped.startswith("#"):
             continue
-        if stripped.startswith("#"):
-            match = re.match(
-                r"^#{1,3}\s+v?([0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\s*(?:[-–—:]\s*(.+))?$",
-                stripped,
-            )
-            if match:
-                version = normalize_version(match.group(1))
-                subtitle = (match.group(2) or "").strip()
-                title = f"v{version} - {subtitle}" if subtitle else f"v{version}"
+        match = re.match(
+            r"^#{1,3}\s+v?([0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\s*(?:[-–—:]\s*(.+))?$",
+            stripped,
+        )
+        if match:
+            version = normalize_version(match.group(1))
+            subtitle = (match.group(2) or "").strip()
+            title = f"v{version} - {subtitle}" if subtitle else f"v{version}"
             break
-        break
 
     code_match = re.search(
-        r"(?mi)^\s*(?:version[_\s-]*code|build(?:\s*number)?)\s*[:=]\s*(\d+)\s*$",
+        r"(?mi)^\s*(?:version[_\s-]*code|build[_\s-]*number)\s*[:=]\s*(\d+)\s*$",
         notes_text,
     )
     if not code_match:
         code_match = re.search(
-            r"(?i)\b(?:code|build)\s*[:#-]?\s*(\d+)\b",
-            notes_text.splitlines()[0] if notes_text.splitlines() else "",
+            r"(?i)\(\s*(?:version[_\s-]*code|build)\s*[:#-]?\s*(\d+)\s*\)",
+            notes_text,
         )
     if code_match:
         code = int(code_match.group(1))
@@ -242,7 +256,7 @@ def load_release_notes(cfg: dict) -> tuple[Path, str, str, str, int | None]:
     if not version:
         print(
             f"[ERROR] Could not find a version heading in '{notes_path.relative_to(ROOT_DIR)}'. "
-            "Expected top line like '# v0.4.4 - Release Title'.",
+            "Expected a heading like '# v0.4.4 - Release Title'.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -303,6 +317,16 @@ def verify_readme_matches_version(cfg: dict, release_version: str) -> None:
     print(f"[OK] Verified {readme_rel} matches release note version {expected}")
 
 
+def is_local_tag_existing(tag: str) -> bool:
+    res = subprocess.run(
+        ["git", "rev-parse", "--verify", f"refs/tags/{tag}"],
+        cwd=ROOT_DIR,
+        text=True,
+        capture_output=True,
+    )
+    return res.returncode == 0
+
+
 def is_tag_on_remote(remote: str, tag: str) -> bool:
     res = subprocess.run(
         ["git", "ls-remote", "--tags", remote, f"refs/tags/{tag}"],
@@ -324,7 +348,7 @@ def is_release_already_published(tag: str, remote: str) -> bool:
             "Install it ('winget install --id GitHub.cli') and run 'gh auth login' "
             "so release.py can publish directly to GitHub Releases."
         )
-        return False
+        return is_local_tag_existing(tag)
 
     res = subprocess.run(
         [gh_exe, "release", "view", tag],
@@ -335,61 +359,13 @@ def is_release_already_published(tag: str, remote: str) -> bool:
     return res.returncode == 0
 
 
-def prompt_optional_code(cli_code: int | None, parsed_code: int | None) -> int | None:
-    if cli_code is not None:
-        return cli_code
-    default_hint = f"default {parsed_code}, " if parsed_code is not None else ""
-    while True:
-        raw = input(
-            f"Version code / build number (optional, {default_hint}Enter to skip): "
-        ).strip()
-        if not raw:
-            return parsed_code
-        if raw.isdigit():
-            return int(raw)
-        print("[WARN] Please enter a valid integer or press Enter to skip.")
-
-
-def prompt_optional_title(cli_title: str, derived_title: str) -> str:
-    if cli_title and cli_title.strip():
-        return cli_title.strip()
-    raw = input(
-        f"Custom release title (optional, Enter for '{derived_title}'): "
-    ).strip()
-    return raw if raw else derived_title
-
-
-def prompt_optional_ios_toggle(
-        cfg: dict, with_ios_flag: bool, skip_ios_flag: bool
-) -> bool:
-    if with_ios_flag:
-        return True
-    if skip_ios_flag:
-        return False
-
-    current = bool(cfg.get("build_ios", False))
-    default_hint = "Y/n" if current else "y/N"
-    raw = input(
-        f"Build & attach iOS artifact too? (optional, [{default_hint}], Enter for default): "
-    ).strip().lower()
-    if not raw:
-        return current
-    if raw in ("y", "yes"):
-        return True
-    if raw in ("n", "no"):
-        return False
-    return current
-
-
-def prompt_optional_path(cli_path: str, label: str) -> str | None:
-    if cli_path and cli_path.strip():
-        return cli_path.strip()
-    raw = input(f"Custom {label} path (optional, Enter to auto-detect): ").strip()
-    return raw if raw else None
-
-
 def update_version_files(cfg: dict, version: str, version_code: int | None) -> None:
-    for rel_path in cfg.get("version_files", []):
+    version_files = cfg.get("version_files", [])
+    if not isinstance(version_files, list):
+        print("[ERROR] 'version_files' in config must be a list.", file=sys.stderr)
+        sys.exit(1)
+
+    for rel_path in version_files:
         path = ROOT_DIR / rel_path
         if not path.exists():
             continue
@@ -408,6 +384,18 @@ def update_version_files(cfg: dict, version: str, version_code: int | None) -> N
                 updated = re.sub(
                     r"(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)(\+[0-9]+)?",
                     lambda m: f"version: {version}{m.group(2) or ''}",
+                    updated,
+                )
+        elif path.name == "module.yaml":
+            updated = re.sub(
+                r'(?m)^(\s*versionName\s*:\s*["\']?)([^"\'\s#]+)(["\']?)',
+                rf"\g<1>{version}\g<3>",
+                updated,
+            )
+            if version_code is not None:
+                updated = re.sub(
+                    r"(?m)^(\s*versionCode\s*:\s*)(\d+)",
+                    rf"\g<1>{version_code}",
                     updated,
                 )
         elif path.suffix == ".xcconfig":
@@ -502,8 +490,8 @@ def confirm_before_github_release(
 
         choice = (
             input(
-                "Publish this pre-release on GitHub now? "
-                "[y = publish pre-release / e = edit title & notes / n = cancel]: "
+                "Publish this release on GitHub now? "
+                "[y = publish / e = edit title & notes / n = cancel]: "
             )
             .strip()
             .lower()
@@ -543,7 +531,7 @@ def confirm_before_github_release(
                     if tmp_path.exists():
                         tmp_path.unlink(missing_ok=True)
         else:
-            print("[INFO] Cancelled before creating GitHub pre-release.")
+            print("[INFO] Cancelled before creating GitHub release.")
             sys.exit(0)
 
 
@@ -555,48 +543,49 @@ def main() -> None:
         "--code",
         type=int,
         default=None,
-        help="Optional versionCode / build number (prompted at runtime if omitted)",
+        help="Optional versionCode / build number override",
     )
     parser.add_argument(
         "--title",
         default="",
-        help="Optional explicit GitHub release title override (prompted at runtime if omitted)",
+        help="Optional explicit GitHub release title override",
     )
     parser.add_argument(
         "--apk",
         default="",
-        help="Optional explicit APK path (prompted at runtime if omitted)",
+        help="Optional explicit APK path",
     )
     parser.add_argument(
         "--ipa",
         default="",
-        help="Optional explicit iOS artifact (.ipa / .zip) path (prompted at runtime if omitted)",
+        help="Optional explicit iOS artifact (.ipa / .zip) path",
     )
     parser.add_argument(
         "--full-release",
         action="store_true",
-        help="Optional flag to publish as a full release instead of a pre-release",
+        help="Publish as a full release instead of a pre-release",
     )
     parser.add_argument(
         "--with-ios",
         action="store_true",
-        help="Optional flag to enable iOS build & upload for this run",
+        help="Enable iOS build & upload for this run",
     )
     parser.add_argument(
         "--skip-ios",
         action="store_true",
-        help="Optional flag to disable iOS build & upload for this run",
+        help="Disable iOS build & upload for this run",
     )
     parser.add_argument(
         "--auto-publish",
         action="store_true",
-        help="Optional flag to skip pre-release confirmation prompt",
+        help="Skip GitHub release confirmation prompt",
     )
     args = parser.parse_args()
 
     cfg = load_config()
     remote = cfg.get("remote", "origin")
     is_prerelease = False if args.full_release else bool(cfg.get("prerelease", True))
+    auto_publish = bool(args.auto_publish or cfg.get("auto_publish", False))
 
     # 1. Keystore guard, release notes version read, README version check, and already-published check
     jks_path = find_jks_keystore(cfg)
@@ -610,30 +599,42 @@ def main() -> None:
     tag = f"v{version}"
     if is_release_already_published(tag, remote):
         print(
-            f"[ERROR] Release '{tag}' is already published on GitHub (or tag already exists on {remote}). "
+            f"[ERROR] Release '{tag}' is already published on GitHub or tag exists on '{remote}'. "
             "Update your release note & README version first.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    # 2. Optional runtime prompts (never asks for version)
-    version_code = prompt_optional_code(args.code, parsed_code)
-    release_title = prompt_optional_title(args.title, derived_title)
-    build_ios = prompt_optional_ios_toggle(cfg, args.with_ios, args.skip_ios)
-    explicit_apk = prompt_optional_path(args.apk, "APK")
-    explicit_ipa = prompt_optional_path(args.ipa, "iOS artifact") if build_ios else None
+    version_code = args.code if args.code is not None else parsed_code
+    release_title = (
+        args.title.strip() if args.title and args.title.strip() else derived_title
+    )
+    build_ios = (
+        True
+        if args.with_ios
+        else (False if args.skip_ios else bool(cfg.get("build_ios", False)))
+    )
+    explicit_apk = args.apk.strip() if args.apk and args.apk.strip() else None
+    explicit_ipa = (
+        args.ipa.strip() if (build_ios and args.ipa and args.ipa.strip()) else None
+    )
 
-    # 3. Optional local version file sync (never commits or pushes branch changes)
-    if cfg.get("sync_version_files", True):
+    # 2. Optional local version file sync (never commits or pushes branch changes)
+    if cfg.get("sync_version_files", False):
         update_version_files(cfg, version, version_code)
 
-    # 4. Build Android / KMP APK (interactive console so password prompts work)
-    extra_build_env = {}
+    # 3. Build Android / KMP APK
+    extra_build_env: dict[str, str] = {}
     if jks_path:
         extra_build_env["KEYSTORE_PATH"] = str(jks_path)
         extra_build_env["ANDROID_KEYSTORE_PATH"] = str(jks_path)
 
-    android_cmd = resolve_android_build_cmd(cfg)
+    android_cmd = resolve_android_build_cmd(
+        cfg,
+        version=version,
+        tag=tag,
+        keystore_path=jks_path,
+    )
     print(f"[INFO] Building APK: {android_cmd}")
     run_interactive_shell(android_cmd, extra_env=extra_build_env)
     apk_path = find_existing_artifact(
@@ -644,9 +645,9 @@ def main() -> None:
 
     assets: list[Path] = [apk_path]
 
-    # 5. Optionally build iOS artifact
+    # 4. Optionally build iOS artifact
     if build_ios:
-        ios_cmd = cfg.get("ios_build_cmd", "").strip()
+        ios_cmd = str(cfg.get("ios_build_cmd", "")).strip()
         if ios_cmd:
             print(f"[INFO] Building iOS artifact: {ios_cmd}")
             run_interactive_shell(ios_cmd, extra_env=extra_build_env)
@@ -660,13 +661,13 @@ def main() -> None:
             print(f"[OK] iOS artifact ready: {ipa_path}")
             assets.append(ipa_path)
 
-    # 6. Explicit confirmation before tagging and publishing pre-release on GitHub
-    if not args.auto_publish:
+    # 5. Explicit confirmation before tagging and publishing on GitHub
+    if not auto_publish:
         release_title, release_notes = confirm_before_github_release(
             tag, release_title, release_notes, assets, is_prerelease
         )
 
-    # 7. Create & push matching Git tag, then publish GitHub Pre-release with notes & assets
+    # 6. Create & push matching Git tag, then publish GitHub release with notes & assets
     gh_exe = resolve_gh_executable()
     if not gh_exe:
         print(
@@ -683,7 +684,8 @@ def main() -> None:
         notes_tmp_path = Path(notes_tmp.name)
 
     try:
-        run(["git", "tag", "-a", tag, "-m", f"Release {tag}"])
+        if not is_local_tag_existing(tag):
+            run(["git", "tag", "-a", tag, "-m", f"Release {tag}"])
         run(["git", "push", remote, tag])
 
         gh_cmd = [
