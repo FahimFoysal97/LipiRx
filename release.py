@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,13 +25,13 @@ DEFAULT_CONFIG = {
     "release_notes_file": "RELEASE_NOTES.md",
     # Optional keystore file in repo root; if empty, auto-detects *.jks in root
     "keystore_file": "",
-    # Android / KMP APK build command (can be your .bat or gradlew.bat / ./gradlew)
-    "build_cmd": "sign-release.bat",
+    # Android / KMP APK build command (e.g. your .bat file or gradlew.bat)
+    "build_cmd": "",
     # Expected APK path(s) relative to repo root (first existing match is used)
     "apk_candidates": [
-        "composeApp/build/outputs/apk/release/composeApp-release.apk",
-        "app/build/outputs/apk/release/app-release.apk",
-        "build/app/outputs/flutter-apk/app-release.apk",
+        "apks/composeApp-release.apk",
+        "apks/app-release.apk",
+        "apks/app-release.apk",
     ],
     # Optional iOS build support (typically true on macOS with Xcode)
     "build_ios": False,
@@ -102,11 +103,32 @@ def run_interactive_shell(command: str, extra_env: dict[str, str] | None = None)
 def resolve_android_build_cmd(cfg: dict) -> str:
     if cfg.get("build_cmd"):
         return cfg["build_cmd"]
+
     ptype = cfg.get("project_type", "kmp").lower()
     if ptype == "flutter":
         return "flutter build apk --release"
-    gradlew = "gradlew.bat" if os.name == "nt" else "./gradlew"
-    return f"{gradlew} assembleRelease"
+
+    if os.name == "nt":
+        for candidate in [
+            ROOT_DIR / "gradlew.bat",
+            ROOT_DIR / "android" / "gradlew.bat",
+            ROOT_DIR.parent / "gradlew.bat",
+        ]:
+            if candidate.exists():
+                return f'"{candidate}" assembleRelease'
+        return "gradlew.bat assembleRelease"
+
+    return "./gradlew assembleRelease"
+
+
+def resolve_gh_executable() -> str | None:
+    found = shutil.which("gh")
+    if found:
+        return found
+    common_win = Path(r"C:\Program Files\GitHub CLI\gh.exe")
+    if common_win.exists():
+        return str(common_win)
+    return None
 
 
 def find_jks_keystore(cfg: dict) -> Path | None:
@@ -151,39 +173,55 @@ def guard_keystore_not_tracked(jks_path: Path | None) -> None:
         sys.exit(1)
 
 
-def resolve_notes_path(cfg: dict, version: str, tag: str) -> Path:
+def resolve_notes_path(cfg: dict) -> Path:
     configured = cfg.get("release_notes_file", "RELEASE_NOTES.md")
-    return ROOT_DIR / configured.format(version=version, tag=tag)
+    return ROOT_DIR / configured
 
 
-def extract_version_and_title_from_notes(notes_text: str) -> tuple[str | None, str | None]:
+def parse_release_note_metadata(notes_text: str) -> tuple[str | None, str | None, int | None]:
     """
-    Extracts version and release title from the top markdown heading, e.g.:
-      # v0.4.4 - Persistent Updates & In-App Update Engine Refinements
+    Extracts:
+      - version (from top markdown heading, e.g. '# v0.4.4 - Title')
+      - release_title (e.g. 'v0.4.4 - Title')
+      - optional version_code if present in heading or metadata line (e.g. 'code: 44' or '(build 44)')
     """
+    version: str | None = None
+    title: str | None = None
+    code: int | None = None
+
     for line in notes_text.splitlines():
         stripped = line.strip()
         if not stripped:
             continue
-        if not stripped.startswith("#"):
+        if stripped.startswith("#"):
+            match = re.match(
+                r"^#{1,3}\s+v?([0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\s*(?:[-–—:]\s*(.+))?$",
+                stripped,
+            )
+            if match:
+                version = normalize_version(match.group(1))
+                subtitle = (match.group(2) or "").strip()
+                title = f"v{version} - {subtitle}" if subtitle else f"v{version}"
             break
-        match = re.match(
-            r"^#{1,3}\s+v?([0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\s*(?:[-–—:]\s*(.+))?$",
-            stripped,
-        )
-        if match:
-            ver = normalize_version(match.group(1))
-            subtitle = (match.group(2) or "").strip()
-            title = f"v{ver} - {subtitle}" if subtitle else f"v{ver}"
-            return ver, title
         break
-    return None, None
+
+    code_match = re.search(
+        r"(?mi)^\s*(?:version[_\s-]*code|build(?:\s*number)?)\s*[:=]\s*(\d+)\s*$",
+        notes_text,
+    )
+    if not code_match:
+        code_match = re.search(
+            r"(?i)\b(?:code|build)\s*[:#-]?\s*(\d+)\b",
+            notes_text.splitlines()[0] if notes_text.splitlines() else "",
+        )
+    if code_match:
+        code = int(code_match.group(1))
+
+    return version, title, code
 
 
-def load_and_validate_release_notes(
-        cfg: dict, target_version: str, tag: str
-) -> tuple[Path, str, str]:
-    notes_path = resolve_notes_path(cfg, target_version, tag)
+def load_release_notes(cfg: dict) -> tuple[Path, str, str, str, int | None]:
+    notes_path = resolve_notes_path(cfg)
     if not notes_path.exists() or not notes_path.is_file():
         print(f"[ERROR] Release note file not found: {notes_path}", file=sys.stderr)
         sys.exit(1)
@@ -196,8 +234,8 @@ def load_and_validate_release_notes(
         )
         sys.exit(1)
 
-    file_version, derived_title = extract_version_and_title_from_notes(raw_text)
-    if not file_version:
+    version, derived_title, code = parse_release_note_metadata(raw_text)
+    if not version:
         print(
             f"[ERROR] Could not find a version heading in '{notes_path.relative_to(ROOT_DIR)}'. "
             "Expected top line like '# v0.4.4 - Release Title'.",
@@ -205,24 +243,87 @@ def load_and_validate_release_notes(
         )
         sys.exit(1)
 
-    expected_version = normalize_version(target_version)
-    if file_version != expected_version:
+    print(
+        f"[OK] Read version {version} from {notes_path.relative_to(ROOT_DIR)}"
+        + (f" (code {code})" if code is not None else "")
+    )
+    return notes_path, version, derived_title or f"v{version}", raw_text, code
+
+
+def extract_readme_versions(readme_text: str) -> list[str]:
+    """
+    Extracts version strings from README.md (prioritizing explicit version/release lines,
+    then falling back to semver-like tokens).
+    """
+    explicit_matches = re.findall(
+        r"(?mi)^.*?\b(?:version|release|latest release|current version)\b[^\n]*?\bv?([0-9]+(?:\.[0-9]+){1,3})\b",
+        readme_text,
+    )
+    if explicit_matches:
+        return [normalize_version(v) for v in explicit_matches]
+
+    all_semver = re.findall(r"\bv?([0-9]+(?:\.[0-9]+){1,3})\b", readme_text)
+    return [normalize_version(v) for v in all_semver]
+
+
+def verify_readme_matches_version(cfg: dict, release_version: str) -> None:
+    readme_rel = cfg.get("readme_file", "README.md")
+    readme_path = ROOT_DIR / readme_rel
+    if not readme_path.exists():
         print(
-            f"[ERROR] Version mismatch: release note file has version '{file_version}', "
-            f"but target release version is '{expected_version}'.",
+            f"[ERROR] README file '{readme_rel}' not found; cannot verify version match with release notes.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    print(
-        f"[OK] Verified {notes_path.relative_to(ROOT_DIR)} matches version {file_version}"
-    )
-    return notes_path, derived_title or f"v{expected_version}", raw_text
+    readme_text = readme_path.read_text(encoding="utf-8")
+    readme_versions = extract_readme_versions(readme_text)
+
+    if not readme_versions:
+        print(
+            f"[ERROR] No version found in '{readme_rel}' to match release note version '{release_version}'.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    expected = normalize_version(release_version)
+    if expected not in readme_versions:
+        found_str = ", ".join(dict.fromkeys(readme_versions))
+        print(
+            f"[ERROR] Version mismatch between release note and {readme_rel}: "
+            f"release note has '{expected}', but {readme_rel} has '{found_str}'.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"[OK] Verified {readme_rel} matches release note version {expected}")
 
 
-def is_release_already_published(tag: str) -> bool:
+def is_tag_on_remote(remote: str, tag: str) -> bool:
     res = subprocess.run(
-        ["gh", "release", "view", tag],
+        ["git", "ls-remote", "--tags", remote, f"refs/tags/{tag}"],
+        cwd=ROOT_DIR,
+        text=True,
+        capture_output=True,
+    )
+    return res.returncode == 0 and bool(res.stdout.strip())
+
+
+def is_release_already_published(tag: str, remote: str) -> bool:
+    #if is_tag_on_remote(remote, tag):
+    #    return True
+
+    gh_exe = resolve_gh_executable()
+    if not gh_exe:
+        print(
+            "[WARN] GitHub CLI ('gh') was not found on PATH. "
+            "Install it ('winget install --id GitHub.cli') and run 'gh auth login' "
+            "so release.py can publish directly to GitHub Releases."
+        )
+        return False
+
+    res = subprocess.run(
+        [gh_exe, "release", "view", tag],
         cwd=ROOT_DIR,
         text=True,
         capture_output=True,
@@ -230,27 +331,16 @@ def is_release_already_published(tag: str) -> bool:
     return res.returncode == 0
 
 
-def prompt_version_if_missing(cli_version: str | None) -> str:
-    if cli_version and cli_version.strip():
-        ver = normalize_version(cli_version)
-        if ver:
-            return ver
-
-    while True:
-        raw = input("Release version (e.g. 0.4.4 or v0.4.4): ").strip()
-        ver = normalize_version(raw)
-        if ver:
-            return ver
-        print("[WARN] Version is required. Please enter a version like 0.4.4.")
-
-
-def prompt_optional_code(cli_code: int | None) -> int | None:
+def prompt_optional_code(cli_code: int | None, parsed_code: int | None) -> int | None:
     if cli_code is not None:
         return cli_code
+    default_hint = f"default {parsed_code}, " if parsed_code is not None else ""
     while True:
-        raw = input("Version code / build number (optional, Enter to skip): ").strip()
+        raw = input(
+            f"Version code / build number (optional, {default_hint}Enter to skip): "
+        ).strip()
         if not raw:
-            return None
+            return parsed_code
         if raw.isdigit():
             return int(raw)
         print("[WARN] Please enter a valid integer or press Enter to skip.")
@@ -260,7 +350,7 @@ def prompt_optional_title(cli_title: str, derived_title: str) -> str:
     if cli_title and cli_title.strip():
         return cli_title.strip()
     raw = input(
-        f"Custom release title (optional, Enter to use '{derived_title}'): "
+        f"Custom release title (optional, Enter for '{derived_title}'): "
     ).strip()
     return raw if raw else derived_title
 
@@ -349,23 +439,6 @@ def update_version_files(cfg: dict, version: str, version_code: int | None) -> N
             )
 
 
-def update_readme(cfg: dict, version: str) -> None:
-    readme_rel = cfg.get("readme_file", "README.md")
-    readme_path = ROOT_DIR / readme_rel
-    if not readme_path.exists():
-        return
-
-    content = readme_path.read_text(encoding="utf-8")
-    updated = re.sub(
-        r"(?mi)^(\*\*(?:Latest Release|Current Version):\*\*\s*)v?[0-9]+\.[0-9]+\.[0-9]+.*$",
-        rf"\g<1>v{version}",
-        content,
-    )
-    if updated != content:
-        readme_path.write_text(updated, encoding="utf-8")
-        print(f"[OK] Updated version line in {readme_rel}")
-
-
 def find_existing_artifact(
         candidates: list[str],
         explicit_path: str | None,
@@ -397,9 +470,6 @@ def confirm_before_github_release(
         notes_text: str,
         assets: list[Path],
 ) -> tuple[str, str]:
-    """
-    Confirmation gate right before creating & publishing the GitHub Release.
-    """
     current_title = release_title
     current_notes = notes_text
 
@@ -434,7 +504,9 @@ def confirm_before_github_release(
                 current_title = new_title
 
             open_editor = (
-                input("Open release notes in editor for this release? (optional, [y/N]): ")
+                input(
+                    "Open release notes in editor for this release? (optional, [y/N]): "
+                )
                 .strip()
                 .lower()
             )
@@ -464,12 +536,6 @@ def confirm_before_github_release(
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Root-directory release script for Android, KMP, and Flutter."
-    )
-    parser.add_argument(
-        "version",
-        nargs="?",
-        default=None,
-        help="Release version, e.g. 0.4.4 or v0.4.4 (optional if entered at runtime)",
     )
     parser.add_argument(
         "--code",
@@ -510,35 +576,35 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config()
-    version = prompt_version_if_missing(args.version)
-    version_code = prompt_optional_code(args.code)
-    build_ios = prompt_optional_ios_toggle(cfg, args.with_ios, args.skip_ios)
-    explicit_apk = prompt_optional_path(args.apk, "APK")
-    explicit_ipa = prompt_optional_path(args.ipa, "iOS artifact") if build_ios else None
-
-    tag = f"v{version}"
     remote = cfg.get("remote", "origin")
 
-    # 1. Validate keystore safety, release note file version, and GitHub release status
+    # 1. Keystore guard, release notes version read, README version check, and already-published check
     jks_path = find_jks_keystore(cfg)
     guard_keystore_not_tracked(jks_path)
     if jks_path:
         print(f"[OK] Found keystore in root: {jks_path.name}")
 
-    _, derived_title, release_notes = load_and_validate_release_notes(cfg, version, tag)
-    release_title = prompt_optional_title(args.title, derived_title)
+    _, version, derived_title, release_notes, parsed_code = load_release_notes(cfg)
+    verify_readme_matches_version(cfg, version)
 
-    if is_release_already_published(tag):
+    tag = f"v{version}"
+    if is_release_already_published(tag, remote):
         print(
-            f"[ERROR] Release '{tag}' is already published on GitHub. "
-            "Use a new version or remove/update the existing release first.",
+            f"[ERROR] Release '{tag}' is already published on GitHub (or tag already exists on {remote}). "
+            "Update your release note & README version first.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    # 2. Bump versions & update README, then commit and push
+    # 2. Optional runtime prompts (never asks for version)
+    version_code = prompt_optional_code(args.code, parsed_code)
+    release_title = prompt_optional_title(args.title, derived_title)
+    build_ios = prompt_optional_ios_toggle(cfg, args.with_ios, args.skip_ios)
+    explicit_apk = prompt_optional_path(args.apk, "APK")
+    explicit_ipa = prompt_optional_path(args.ipa, "iOS artifact") if build_ios else None
+
+    # 3. Sync version files, commit & push
     update_version_files(cfg, version, version_code)
-    update_readme(cfg, version)
 
     run(["git", "add", "-A"])
     has_changes = (
@@ -549,7 +615,7 @@ def main() -> None:
         run(["git", "commit", "-m", f"chore(release): {tag}"])
         run(["git", "push", remote, "HEAD"])
 
-    # 3. Build Android / KMP APK (interactive console so password prompts work)
+    # 4. Build Android / KMP APK (interactive console so password prompts work)
     extra_build_env = {}
     if jks_path:
         extra_build_env["KEYSTORE_PATH"] = str(jks_path)
@@ -566,7 +632,7 @@ def main() -> None:
 
     assets: list[Path] = [apk_path]
 
-    # 4. Optionally build iOS artifact
+    # 5. Optionally build iOS artifact
     if build_ios:
         ios_cmd = cfg.get("ios_build_cmd", "").strip()
         if ios_cmd:
@@ -582,13 +648,22 @@ def main() -> None:
             print(f"[OK] iOS artifact ready: {ipa_path}")
             assets.append(ipa_path)
 
-    # 5. Explicit confirmation before tagging and publishing on GitHub
+    # 6. Explicit confirmation before tagging and publishing on GitHub
     if not args.auto_publish:
         release_title, release_notes = confirm_before_github_release(
             tag, release_title, release_notes, assets
         )
 
-    # 6. Create & push matching Git tag, then publish GitHub Release with notes & assets
+    # 7. Create & push matching Git tag, then publish GitHub Release with notes & assets
+    gh_exe = resolve_gh_executable()
+    if not gh_exe:
+        print(
+            "[ERROR] GitHub CLI ('gh') is required to publish the release. "
+            "Install it ('winget install --id GitHub.cli') and run 'gh auth login'.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     with tempfile.NamedTemporaryFile(
             mode="w", suffix=".md", delete=False, encoding="utf-8"
     ) as notes_tmp:
@@ -600,7 +675,7 @@ def main() -> None:
         run(["git", "push", remote, tag])
 
         gh_cmd = [
-            "gh",
+            gh_exe,
             "release",
             "create",
             tag,
