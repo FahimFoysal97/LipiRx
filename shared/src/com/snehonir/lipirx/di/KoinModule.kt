@@ -19,11 +19,17 @@ import com.snehonir.lipirx.domain.mcp.McpResourceHandler
 import com.snehonir.lipirx.domain.mcp.McpToolHandler
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
+import com.snehonir.lipirx.domain.session.PrescriptionSessionState
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
 import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
 import com.snehonir.lipirx.domain.update.UpdateManager
-import com.snehonir.lipirx.presentation.scan.ScanViewModel
+import com.snehonir.lipirx.presentation.history.HistoryViewModel
+import com.snehonir.lipirx.presentation.home.HomeViewModel
+import com.snehonir.lipirx.presentation.loading.AnalysisLoadingViewModel
+import com.snehonir.lipirx.presentation.preview.ImagePreviewViewModel
+import com.snehonir.lipirx.presentation.results.ScanResultsViewModel
+import com.snehonir.lipirx.presentation.settings.SettingsViewModel
 import com.snehonir.lipirx.presentation.telemetry.AgentTraceViewModel
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -126,16 +132,19 @@ val sharedModule = module {
     single { GetScanHistoryUseCase(repository = get()) }
     single { ManageProviderConfigUseCase(repository = get()) }
 
+    // Shared Session State
+    single { PrescriptionSessionState() }
+
     // Self-Update Manager
     single { UpdateManager(httpClient = get(), platformUpdater = get(), repository = get(), jsonParser = get()) }
 
-    factory {
-        ScanViewModel(
-            processPrescriptionUseCase = get(),
-            getScanHistoryUseCase = get(),
-            manageProviderConfigUseCase = get()
-        )
-    }
+    // Dedicated ViewModels for Navigation 3 Screen Architecture
+    factory { HomeViewModel(sessionState = get(), getScanHistoryUseCase = get()) }
+    factory { ImagePreviewViewModel(sessionState = get(), processPrescriptionUseCase = get(), manageProviderConfigUseCase = get(), getScanHistoryUseCase = get(), jsonParser = get()) }
+    factory { AnalysisLoadingViewModel(sessionState = get()) }
+    factory { ScanResultsViewModel(sessionState = get(), getScanHistoryUseCase = get(), jsonParser = get()) }
+    factory { HistoryViewModel(getScanHistoryUseCase = get(), sessionState = get(), jsonParser = get()) }
+    factory { SettingsViewModel(manageProviderConfigUseCase = get(), processPrescriptionUseCase = get()) }
 
     factory {
         AgentTraceViewModel(

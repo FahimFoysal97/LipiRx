@@ -11,7 +11,7 @@ interface PrescriptionAiService {
     suspend fun fetchAvailableModels(
         providedApiKey: String = "",
         customUrl: String = "",
-        flow: String = "App -> PrescriptionAiService.fetchAvailableModels"
+        flow: String = "com.snehonir.lipirx.App -> PrescriptionAiService.fetchAvailableModels"
     ): Result<List<ModelInfoDto>>
 
     suspend fun processPrescriptionImage(
@@ -20,7 +20,7 @@ interface PrescriptionAiService {
         providedApiKey: String = "",
         customUrl: String = "",
         mimeType: String = AppConstants.MIME_TYPE_JPEG,
-        flow: String = "App -> PrescriptionAiService.processPrescriptionImage",
+        flow: String = "com.snehonir.lipirx.App -> PrescriptionAiService.processPrescriptionImage",
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>>
 
@@ -29,7 +29,7 @@ interface PrescriptionAiService {
         selectedModel: String,
         providedApiKey: String = "",
         customUrl: String = "",
-        flow: String = "App -> PrescriptionAiService.processTextPrompt"
+        flow: String = "com.snehonir.lipirx.App -> PrescriptionAiService.processTextPrompt"
     ): Result<String>
 
     suspend fun streamContent(
@@ -37,7 +37,7 @@ interface PrescriptionAiService {
         selectedModel: String,
         providedApiKey: String = "",
         customUrl: String = "",
-        flow: String = "App -> PrescriptionAiService.streamContent",
+        flow: String = "com.snehonir.lipirx.App -> PrescriptionAiService.streamContent",
         onToken: (String) -> Unit = {}
     ): Result<String>
 }

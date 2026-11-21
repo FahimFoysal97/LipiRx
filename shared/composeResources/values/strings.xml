@@ -9,7 +9,7 @@
     <string name="section_appearance_theme">Appearance Theme</string>
 
     <!-- Theme Mode Display Names -->
-    <string name="theme_system_default">System Default</string>
+    <string name="theme_system_default">System</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
 
@@ -288,4 +288,52 @@
     <string name="btn_install_now">Install Now</string>
     <string name="btn_later">Later</string>
     <string name="btn_retry">Retry</string>
+
+    <!-- Additional UI Labels -->
+    <string name="hint_flat_light_tip">Tip: Lay the page flat in good light for the best read.</string>
+    <string name="label_ai_pipeline">AI Pipeline</string>
+    <string name="label_analysis_progress">Analysis progress</string>
+    <string name="label_step_of">Step %1$d of %2$d</string>
+    <string name="label_one_medicine_found">1 medicine found</string>
+    <string name="label_medicines_found">%1$d medicines found</string>
+    <string name="label_flagged_for_review_reason">%1$d item(s) flagged for pharmacist verification</string>
+    <string name="label_filter_all">All</string>
+    <string name="label_similar_brands_count">%1$d similar brands</string>
+    <string name="slot_morning">Morning</string>
+    <string name="slot_noon">Noon</string>
+    <string name="slot_night">Night</string>
+    <string name="label_before_meal">Before meal</string>
+    <string name="label_after_meal">After meal</string>
+    <string name="dialog_discard_title">Discard changes?</string>
+    <string name="dialog_discard_msg">Your edits to this medicine will be lost.</string>
+    <string name="btn_discard">Discard</string>
+    <string name="btn_keep_editing">Keep editing</string>
+    <string name="label_one_medicine">1 medicine</string>
+    <string name="label_count_medicines">%1$d medicines</string>
+    <string name="label_count_to_review">%1$d to review</string>
+    <string name="label_zoom_percent">Zoom %1$d%%</string>
+
+    <!-- Pharmacist Sign-Off & Dialogs -->
+    <string name="btn_copied">Copied</string>
+    <string name="btn_scan_again">Scan again</string>
+    <string name="filter_all_count">All (%1$d)</string>
+    <string name="filter_needs_review_count">Needs review (%1$d)</string>
+    <string name="banner_items_flagged">%1$d item(s) flagged for pharmacist verification</string>
+    <string name="label_needs_review_prefix">Needs review: %1$s</string>
+    <string name="cd_back_to_history">Back to History</string>
+    <string name="dialog_signoff_title">Confirm pharmacist sign-off?</string>
+    <string name="dialog_signoff_body">This marks all flagged items as verified.</string>
+    <string name="dialog_signoff_confirm">Sign off</string>
+    <string name="dialog_leave_title">Leave without sign-off?</string>
+    <string name="dialog_leave_body">Some items are still waiting for pharmacist verification.</string>
+    <string name="dialog_leave_confirm">Leave</string>
+    <string name="dialog_stay">Stay</string>
+    <string name="cd_dose_slot">%1$s: %2$s</string>
+    <string name="status_fix_action">Fix</string>
+    <string name="status_needs_attention">Needs attention</string>
+    <string name="action_show">Show</string>
+    <string name="action_hide">Hide</string>
+    <string name="dialog_discard_body">Your API key or URL changes haven't been saved.</string>
+    <string name="dialog_discard_confirm">Discard</string>
+    <string name="dialog_keep_editing">Keep editing</string>
 </resources>

@@ -14,6 +14,7 @@ data class TranscriptionInput(
     val strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
     val fallbackProvider: AiProvider? = null,
     val fallbackModel: String = "",
+    val fallbackApiKey: String = "",
     val onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
 ) {
     override fun equals(other: Any?): Boolean {
@@ -27,7 +28,8 @@ data class TranscriptionInput(
                 mimeType == otherInput.mimeType &&
                 strategy == otherInput.strategy &&
                 fallbackProvider == otherInput.fallbackProvider &&
-                fallbackModel == otherInput.fallbackModel
+                fallbackModel == otherInput.fallbackModel &&
+                fallbackApiKey == otherInput.fallbackApiKey
     }
 
     override fun hashCode(): Int {
@@ -40,6 +42,7 @@ data class TranscriptionInput(
         result = 31 * result + strategy.hashCode()
         result = 31 * result + fallbackProvider.hashCode()
         result = 31 * result + fallbackModel.hashCode()
+        result = 31 * result + fallbackApiKey.hashCode()
         return result
     }
 }

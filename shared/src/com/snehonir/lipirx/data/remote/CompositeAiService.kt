@@ -28,7 +28,7 @@ class CompositeAiService(
         providedApiKey: String = "",
         provider: AiProvider = AiProvider.Gemini,
         customUrl: String = "",
-        flow: String = "App -> CompositeAiService.fetchAvailableModels"
+        flow: String = "com.snehonir.lipirx.App -> CompositeAiService.fetchAvailableModels"
     ): Result<List<ModelInfoDto>> {
         val activeService = getService(provider)
         Napier.d("[$flow] Routing fetchAvailableModels to ${activeService::class.simpleName} for ${provider.displayName}", tag = TAG)
@@ -45,7 +45,8 @@ class CompositeAiService(
         strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
         fallbackProvider: AiProvider? = null,
         fallbackModel: String = "",
-        flow: String = "App -> CompositeAiService.processPrescriptionImage",
+        fallbackApiKey: String = "",
+        flow: String = "com.snehonir.lipirx.App -> CompositeAiService.processPrescriptionImage",
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>> {
         val primaryService = getService(provider)
@@ -56,6 +57,7 @@ class CompositeAiService(
             OnDeviceStrategy.ON_DEVICE_FIRST -> AiProvider.Gemini
         }
         val fallbackService = getService(targetFallbackProvider)
+        val targetFallbackApiKey = fallbackApiKey.ifBlank { providedApiKey }
 
         Napier.d("[$flow] Executing processPrescriptionImage with strategy '${strategy.id}' (Primary: ${provider.displayName}, Fallback: ${targetFallbackProvider.displayName})", tag = TAG)
 
@@ -113,7 +115,7 @@ class CompositeAiService(
                     val fallingBackMsg = getString(Res.string.progress_falling_back, provider.displayName, AppConstants.MAX_CLOUD_RETRIES, targetFallbackProvider.displayName)
                     Napier.w("[$flow -> Fallback Triggered] ${provider.displayName} Cloud AI failed after ${AppConstants.MAX_CLOUD_RETRIES} attempts (${cloudResult.exceptionOrNull()?.message}). Falling back to ${targetFallbackProvider.displayName} ($targetModelName)...", tag = TAG)
                     onProgress(1, fallingBackMsg)
-                    fallbackService.processPrescriptionImage(imageByteArray, targetModelName, providedApiKey, customUrl, mimeType, flow, onProgress)
+                    fallbackService.processPrescriptionImage(imageByteArray, targetModelName, targetFallbackApiKey, customUrl, mimeType, flow, onProgress)
                 }
             }
         }
@@ -128,7 +130,7 @@ class CompositeAiService(
         strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
         fallbackProvider: AiProvider? = null,
         fallbackModel: String = "",
-        flow: String = "App -> CompositeAiService.processTextPrompt"
+        flow: String = "com.snehonir.lipirx.App -> CompositeAiService.processTextPrompt"
     ): Result<String> {
         val primaryService = getService(provider)
         val targetFallbackProvider = fallbackProvider ?: when (strategy) {

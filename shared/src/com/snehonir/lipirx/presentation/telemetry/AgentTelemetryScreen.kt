@@ -57,9 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.data.local.entity.AgentExecutionTraceEntity
 import com.snehonir.lipirx.domain.agent.RxAgentType
-import com.snehonir.lipirx.presentation.scan.components.AppHeader
-import com.snehonir.lipirx.presentation.scan.components.PrimaryButton
-import com.snehonir.lipirx.presentation.scan.components.SecondaryButton
+import com.snehonir.lipirx.presentation.common.AppHeader
+import com.snehonir.lipirx.presentation.common.PrimaryButton
+import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_clear_traces

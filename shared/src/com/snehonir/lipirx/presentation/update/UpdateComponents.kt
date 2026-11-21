@@ -60,8 +60,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.domain.update.UpdateState
-import com.snehonir.lipirx.presentation.scan.components.PrimaryButton
-import com.snehonir.lipirx.presentation.scan.components.SecondaryButton
+import com.snehonir.lipirx.presentation.common.PrimaryButton
+import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_install_now

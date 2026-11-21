@@ -196,3 +196,78 @@ val PasteVectorIcon = ImageVector.Builder(
         close()
     }
 }.build()
+
+val EyeShowVectorIcon = ImageVector.Builder(
+    name = "EyeShow",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(1f, 12f)
+        curveTo(1f, 12f, 5f, 4f, 12f, 4f)
+        curveTo(19f, 4f, 23f, 12f, 23f, 12f)
+        curveTo(23f, 12f, 19f, 20f, 12f, 20f)
+        curveTo(5f, 20f, 1f, 12f, 1f, 12f)
+        close()
+    }
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(12f, 15f)
+        arcTo(3f, 3f, 0f, true, false, 12f, 9f)
+        arcTo(3f, 3f, 0f, false, false, 12f, 15f)
+        close()
+    }
+}.build()
+
+val EyeHideVectorIcon = ImageVector.Builder(
+    name = "EyeHide",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(17.94f, 17.94f)
+        curveTo(16.22f, 19.26f, 14.19f, 20f, 12f, 20f)
+        curveTo(5f, 20f, 1f, 12f, 1f, 12f)
+        curveTo(2.13f, 9.87f, 3.82f, 8.01f, 5.86f, 6.78f)
+        moveTo(9.9f, 4.24f)
+        curveTo(10.58f, 4.08f, 11.28f, 4f, 12f, 4f)
+        curveTo(19f, 4f, 23f, 12f, 23f, 12f)
+        curveTo(22.19f, 13.54f, 21.07f, 14.96f, 19.66f, 16.14f)
+    }
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(14.12f, 14.12f)
+        arcTo(3f, 3f, 0f, true, true, 9.88f, 9.88f)
+    }
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(1f, 1f)
+        lineTo(23f, 23f)
+    }
+}.build()

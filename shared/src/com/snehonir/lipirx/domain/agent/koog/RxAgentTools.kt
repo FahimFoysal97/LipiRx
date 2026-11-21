@@ -25,6 +25,7 @@ class RxAgentTools(
             strategy = input.strategy,
             fallbackProvider = input.fallbackProvider,
             fallbackModel = input.fallbackModel,
+            fallbackApiKey = input.fallbackApiKey,
             flow = "Koog -> VisionOCRTool",
             onProgress = input.onProgress
         )

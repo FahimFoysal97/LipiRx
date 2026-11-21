@@ -30,7 +30,7 @@ class AgentTraceViewModel(
         loadAgentTraces()
     }
 
-    fun loadAgentTraces(flow: String = "App -> AgentTraceViewModel.loadAgentTraces") {
+    fun loadAgentTraces(flow: String = "com.snehonir.lipirx.App -> AgentTraceViewModel.loadAgentTraces") {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val rawTraces = runCatching {
@@ -52,7 +52,7 @@ class AgentTraceViewModel(
         }
     }
 
-    fun runSampleBenchmarkTest(flow: String = "App -> AgentTraceViewModel.runSampleBenchmarkTest") {
+    fun runSampleBenchmarkTest(flow: String = "com.snehonir.lipirx.App -> AgentTraceViewModel.runSampleBenchmarkTest") {
         val evaluator = rxAgentEvaluator ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -63,7 +63,7 @@ class AgentTraceViewModel(
         }
     }
 
-    fun deleteTraces(traceIds: List<Long>, flow: String = "App -> AgentTraceViewModel.deleteTraces") {
+    fun deleteTraces(traceIds: List<Long>, flow: String = "com.snehonir.lipirx.App -> AgentTraceViewModel.deleteTraces") {
         if (traceIds.isEmpty()) return
         viewModelScope.launch {
             runCatching {
@@ -73,7 +73,7 @@ class AgentTraceViewModel(
         }
     }
 
-    fun clearAllTraces(flow: String = "App -> AgentTraceViewModel.clearAllTraces") {
+    fun clearAllTraces(flow: String = "com.snehonir.lipirx.App -> AgentTraceViewModel.clearAllTraces") {
         viewModelScope.launch {
             runCatching {
                 database.clearAgentTraces(flow = flow)

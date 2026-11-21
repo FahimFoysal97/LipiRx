@@ -1,5 +1,8 @@
 package com.snehonir.lipirx.ui.theme
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -7,8 +10,11 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import com.snehonir.lipirx.domain.model.ThemeMode
 
 data class LipiColors(
@@ -36,10 +42,6 @@ data class LipiColors(
     val statusActiveGreen: Color,
 )
 
-// Soft light: warm off-white surfaces (no pure white), slightly desaturated teal,
-// softer ink instead of near-black.
-// primary 0xFF267A70: ~5:1 against white, so small bold labels stay readable.
-// red 0xFFB8463F: ~5:1 against the surface, for small error text.
 private val LightLipiColors = LipiColors(
     primary = Color(0xFF267A70),
     onPrimary = Color(0xFFFFFFFF),
@@ -65,8 +67,6 @@ private val LightLipiColors = LipiColors(
     statusActiveGreen = Color(0xFF4C8F52),
 )
 
-// Soft dark: lifted charcoal (no near-black), muted pastel accents,
-// off-white text instead of bright white to reduce glare.
 private val DarkLipiColors = LipiColors(
     primary = Color(0xFF5FB8AA),
     onPrimary = Color(0xFF0F2E2A),
@@ -92,9 +92,38 @@ private val DarkLipiColors = LipiColors(
     statusActiveGreen = Color(0xFF86C98F),
 )
 
+/** Linearly interpolates all color tokens for a single-driver, 60/120 FPS theme transition. */
+private fun lerp(start: LipiColors, stop: LipiColors, fraction: Float): LipiColors {
+    val f = fraction.coerceIn(0f, 1f)
+    return LipiColors(
+        primary = lerp(start.primary, stop.primary, f),
+        onPrimary = lerp(start.onPrimary, stop.onPrimary, f),
+        primaryContainer = lerp(start.primaryContainer, stop.primaryContainer, f),
+        onPrimaryContainer = lerp(start.onPrimaryContainer, stop.onPrimaryContainer, f),
+        background = lerp(start.background, stop.background, f),
+        surface = lerp(start.surface, stop.surface, f),
+        outline = lerp(start.outline, stop.outline, f),
+        cardBorder = lerp(start.cardBorder, stop.cardBorder, f),
+        ink = lerp(start.ink, stop.ink, f),
+        muted = lerp(start.muted, stop.muted, f),
+        amberContainer = lerp(start.amberContainer, stop.amberContainer, f),
+        onAmber = lerp(start.onAmber, stop.onAmber, f),
+        red = lerp(start.red, stop.red, f),
+        onError = lerp(start.onError, stop.onError, f),
+        imageWell = lerp(start.imageWell, stop.imageWell, f),
+        inkLine = lerp(start.inkLine, stop.inkLine, f),
+        success = lerp(start.success, stop.success, f),
+        viewerBg = lerp(start.viewerBg, stop.viewerBg, f),
+        switchOffTrack = lerp(start.switchOffTrack, stop.switchOffTrack, f),
+        switchOffThumb = lerp(start.switchOffThumb, stop.switchOffThumb, f),
+        switchOffBorder = lerp(start.switchOffBorder, stop.switchOffBorder, f),
+        statusActiveGreen = lerp(start.statusActiveGreen, stop.statusActiveGreen, f),
+    )
+}
+
 private val LocalLipiColors = staticCompositionLocalOf { LightLipiColors }
 
-/** Theme-aware tokens. Use inside @Composable code, same as before. */
+/** Theme-aware tokens. Use inside @Composable code. */
 object Lipi {
     val Primary: Color @Composable get() = LocalLipiColors.current.primary
     val OnPrimary: Color @Composable get() = LocalLipiColors.current.onPrimary
@@ -133,54 +162,64 @@ fun LipiRxTheme(
         ThemeMode.LIGHT -> false
     }
 
-    val lipi = if (darkTheme) DarkLipiColors else LightLipiColors
+    val themeProgress by animateFloatAsState(
+        targetValue = if (darkTheme) 1f else 0f,
+        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+        label = "themeProgress"
+    )
 
-    val colorScheme = if (darkTheme) {
-        darkColorScheme(
-            primary = lipi.primary,
-            onPrimary = lipi.onPrimary,
-            primaryContainer = lipi.primaryContainer,
-            onPrimaryContainer = lipi.onPrimaryContainer,
-            background = lipi.background,
-            onBackground = lipi.ink,
-            surface = lipi.surface,
-            onSurface = lipi.ink,
-            surfaceVariant = lipi.imageWell,
-            onSurfaceVariant = lipi.muted,
-            // Dialogs, menus and bottom sheets read these container roles,
-            // so they must be set or Material falls back to its default purple-gray.
-            surfaceContainerLowest = lipi.background,
-            surfaceContainerLow = lipi.background,
-            surfaceContainer = lipi.surface,
-            surfaceContainerHigh = lipi.surface,
-            surfaceContainerHighest = lipi.imageWell,
-            outline = lipi.outline,
-            outlineVariant = lipi.cardBorder,
-            error = lipi.red,
-            onError = lipi.onError,
-        )
-    } else {
-        lightColorScheme(
-            primary = lipi.primary,
-            onPrimary = lipi.onPrimary,
-            primaryContainer = lipi.primaryContainer,
-            onPrimaryContainer = lipi.onPrimaryContainer,
-            background = lipi.background,
-            onBackground = lipi.ink,
-            surface = lipi.surface,
-            onSurface = lipi.ink,
-            surfaceVariant = lipi.imageWell,
-            onSurfaceVariant = lipi.muted,
-            surfaceContainerLowest = lipi.background,
-            surfaceContainerLow = lipi.background,
-            surfaceContainer = lipi.surface,
-            surfaceContainerHigh = lipi.surface,
-            surfaceContainerHighest = lipi.imageWell,
-            outline = lipi.outline,
-            outlineVariant = lipi.cardBorder,
-            error = lipi.red,
-            onError = lipi.onError,
-        )
+    val lipi = remember(themeProgress) {
+        if (themeProgress <= 0f) LightLipiColors
+        else if (themeProgress >= 1f) DarkLipiColors
+        else lerp(LightLipiColors, DarkLipiColors, themeProgress)
+    }
+
+    val colorScheme = remember(lipi, darkTheme) {
+        if (darkTheme) {
+            darkColorScheme(
+                primary = lipi.primary,
+                onPrimary = lipi.onPrimary,
+                primaryContainer = lipi.primaryContainer,
+                onPrimaryContainer = lipi.onPrimaryContainer,
+                background = lipi.background,
+                onBackground = lipi.ink,
+                surface = lipi.surface,
+                onSurface = lipi.ink,
+                surfaceVariant = lipi.imageWell,
+                onSurfaceVariant = lipi.muted,
+                surfaceContainerLowest = lipi.background,
+                surfaceContainerLow = lipi.background,
+                surfaceContainer = lipi.surface,
+                surfaceContainerHigh = lipi.surface,
+                surfaceContainerHighest = lipi.imageWell,
+                outline = lipi.outline,
+                outlineVariant = lipi.cardBorder,
+                error = lipi.red,
+                onError = lipi.onError,
+            )
+        } else {
+            lightColorScheme(
+                primary = lipi.primary,
+                onPrimary = lipi.onPrimary,
+                primaryContainer = lipi.primaryContainer,
+                onPrimaryContainer = lipi.onPrimaryContainer,
+                background = lipi.background,
+                onBackground = lipi.ink,
+                surface = lipi.surface,
+                onSurface = lipi.ink,
+                surfaceVariant = lipi.imageWell,
+                onSurfaceVariant = lipi.muted,
+                surfaceContainerLowest = lipi.background,
+                surfaceContainerLow = lipi.background,
+                surfaceContainer = lipi.surface,
+                surfaceContainerHigh = lipi.surface,
+                surfaceContainerHighest = lipi.imageWell,
+                outline = lipi.outline,
+                outlineVariant = lipi.cardBorder,
+                error = lipi.red,
+                onError = lipi.onError,
+            )
+        }
     }
 
     CompositionLocalProvider(LocalLipiColors provides lipi) {
