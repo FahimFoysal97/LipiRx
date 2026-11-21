@@ -27,12 +27,14 @@ DEFAULT_CONFIG = {
     "keystore_file": "",
     # Android / KMP APK build command (e.g. your .bat file or gradlew.bat)
     "build_cmd": "sign-release.bat",
-    # Expected APK path(s) relative to repo root (first existing match is used)
+    # Expected APK path(s) or glob pattern(s) relative to repo root
     "apk_candidates": [
+        "apks/*.apk",
         "apks/composeApp-release.apk",
         "apks/app-release.apk",
-        "apks/app-release.apk",
     ],
+    # Publish as a GitHub pre-release by default so you can finalize on the web UI
+    "prerelease": True,
     # Optional iOS build support (typically true on macOS with Xcode)
     "build_ios": False,
     "ios_build_cmd": "",
@@ -310,8 +312,8 @@ def is_tag_on_remote(remote: str, tag: str) -> bool:
 
 
 def is_release_already_published(tag: str, remote: str) -> bool:
-    #if is_tag_on_remote(remote, tag):
-    #    return True
+    if is_tag_on_remote(remote, tag):
+        return True
 
     gh_exe = resolve_gh_executable()
     if not gh_exe:
@@ -445,17 +447,24 @@ def find_existing_artifact(
         label: str,
         required: bool,
 ) -> Path | None:
-    paths = []
+    patterns: list[str] = []
     if explicit_path:
-        paths.append(ROOT_DIR / explicit_path)
-    for rel in candidates:
-        paths.append(ROOT_DIR / rel)
+        patterns.append(explicit_path)
+    patterns.extend(candidates)
 
-    for path in paths:
-        if path.exists() and path.is_file():
-            return path
+    searched_paths: list[str] = []
+    for rel in patterns:
+        target = ROOT_DIR / rel
+        searched_paths.append(str(target))
+        if any(ch in rel for ch in ("*", "?", "[")):
+            matches = [p for p in ROOT_DIR.glob(rel) if p.is_file()]
+            if matches:
+                matches.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                return matches[0]
+        elif target.exists() and target.is_file():
+            return target
 
-    searched = "\n  - ".join(str(p) for p in paths)
+    searched = "\n  - ".join(searched_paths)
     msg = f"{label} artifact not found. Searched:\n  - {searched}"
     if required:
         print(f"[ERROR] {msg}", file=sys.stderr)
@@ -469,6 +478,7 @@ def confirm_before_github_release(
         release_title: str,
         notes_text: str,
         assets: list[Path],
+        is_prerelease: bool,
 ) -> tuple[str, str]:
     current_title = release_title
     current_notes = notes_text
@@ -477,9 +487,11 @@ def confirm_before_github_release(
         asset_summary = ", ".join(
             f"{a.name} ({a.stat().st_size / (1024 * 1024):.2f} MB)" for a in assets
         )
+        release_kind = "Pre-release (draft/staging on GitHub)" if is_prerelease else "Full Release"
 
         print("\n================ CONFIRM GITHUB RELEASE ================")
         print(f"Tag           : {tag}")
+        print(f"Release Type  : {release_kind}")
         print(f"Release Title : {current_title}")
         print(f"Assets        : {asset_summary}")
         print("--------------------------------------------------------")
@@ -488,8 +500,8 @@ def confirm_before_github_release(
 
         choice = (
             input(
-                "Publish this release on GitHub now? "
-                "[y = publish / e = edit title & notes / n = cancel]: "
+                "Create this pre-release on GitHub now? "
+                "[y = publish pre-release / e = edit title & notes / n = cancel]: "
             )
             .strip()
             .lower()
@@ -529,7 +541,7 @@ def confirm_before_github_release(
                     if tmp_path.exists():
                         tmp_path.unlink(missing_ok=True)
         else:
-            print("[INFO] Cancelled before creating GitHub release.")
+            print("[INFO] Cancelled before creating GitHub pre-release.")
             sys.exit(0)
 
 
@@ -559,6 +571,11 @@ def main() -> None:
         help="Optional explicit iOS artifact (.ipa / .zip) path (prompted at runtime if omitted)",
     )
     parser.add_argument(
+        "--full-release",
+        action="store_true",
+        help="Optional flag to publish as a full release instead of a pre-release",
+    )
+    parser.add_argument(
         "--with-ios",
         action="store_true",
         help="Optional flag to enable iOS build & upload for this run",
@@ -577,6 +594,7 @@ def main() -> None:
 
     cfg = load_config()
     remote = cfg.get("remote", "origin")
+    is_prerelease = False if args.full_release else bool(cfg.get("prerelease", True))
 
     # 1. Keystore guard, release notes version read, README version check, and already-published check
     jks_path = find_jks_keystore(cfg)
@@ -651,10 +669,10 @@ def main() -> None:
     # 6. Explicit confirmation before tagging and publishing on GitHub
     if not args.auto_publish:
         release_title, release_notes = confirm_before_github_release(
-            tag, release_title, release_notes, assets
+            tag, release_title, release_notes, assets, is_prerelease
         )
 
-    # 7. Create & push matching Git tag, then publish GitHub Release with notes & assets
+    # 7. Create & push matching Git tag, then publish GitHub Pre-release with notes & assets
     gh_exe = resolve_gh_executable()
     if not gh_exe:
         print(
@@ -685,14 +703,17 @@ def main() -> None:
             "--notes-file",
             str(notes_tmp_path),
         ]
+        if is_prerelease:
+            gh_cmd.append("--prerelease")
         run(gh_cmd)
     finally:
         if notes_tmp_path.exists():
             notes_tmp_path.unlink(missing_ok=True)
 
     uploaded_names = ", ".join(a.name for a in assets)
+    label_kind = "pre-release" if is_prerelease else "release"
     print(
-        f"\n[DONE] Published GitHub release {tag} ('{release_title}') with: {uploaded_names}"
+        f"\n[DONE] Published GitHub {label_kind} {tag} ('{release_title}') with: {uploaded_names}"
     )
 
 
