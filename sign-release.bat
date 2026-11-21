@@ -1,7 +1,18 @@
 @echo off
+chcp 65001 >nul
+
+for /f "delims=" %%a in ('powershell -NoProfile -Command "[char]27"') do set "ESC=%%a"
+
+set "C_CYAN=%ESC%[96m"
+set "C_GREEN=%ESC%[92m"
+set "C_YELLOW=%ESC%[93m"
+set "C_RED=%ESC%[91m"
+set "C_BOLD=%ESC%[1m"
+set "C_RESET=%ESC%[0m"
+
 set "VERSION="
 for /f "tokens=2 delims=: " %%a in ('findstr /i "versionName" androidApp\module.yaml') do set "VERSION=%%a"
-if defined VERSION (set "VERSION=%VERSION:"=%") else (set "VERSION=0.4")
+if defined VERSION (set "VERSION=%VERSION:"=%") else (set "VERSION=0.5.0")
 
 set KEYSTORE=lipirx-release-key.jks
 set ALIAS=lipirx-key
@@ -23,33 +34,26 @@ if exist "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" (
 )
 
 if not exist "%KEYSTORE%" (
-    echo ========================================================
-    echo  Creating new release keystore: %KEYSTORE% ...
-    echo ========================================================
+    echo %C_YELLOW%ℹ Creating new release keystore: %KEYSTORE% ...%C_RESET%
     "%KEYTOOL_BIN%" -genkey -v -keystore "%KEYSTORE%" -keyalg RSA -keysize 2048 -validity 10000 -alias "%ALIAS%"
     if errorlevel 1 (
         if not exist "%KEYSTORE%" (
-            echo ERROR: Keystore creation failed.
+            echo %C_RED%%C_BOLD%✖ ERROR: Keystore creation failed.%C_RESET%
             exit /b 1
         )
     )
 ) else (
-    echo ========================================================
-    echo  Using existing release keystore: %KEYSTORE%
-    echo ========================================================
+    echo %C_GREEN%✔ Using existing release keystore: %KEYSTORE%%C_RESET%
 )
 
 echo.
-echo ========================================================
-echo  Building Release APK...
-echo ========================================================
-call .\build-apk.bat release
+set "ARG1=%~1"
+if /i "%ARG1%"=="r" set "ARG1=release"
+call .\build-apk.bat %ARG1%
 if errorlevel 1 exit /b 1
 
 echo.
-echo ========================================================
-echo  Signing Release APK with %KEYSTORE% ...
-echo ========================================================
+echo %C_CYAN%ℹ Signing Release APK with %KEYSTORE% ...%C_RESET%
 
 set "APKSIGNER="
 if defined ANDROID_HOME if exist "%ANDROID_HOME%\build-tools" (
@@ -60,7 +64,7 @@ if "%APKSIGNER%"=="" if exist "%LOCALAPPDATA%\Android\Sdk\build-tools" (
 )
 
 if "%APKSIGNER%"=="" (
-    echo ERROR: Could not locate apksigner.bat in Android SDK.
+    echo %C_RED%%C_BOLD%✖ ERROR: Could not locate apksigner.bat in Android SDK.%C_RESET%
     exit /b 1
 )
 
@@ -68,8 +72,6 @@ call "%APKSIGNER%" sign --ks "%KEYSTORE%" --ks-key-alias "%ALIAS%" --out "apks\L
 
 if errorlevel 0 (
     echo.
-    echo ========================================================
-    echo  SUCCESS: Signed Release APK created at:
-    echo  apks\LipiRx-v%VERSION%-release-signed.apk
-    echo ========================================================
+    echo %C_GREEN%%C_BOLD%✔ SUCCESS: Signed Release APK created at: apks\LipiRx-v%VERSION%-release-signed.apk%C_RESET%
+    echo.
 )

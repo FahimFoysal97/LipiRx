@@ -8,6 +8,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+# Enable VT100 / ANSI escape sequences in Windows console
+if os.name == "nt":
+    os.system("")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
 ROOT_DIR = Path(__file__).resolve().parent
 
 # ==============================================================================
@@ -32,6 +38,7 @@ DEFAULT_CONFIG = {
     "build_cmd": "sign-release.bat release",
     # Expected APK path(s) or glob pattern(s) relative to repo root
     "apk_candidates": [
+        "apks/LipiRx-v*-release-signed.apk",
         "apks/LipiRx-v*-release.apk",
         "apks/*.apk",
     ],
@@ -55,6 +62,44 @@ DEFAULT_CONFIG = {
 # ==============================================================================
 
 
+class Color:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    MAGENTA = "\033[95m"
+    CYAN = "\033[96m"
+    WHITE = "\033[97m"
+
+
+def log_ok(msg: str) -> None:
+    print(f"{Color.GREEN}{Color.BOLD}✔ [OK]{Color.RESET} {msg}")
+
+
+def log_info(msg: str) -> None:
+    print(f"{Color.CYAN}{Color.BOLD}ℹ [INFO]{Color.RESET} {msg}")
+
+
+def log_warn(msg: str) -> None:
+    print(f"{Color.YELLOW}{Color.BOLD}⚠ [WARN]{Color.RESET} {msg}", file=sys.stderr)
+
+
+def log_err(msg: str) -> None:
+    print(f"{Color.RED}{Color.BOLD}✖ [ERROR]{Color.RESET} {msg}", file=sys.stderr)
+
+
+def print_banner(title: str, subtitle: str = "") -> None:
+    width = 64
+    print(f"\n{Color.CYAN}{Color.BOLD}┌{'─' * (width - 2)}┐{Color.RESET}")
+    print(f"{Color.CYAN}{Color.BOLD}│  {title.center(width - 6)}  │{Color.RESET}")
+    if subtitle:
+        print(f"{Color.CYAN}│  {subtitle.center(width - 6)}  │{Color.RESET}")
+    print(f"{Color.CYAN}{Color.BOLD}└{'─' * (width - 2)}┘{Color.RESET}\n")
+
+
 def normalize_version(raw: str) -> str:
     return raw.strip().lstrip("vV").strip()
 
@@ -65,7 +110,7 @@ def load_config() -> dict:
     if cfg_path.exists():
         loaded = json.loads(cfg_path.read_text(encoding="utf-8"))
         if not isinstance(loaded, dict):
-            print("[ERROR] release.config.json must contain a JSON object.", file=sys.stderr)
+            log_err("release.config.json must contain a JSON object.")
             sys.exit(1)
         cfg.update(loaded)
     return cfg
@@ -79,9 +124,9 @@ def run(cmd: list[str], check: bool = True) -> str:
         capture_output=True,
     )
     if check and result.returncode != 0:
-        print(f"[ERROR] Command failed in {ROOT_DIR}: {' '.join(cmd)}", file=sys.stderr)
+        log_err(f"Command failed in {ROOT_DIR}: {' '.join(cmd)}")
         if result.stderr.strip():
-            print(result.stderr.strip(), file=sys.stderr)
+            print(f"{Color.RED}{result.stderr.strip()}{Color.RESET}", file=sys.stderr)
         sys.exit(result.returncode)
     return result.stdout.strip()
 
@@ -103,18 +148,15 @@ def run_interactive_shell(command: str, extra_env: dict[str, str] | None = None)
 
     result = subprocess.run(cmd, cwd=ROOT_DIR, env=env)
     if result.returncode != 0:
-        print(
-            f"[ERROR] Build command failed with exit code {result.returncode}: {command}",
-            file=sys.stderr,
-        )
+        log_err(f"Build command failed with exit code {result.returncode}: {command}")
         sys.exit(result.returncode)
 
 
 def resolve_android_build_cmd(
-        cfg: dict,
-        version: str = "",
-        tag: str = "",
-        keystore_path: Path | None = None,
+    cfg: dict,
+    version: str = "",
+    tag: str = "",
+    keystore_path: Path | None = None,
 ) -> str:
     raw_cmd = str(cfg.get("build_cmd", "")).strip()
     if raw_cmd:
@@ -156,7 +198,7 @@ def find_jks_keystore(cfg: dict) -> Path | None:
     if explicit:
         candidate = ROOT_DIR / explicit
         if not candidate.exists():
-            print(f"[ERROR] Configured keystore not found: {candidate}", file=sys.stderr)
+            log_err(f"Configured keystore not found: {candidate}")
             sys.exit(1)
         return candidate
 
@@ -164,8 +206,8 @@ def find_jks_keystore(cfg: dict) -> Path | None:
     if not jks_files:
         return None
     if len(jks_files) > 1:
-        print(
-            f"[WARN] Multiple .jks files found in root: {[f.name for f in jks_files]}. "
+        log_warn(
+            f"Multiple .jks files found in root: {[f.name for f in jks_files]}. "
             f"Using {jks_files[0].name}"
         )
     return jks_files[0]
@@ -176,19 +218,18 @@ def guard_keystore_not_tracked(jks_path: Path | None) -> None:
         return
     rel = jks_path.relative_to(ROOT_DIR).as_posix()
     tracked = (
-            subprocess.run(
-                ["git", "ls-files", "--error-unmatch", rel],
-                cwd=ROOT_DIR,
-                capture_output=True,
-                text=True,
-            ).returncode
-            == 0
+        subprocess.run(
+            ["git", "ls-files", "--error-unmatch", rel],
+            cwd=ROOT_DIR,
+            capture_output=True,
+            text=True,
+        ).returncode
+        == 0
     )
     if tracked:
-        print(
-            f"[ERROR] Security check failed: '{rel}' is tracked by Git! "
-            "Untrack it and add it to .gitignore before releasing.",
-            file=sys.stderr,
+        log_err(
+            f"Security check failed: '{rel}' is tracked by Git! "
+            "Untrack it and add it to .gitignore before releasing."
         )
         sys.exit(1)
 
@@ -199,12 +240,6 @@ def resolve_notes_path(cfg: dict) -> Path:
 
 
 def parse_release_note_metadata(notes_text: str) -> tuple[str | None, str | None, int | None]:
-    """
-    Extracts:
-    - version (from a markdown heading, e.g. '# v0.4.4 - Title')
-    - release_title (e.g. 'v0.4.4 - Title')
-    - optional version_code if present in metadata or '(build 44)'
-    """
     version: str | None = None
     title: str | None = None
     code: int | None = None
@@ -241,38 +276,30 @@ def parse_release_note_metadata(notes_text: str) -> tuple[str | None, str | None
 def load_release_notes(cfg: dict) -> tuple[Path, str, str, str, int | None]:
     notes_path = resolve_notes_path(cfg)
     if not notes_path.exists() or not notes_path.is_file():
-        print(f"[ERROR] Release note file not found: {notes_path}", file=sys.stderr)
+        log_err(f"Release note file not found: {notes_path}")
         sys.exit(1)
 
     raw_text = notes_path.read_text(encoding="utf-8").strip()
     if not raw_text:
-        print(
-            f"[ERROR] Release note file '{notes_path.relative_to(ROOT_DIR)}' is empty.",
-            file=sys.stderr,
-        )
+        log_err(f"Release note file '{notes_path.relative_to(ROOT_DIR)}' is empty.")
         sys.exit(1)
 
     version, derived_title, code = parse_release_note_metadata(raw_text)
     if not version:
-        print(
-            f"[ERROR] Could not find a version heading in '{notes_path.relative_to(ROOT_DIR)}'. "
-            "Expected a heading like '# v0.4.4 - Release Title'.",
-            file=sys.stderr,
+        log_err(
+            f"Could not find a version heading in '{notes_path.relative_to(ROOT_DIR)}'. "
+            "Expected a heading like '# v0.5.0 - Release Title'."
         )
         sys.exit(1)
 
-    print(
-        f"[OK] Read version {version} from {notes_path.relative_to(ROOT_DIR)}"
+    log_ok(
+        f"Read version {version} from {notes_path.relative_to(ROOT_DIR)}"
         + (f" (code {code})" if code is not None else "")
     )
     return notes_path, version, derived_title or f"v{version}", raw_text, code
 
 
 def extract_readme_versions(readme_text: str) -> list[str]:
-    """
-    Extracts version strings from README.md (prioritizing explicit version/release lines,
-    then falling back to semver-like tokens).
-    """
     explicit_matches = re.findall(
         r"(?mi)^.*?\b(?:version|release|latest release|current version)\b[^\n]*?\bv?([0-9]+(?:\.[0-9]+){1,3})\b",
         readme_text,
@@ -288,33 +315,26 @@ def verify_readme_matches_version(cfg: dict, release_version: str) -> None:
     readme_rel = cfg.get("readme_file", "README.md")
     readme_path = ROOT_DIR / readme_rel
     if not readme_path.exists():
-        print(
-            f"[ERROR] README file '{readme_rel}' not found; cannot verify version match with release notes.",
-            file=sys.stderr,
-        )
+        log_err(f"README file '{readme_rel}' not found; cannot verify version match.")
         sys.exit(1)
 
     readme_text = readme_path.read_text(encoding="utf-8")
     readme_versions = extract_readme_versions(readme_text)
 
     if not readme_versions:
-        print(
-            f"[ERROR] No version found in '{readme_rel}' to match release note version '{release_version}'.",
-            file=sys.stderr,
-        )
+        log_err(f"No version found in '{readme_rel}' to match release note version '{release_version}'.")
         sys.exit(1)
 
     expected = normalize_version(release_version)
     if expected not in readme_versions:
         found_str = ", ".join(dict.fromkeys(readme_versions))
-        print(
-            f"[ERROR] Version mismatch between release note and {readme_rel}: "
-            f"release note has '{expected}', but {readme_rel} has '{found_str}'.",
-            file=sys.stderr,
+        log_err(
+            f"Version mismatch between release note and {readme_rel}: "
+            f"release note has '{expected}', but {readme_rel} has '{found_str}'."
         )
         sys.exit(1)
 
-    print(f"[OK] Verified {readme_rel} matches release note version {expected}")
+    log_ok(f"Verified {readme_rel} matches release note version {expected}")
 
 
 def is_local_tag_existing(tag: str) -> bool:
@@ -343,8 +363,8 @@ def is_release_already_published(tag: str, remote: str) -> bool:
 
     gh_exe = resolve_gh_executable()
     if not gh_exe:
-        print(
-            "[WARN] GitHub CLI ('gh') was not found on PATH. "
+        log_warn(
+            "GitHub CLI ('gh') was not found on PATH. "
             "Install it ('winget install --id GitHub.cli') and run 'gh auth login' "
             "so release.py can publish directly to GitHub Releases."
         )
@@ -362,7 +382,7 @@ def is_release_already_published(tag: str, remote: str) -> bool:
 def update_version_files(cfg: dict, version: str, version_code: int | None) -> None:
     version_files = cfg.get("version_files", [])
     if not isinstance(version_files, list):
-        print("[ERROR] 'version_files' in config must be a list.", file=sys.stderr)
+        log_err("'version_files' in config must be a list.")
         sys.exit(1)
 
     for rel_path in version_files:
@@ -425,17 +445,17 @@ def update_version_files(cfg: dict, version: str, version_code: int | None) -> N
 
         if updated != original:
             path.write_text(updated, encoding="utf-8")
-            print(
-                f"[OK] Updated {rel_path} -> {version}"
+            log_ok(
+                f"Updated {rel_path} -> {version}"
                 + (f" (code {version_code})" if version_code is not None else "")
             )
 
 
 def find_existing_artifact(
-        candidates: list[str],
-        explicit_path: str | None,
-        label: str,
-        required: bool,
+    candidates: list[str],
+    explicit_path: str | None,
+    label: str,
+    required: bool,
 ) -> Path | None:
     patterns: list[str] = []
     if explicit_path:
@@ -457,41 +477,46 @@ def find_existing_artifact(
     searched = "\n  - ".join(searched_paths)
     msg = f"{label} artifact not found. Searched:\n  - {searched}"
     if required:
-        print(f"[ERROR] {msg}", file=sys.stderr)
+        log_err(msg)
         sys.exit(1)
-    print(f"[WARN] {msg}")
+    log_warn(msg)
     return None
 
 
 def confirm_before_github_release(
-        tag: str,
-        release_title: str,
-        notes_text: str,
-        assets: list[Path],
-        is_prerelease: bool,
+    tag: str,
+    release_title: str,
+    notes_text: str,
+    assets: list[Path],
+    is_prerelease: bool,
 ) -> tuple[str, str]:
     current_title = release_title
     current_notes = notes_text
 
     while True:
         asset_summary = ", ".join(
-            f"{a.name} ({a.stat().st_size / (1024 * 1024):.2f} MB)" for a in assets
+            f"{Color.GREEN}{a.name}{Color.RESET} ({a.stat().st_size / (1024 * 1024):.2f} MB)" for a in assets
         )
-        release_kind = "Pre-release" if is_prerelease else "Full Release"
+        release_kind = f"{Color.YELLOW}Pre-release{Color.RESET}" if is_prerelease else f"{Color.GREEN}Full Release{Color.RESET}"
 
-        print("\n================ CONFIRM GITHUB RELEASE ================")
-        print(f"Tag           : {tag}")
-        print(f"Release Type  : {release_kind}")
-        print(f"Release Title : {current_title}")
-        print(f"Assets        : {asset_summary}")
-        print("--------------------------------------------------------")
-        print(current_notes)
-        print("========================================================\n")
+        print(f"\n{Color.CYAN}{Color.BOLD}╔════════════════════════════════════════════════════════════════╗{Color.RESET}")
+        print(f"{Color.CYAN}{Color.BOLD}║                  CONFIRM GITHUB RELEASE                        ║{Color.RESET}")
+        print(f"{Color.CYAN}{Color.BOLD}╠════════════════════════════════════════════════════════════════╣{Color.RESET}")
+        print(f"{Color.CYAN}║{Color.RESET} {Color.BOLD}Tag          {Color.RESET} : {Color.CYAN}{tag}{Color.RESET}")
+        print(f"{Color.CYAN}║{Color.RESET} {Color.BOLD}Release Type {Color.RESET} : {release_kind}")
+        print(f"{Color.CYAN}║{Color.RESET} {Color.BOLD}Release Title{Color.RESET} : {Color.BOLD}{current_title}{Color.RESET}")
+        print(f"{Color.CYAN}║{Color.RESET} {Color.BOLD}Assets       {Color.RESET} : {asset_summary}")
+        print(f"{Color.CYAN}{Color.BOLD}╟────────────────────────────────────────────────────────────────╢{Color.RESET}")
+        for line in current_notes.splitlines()[:15]:
+            print(f"{Color.CYAN}║{Color.RESET} {line}")
+        if len(current_notes.splitlines()) > 15:
+            print(f"{Color.CYAN}║{Color.RESET} {Color.DIM}... (notes truncated in preview){Color.RESET}")
+        print(f"{Color.CYAN}{Color.BOLD}╚════════════════════════════════════════════════════════════════╝{Color.RESET}\n")
 
         choice = (
             input(
-                "Publish this release on GitHub now? "
-                "[y = publish / e = edit title & notes / n = cancel]: "
+                f"{Color.BOLD}Publish this release on GitHub now? "
+                f"[{Color.GREEN}y{Color.RESET} = publish / {Color.YELLOW}e{Color.RESET} = edit / {Color.RED}n{Color.RESET} = cancel]: {Color.RESET}"
             )
             .strip()
             .lower()
@@ -514,7 +539,7 @@ def confirm_before_github_release(
             )
             if open_editor == "y":
                 with tempfile.NamedTemporaryFile(
-                        mode="w", suffix=".md", delete=False, encoding="utf-8"
+                    mode="w", suffix=".md", delete=False, encoding="utf-8"
                 ) as tmp:
                     tmp.write(current_notes + "\n")
                     tmp_path = Path(tmp.name)
@@ -531,11 +556,13 @@ def confirm_before_github_release(
                     if tmp_path.exists():
                         tmp_path.unlink(missing_ok=True)
         else:
-            print("[INFO] Cancelled before creating GitHub release.")
+            log_info("Cancelled before creating GitHub release.")
             sys.exit(0)
 
 
 def main() -> None:
+    print_banner("LipiRx Multi-Platform Release Engine", "KMP • Android • iOS • MCP Protocol")
+
     parser = argparse.ArgumentParser(
         description="Root-directory release script for Android, KMP, and Flutter."
     )
@@ -591,17 +618,16 @@ def main() -> None:
     jks_path = find_jks_keystore(cfg)
     guard_keystore_not_tracked(jks_path)
     if jks_path:
-        print(f"[OK] Found keystore in root: {jks_path.name}")
+        log_ok(f"Found keystore in root: {jks_path.name}")
 
     _, version, derived_title, release_notes, parsed_code = load_release_notes(cfg)
     verify_readme_matches_version(cfg, version)
 
     tag = f"v{version}"
     if is_release_already_published(tag, remote):
-        print(
-            f"[ERROR] Release '{tag}' is already published on GitHub or tag exists on '{remote}'. "
-            "Update your release note & README version first.",
-            file=sys.stderr,
+        log_err(
+            f"Release '{tag}' is already published on GitHub or tag exists on '{remote}'. "
+            "Update your release note & README version first."
         )
         sys.exit(1)
 
@@ -635,13 +661,13 @@ def main() -> None:
         tag=tag,
         keystore_path=jks_path,
     )
-    print(f"[INFO] Building APK: {android_cmd}")
+    log_info(f"Building APK: {android_cmd}")
     run_interactive_shell(android_cmd, extra_env=extra_build_env)
     apk_path = find_existing_artifact(
         cfg.get("apk_candidates", []), explicit_apk, "APK", required=True
     )
     assert apk_path is not None
-    print(f"[OK] APK ready: {apk_path}")
+    log_ok(f"APK ready: {apk_path}")
 
     assets: list[Path] = [apk_path]
 
@@ -649,7 +675,7 @@ def main() -> None:
     if build_ios:
         ios_cmd = str(cfg.get("ios_build_cmd", "")).strip()
         if ios_cmd:
-            print(f"[INFO] Building iOS artifact: {ios_cmd}")
+            log_info(f"Building iOS artifact: {ios_cmd}")
             run_interactive_shell(ios_cmd, extra_env=extra_build_env)
         ipa_path = find_existing_artifact(
             cfg.get("ios_artifact_candidates", []),
@@ -658,7 +684,7 @@ def main() -> None:
             required=bool(cfg.get("require_ios_artifact", True)),
         )
         if ipa_path:
-            print(f"[OK] iOS artifact ready: {ipa_path}")
+            log_ok(f"iOS artifact ready: {ipa_path}")
             assets.append(ipa_path)
 
     # 5. Explicit confirmation before tagging and publishing on GitHub
@@ -670,15 +696,14 @@ def main() -> None:
     # 6. Create & push matching Git tag, then publish GitHub release with notes & assets
     gh_exe = resolve_gh_executable()
     if not gh_exe:
-        print(
-            "[ERROR] GitHub CLI ('gh') is required to publish the release. "
-            "Install it ('winget install --id GitHub.cli') and run 'gh auth login'.",
-            file=sys.stderr,
+        log_err(
+            "GitHub CLI ('gh') is required to publish the release. "
+            "Install it ('winget install --id GitHub.cli') and run 'gh auth login'."
         )
         sys.exit(1)
 
     with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".md", delete=False, encoding="utf-8"
+        mode="w", suffix=".md", delete=False, encoding="utf-8"
     ) as notes_tmp:
         notes_tmp.write(release_notes + "\n")
         notes_tmp_path = Path(notes_tmp.name)
@@ -709,7 +734,7 @@ def main() -> None:
     uploaded_names = ", ".join(a.name for a in assets)
     label_kind = "pre-release" if is_prerelease else "release"
     print(
-        f"\n[DONE] Published GitHub {label_kind} {tag} ('{release_title}') with: {uploaded_names}"
+        f"\n{Color.GREEN}{Color.BOLD}✨ [DONE] Published GitHub {label_kind} {tag} ('{release_title}') with: {uploaded_names}{Color.RESET}\n"
     )
 
 
