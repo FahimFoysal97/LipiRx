@@ -72,13 +72,13 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - `RxAgentEvaluator` executes the pipeline against golden benchmark test cases (`RxEvalTestCase`), computing extraction accuracy %, turn counts, and latency.
     - Exposes on-device evaluation runner via MCP Tool `eval_run_benchmark` (`http://localhost:8080/lipirx/mcp`).
 
-8. **Multi-Provider AI Engine with Live Model Counts & Official Vector Logos**:
+8. **Multi-Provider AI Engine & Custom SLM Model Directory**:
     - **Google Gemini** (`Color(0xFF4285F4)`): Dynamic model discovery via Gemini REST API (`gemini-2.5-flash`, etc.).
     - **OpenAI** (`Color(0xFF10A37F)`): Integration with OpenAI Vision models (`gpt-4o`, etc.).
     - **Anthropic Claude** (`Color(0xFFD97757)`): Multimodal Vision integration via Anthropic `/v1/messages` and dynamic model discovery (`claude-3-5-sonnet-20241022`, etc.).
     - **Groq** (`Color(0xFFF55036)`): High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
     - **Custom Endpoint** (`Color(0xFF546E7A)`): Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
-    - **On-Device SLM** (`Color(0xFF0B7A6E)`): Local offline inference via LiteRT-LM and `.litertlm` weight files stored on device storage with clean extension stripping (`.litertlm`, `.tflite`, `.bin`, `.gguf`).
+    - **On-Device SLM & Folder Picker** (`Color(0xFF0B7A6E)`): Local offline inference via LiteRT-LM. Features an interactive Android System Folder Picker (`ACTION_OPEN_DOCUMENT_TREE`) allowing users to select any folder on their device storage, discovering `.litertlm`, `.tflite`, `.bin`, and `.gguf` model weight files with auto-scanning.
 
 9. **Scan History & Full JSON Local Storage Management**:
     - SQLDelight SQLite storage saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
@@ -93,7 +93,8 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Download Progress & SHA-256 Checksum**: Streams APK downloads with live MB counters, percentage progress, and optional SHA-256 checksum verification.
     - **Automatic Android Installer**: Integrates `FileProvider` (`${applicationId}.fileprovider`) and `REQUEST_INSTALL_PACKAGES` permission, smoothly launching the system package installer.
 
-11. **Safety & UX Controls**:
+11. **Safety, UX Controls & Interactive Medicine Editing**:
+    - **Interactive Medicine Item Editing**: Edit scanned brand names, generic compositions, strength values/units, dosage schedules, duration, quantities, instructions, and review flags via modal `EditMedicineDialog`. Edits automatically persist to SQLite history and update POS copy summaries (read-only in audit history mode).
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
     - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
     - **100% Resource Localization**: Zero hardcoded UI strings; all texts externalized into `composeResources/values/strings.xml`.
