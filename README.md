@@ -6,7 +6,7 @@
 [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
-[![Release v0.4.4](https://img.shields.io/badge/Release_v0.4.4-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![Release v0.5.0](https://img.shields.io/badge/Release_v0.5.0-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![MIT License](https://img.shields.io/badge/License-MIT-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
@@ -47,11 +47,11 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Cloud AI 3-Attempt Retry Rule**: `CompositeAiService` attempts primary Cloud AI model requests up to 3 times before triggering the agent's assigned fallback model.
     - **JSON Self-Healing Wrapper (`SelfHealingAgentExecutor`)**: Automatically catches `SerializationException` and JSON formatting errors, generates targeted schema repair prompts, and retries execution up to 2 times.
 
-3. **Dedicated Full-Screen Settings Screen & High-Contrast Theme System**:
-    - Full-screen `SettingsScreen` featuring single-accordion per-agent cards, live provider model count indicators (e.g. `Google Gemini (8)`), and type-safe `OnDeviceStrategy` explanations.
-    - Standardized top navigation header across all secondary screens using a shared `AppHeader` component.
-    - **High-Contrast Theme System**: Refined Light Theme primary (`#267A70`) and red (`#B8463F`) color tokens meeting 5:1 WCAG contrast ratios. Full `surfaceContainer` role mappings ensuring Material 3 dialogs, menus, and bottom sheets adopt app theme colors cleanly.
-    - **3-Way Theme Switcher**: Instant switching between **System Default**, **Dark Theme**, and **Light Theme** with persistent SQLDelight storage and clean 3-tab segmented control (`ThemeIcons.kt`).
+3. **Jetpack Navigation 3 Architecture & Feature ViewModels**:
+    - **Navigation 3 Destination Architecture**: Type-safe destination state management via `AppNavKey` and `AppNavigator`. Back-stack state survives Android screen rotations and configuration changes using Compose `rememberSaveable` with a custom `Saver`.
+    - **Dedicated Feature ViewModels & Koin DI**: Testable, feature-aligned ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`), bound in Koin dependency injection modules and isolated within modular package hierarchies (`presentation/home`, `preview`, `loading`, `results`, `history`, `settings`, `common`).
+    - **60/120 FPS Smooth Theme Transition Engine**: Single-driver linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme`, animating all 22 custom design tokens and Material 3 color schemes seamlessly without recomposition lag.
+    - **3-Way Animated Theme Switcher**: 3-segment theme control in Settings featuring a spring-physics sliding highlight pill (`animateDpAsState` + `spring`) and smooth text/icon color transitions.
 
 4. **Per-Scan Accordion AgentOps Telemetry Dashboard**:
     - Grouped raw execution traces into **Per-Scan Session Accordion Cards** (`TelemetryScanSession`), displaying pipeline duration (formatted in hours, minutes, seconds, and milliseconds via localized string resources), total hops, extracted item count, pass/fail status, and AI Engine summary (`Gemini • gemini-2.5-flash` or `Multi-Provider (Gemini, OpenAI)`).
@@ -72,12 +72,13 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - `RxAgentEvaluator` executes the pipeline against golden benchmark test cases (`RxEvalTestCase`), computing extraction accuracy %, turn counts, and latency.
     - Exposes on-device evaluation runner via MCP Tool `eval_run_benchmark` (`http://localhost:8080/lipirx/mcp`).
 
-8. **Multi-Provider AI Engine & Custom SLM Model Directory**:
+8. **Multi-Provider AI Engine & Fallback Key Propagation**:
     - **Google Gemini** (`Color(0xFF4285F4)`): Dynamic model discovery via Gemini REST API (`gemini-2.5-flash`, etc.).
     - **OpenAI** (`Color(0xFF10A37F)`): Integration with OpenAI Vision models (`gpt-4o`, etc.).
     - **Anthropic Claude** (`Color(0xFFD97757)`): Multimodal Vision integration via Anthropic `/v1/messages` and dynamic model discovery (`claude-3-5-sonnet-20241022`, etc.).
     - **Groq** (`Color(0xFFF55036)`): High-speed Vision AI processing (`llama-3.2-90b-vision-instruct`, etc.).
     - **Custom Endpoint** (`Color(0xFF546E7A)`): Connect to local Ollama servers or private OpenAI-compatible proxy endpoints.
+    - **Fallback API Key Propagation**: `TranscriptionInput` and `CompositeAiService` pass dedicated `fallbackApiKey` credentials, ensuring fallback AI providers authenticate cleanly when configured with a distinct provider key.
     - **On-Device SLM & Folder Picker** (`Color(0xFF0B7A6E)`): Local offline inference via LiteRT-LM. Features an interactive Android System Folder Picker (`ACTION_OPEN_DOCUMENT_TREE`) allowing users to select any folder on their device storage, discovering `.litertlm`, `.tflite`, `.bin`, and `.gguf` model weight files with auto-scanning.
 
 9. **Scan History & Full JSON Local Storage Management**:
@@ -95,6 +96,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 
 11. **Safety, UX Controls & Interactive Medicine Editing**:
     - **Interactive Medicine Item Editing**: Edit scanned brand names, generic compositions, strength values/units, dosage schedules, duration, quantities, instructions, and review flags via modal `EditMedicineDialog`. Edits automatically persist to SQLite history and update POS copy summaries (read-only in audit history mode).
+    - **API Key Visibility Toggle & Tap-Outside Focus Dismissal**: Mask/unmask API keys using inline eye toggle buttons (`EyeShowVectorIcon` / `EyeHideVectorIcon`), and tap anywhere outside input fields to clear keyboard focus.
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
     - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
     - **100% Resource Localization**: Zero hardcoded UI strings; all texts externalized into `composeResources/values/strings.xml`.
@@ -195,10 +197,10 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 - **Platforms**: Android & iOS
 - **UI Framework**: Compose Multiplatform with Material 3 (adaptive layouts, high-contrast custom themes & 3-way mode toggle)
 - **Multi-Agent Pipeline**: `KoogRxSupervisorEngine` + `RxSupervisorAgent` dispatching to type-safe `RxAgentTools`
-- **Protocol Integration**: Model Context Protocol (MCP) JSON-RPC 2.0 server (`LipiRxMcpServer` + `McpHttpServer` on port 8080)
-- **Multi-Provider AI Architecture**: Strategy Pattern (`PrescriptionAiService` -> `GeminiAiService`, `OpenAiAiService`, `ClaudeAiService`, `GroqAiService`, `CustomAiService`, `OnDeviceAiService`, managed by `CompositeAiService`)
-- **On-Device LLM Runtime**: Google LiteRT-LM (`com.google.ai.edge.litertlm`) and LiteRT CompiledModel
-- **State Management**: MVVM + `StateFlow` + `Channel` + `kotlinx.collections.immutable` (`ImmutableList`, `ImmutableMap`)
+- **Navigation**: Jetpack Navigation 3 destination state management (`AppNavKey`, `AppNavigator`) with `rememberSaveable` back-stack state persistence across orientation changes
+- **Architecture**: MVVM + Feature-based ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`)
+- **Session State Management**: Centralized `PrescriptionSessionState` managing active scan sessions, isolating history record inspection (`activeScanMedicines`)
+- **Theme Animation System**: Single-driver 60/120 FPS linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme.kt` with spring-animated segmented theme controls
 - **Local Database**: SQLDelight 2.x SQLite database logging provider keys, per-provider models, agent matrix configurations, theme preferences, offline prescription history, and AgentOps execution traces
 - **Networking**: Ktor Client 3.x (`OkHttp` for Android, `Darwin` for iOS) with `kotlinx.serialization`
 - **Dependency Injection**: Koin 4.x (`koin-core`, `koin-compose`, `koin-compose-viewmodel`, `koin-android`)
@@ -229,12 +231,9 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 └── shared/                                          # KMP Shared Module
     ├── composeResources/
     │   ├── drawable/                                # Official SVG Vector Assets
-    │   │   ├── claude_logo.svg                      # Anthropic Claude Logo
-    │   │   ├── gemini_icon_logo.svg                 # Google Gemini Logo
-    │   │   └── openai_2.svg                         # OpenAI Rosette Logo
     │   └── values/strings.xml                       # Centralized Compose Multiplatform string resources
     └── src/                                         # Common Kotlin code
-        ├── App.kt                                   # Main Compose entry point & KoinContext wrapper
+        ├── App.kt                                   # Main Compose entry point, Navigation 3 router & KoinContext
         └── com/snehonir/lipirx/
             ├── common/
             │   └── AppConstants.kt                  # Application, network, database, and unit constants
@@ -248,11 +247,6 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   └── DatabaseDriverFactory.kt     # Expect/actual database driver factory
             │   └── remote/
             │       ├── dto/                         # Remote API DTOs
-            │       │   ├── ModelInfoDto.kt
-            │       │   ├── GeminiContentDto.kt
-            │       │   ├── GeminiTwoPassResponseDto.kt
-            │       │   ├── OpenAiChatDto.kt
-            │       │   └── OpenAiModelsDto.kt
             │       ├── PrescriptionAiService.kt     # Core AI Service interface
             │       ├── GeminiAiService.kt           # Google Gemini Vision REST implementation
             │       ├── OpenAiCompatibleAiService.kt # Base class for OpenAI-compatible APIs
@@ -267,55 +261,56 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   └── KoinModule.kt                    # Koin 4.x dependency injection module
             ├── domain/
             │   ├── agent/
-            │   │   ├── koog/
-            │   │   │   ├── dto/                     # Agent tool parameters & DTOs
-            │   │   │   │   ├── ToolExecutionParams.kt
-            │   │   │   │   ├── ParsedEntityDto.kt
-            │   │   │   │   ├── GenericSubstituteDto.kt
-            │   │   │   │   └── SafetyAuditDto.kt
+            │   │   ├── koog/                        # Koog Multi-Agent Supervisor & Tools
             │   │   │   ├── KoogRxSupervisorEngine.kt # Koog Multi-Agent Supervisor Engine
             │   │   │   └── RxAgentTools.kt           # Type-safe Koog Agent Tools
             │   │   ├── SelfHealingAgentExecutor.kt  # Autonomous JSON self-healing execution wrapper
-            │   │   ├── AgentExecutionRecord.kt      # Agent execution history record
-            │   │   ├── SupervisorState.kt           # Supervisor orchestration state
-            │   │   ├── SupervisorDecision.kt        # Supervisor decision model
-            │   │   ├── SupervisorDecisionDto.kt     # Supervisor LLM decision DTO
-            │   │   ├── SupervisorConstants.kt       # Reasoning strings & feedback prompts
-            │   │   ├── RxAgentType.kt               # Agent type enum & default configs
             │   │   ├── RxSupervisorAgent.kt         # Master Supervisor LLM Agent
-            │   │   ├── TranscriptionInput.kt        # Prescription input domain model
-            │   │   └── OrchestrationResult.kt       # Multi-agent result domain model
+            │   │   └── TranscriptionInput.kt        # Prescription input domain model (with fallbackApiKey)
             │   ├── eval/                            # Evaluation & Regression Testing Harness
-            │   │   ├── RxEvalTestCase.kt            # Golden benchmark test case model
-            │   │   ├── EvalMetrics.kt               # Accuracy, latency & summary report DTOs
-            │   │   ├── SelfHealingDiagnosticRunner.kt # Self-healing diagnostic runner
-            │   │   └── RxAgentEvaluator.kt          # On-device evaluation suite runner
             │   ├── mcp/                             # Model Context Protocol (MCP) Engine
-            │   │   ├── LipiRxMcpServer.kt           # Main JSON-RPC 2.0 MCP Protocol Handler
-            │   │   ├── McpResourceHandler.kt        # Resource handler for scans, config & traces
-            │   │   ├── McpToolHandler.kt            # RxAgentTools & AgentOps MCP tool wrapper
-            │   │   └── McpModels.kt                 # Protocol DTOs & serializable payloads
-            │   ├── model/
-            │   │   ├── AiProvider.kt                # Sealed interface for AI Providers (Gemini, OpenAI, Claude, Groq, Custom, OnDevice)
-            │   │   ├── ClinicalApprovalReasons.kt   # Pharmacist gate approval reasons
-            │   │   ├── OnDeviceStrategy.kt          # On-device execution strategy enum with string resources
-            │   │   ├── ThemeMode.kt                 # System Default, Dark, Light theme mode enum
-            │   │   ├── MedicineItem.kt              # Prescription medicine model
-            │   │   └── ProcessingStep.kt            # Analysis progress step enum
+            │   ├── model/                           # Domain enums & data models
+            │   ├── session/
+            │   │   └── PrescriptionSessionState.kt  # Centralized session state (activeScanMedicines isolation)
             │   └── usecase/
-            │       └── ProcessPrescriptionUseCase.kt # Use case dispatching directly to KoogRxSupervisorEngine
-            └── presentation/
-                ├── scan/
-                │   ├── model/
-                │   │   └── Alternative.kt           # UI alternative brand model
-                │   ├── ScanContract.kt              # ScanUiState & ScanUiEvent contracts
-                │   ├── ScanViewModel.kt             # MVVM ViewModel managing scan lifecycle
-                │   ├── ScanResultScreen.kt          # Main screen composable
-                │   └── components/                  # UI View components
-                │       ├── AppHeader.kt             # Shared AppHeader top bar component (in Components.kt)
-                │       ├── SettingsScreen.kt        # Dedicated full-screen Settings UI with modular cards
-                │       ├── HistoryScreen.kt         # Scan History list UI with bulk clear
-                │       ├── EmptyStateView.kt        # Home scan upload view
+            │       └── ProcessPrescriptionUseCase.kt # Pipeline execution use case
+            ├── navigation/
+            │   ├── AppNavKey.kt                     # Type-safe Navigation 3 destination key serializations
+            │   └── AppNavigator.kt                  # AppNavigator with rememberSaveable back-stack Saver
+            ├── presentation/                        # Feature-aligned Presentation Layer
+            │   ├── common/                          # Shared UI components & platform pickers
+            │   │   ├── Components.kt                # AppHeader, PrimaryButton, SecondaryButton, PaperIllustration
+            │   │   ├── ImagePicker.kt               # Native camera & gallery image picker contract
+            │   │   ├── FolderPicker.kt              # Android SAF document tree folder picker contract
+            │   │   └── FullScreenImagePreviewDialog.kt # Pinch-to-zoom 6x prescription dialog
+            │   ├── history/                         # Scan History feature
+            │   │   ├── HistoryViewModel.kt          # History ViewModel (offloaded DB I/O)
+            │   │   ├── HistoryScreenWrapper.kt       # History screen wrapper
+            │   │   └── HistoryScreen.kt             # Saved scan list & deletion UI
+            │   ├── home/                            # Home Scan feature
+            │   │   ├── HomeViewModel.kt             # Home ViewModel
+            │   │   ├── HomeScreen.kt                # Home screen composable
+            │   │   └── EmptyStateView.kt            # Home scan upload & viewfinder UI
+            │   ├── loading/                         # Analysis Loading feature
+            │   │   ├── AnalysisLoadingViewModel.kt  # Loading ViewModel
+            │   │   ├── AnalysisLoadingScreen.kt     # Loading screen composable
+            │   │   └── LoadingView.kt               # Multi-agent live analysis UI
+            │   ├── preview/                         # Image Preview feature
+            │   │   ├── ImagePreviewViewModel.kt     # Preview ViewModel (rethrows CancellationException)
+            │   │   ├── ImagePreviewScreen.kt        # Preview screen composable
+            │   │   └── ImagePreviewAndProcessView.kt # Prescription preview & AI pipeline summary
+            │   ├── results/                         # Scan Results feature
+            │   │   ├── ScanResultsViewModel.kt      # Results ViewModel (auto-persists pharmacist edits)
+            │   │   ├── ScanResultsScreen.kt         # Scan results screen
+            │   │   ├── MedicineListView.kt          # Extracted medicine list & pharmacist sign-off
+            │   │   └── EditMedicineDialog.kt        # Interactive medicine item editing dialog
+            │   ├── settings/                        # Settings feature
+            │   │   ├── SettingsViewModel.kt         # Settings ViewModel
+            │   │   └── SettingsScreen.kt            # Settings UI with 3-segment spring theme selector
+            │   ├── telemetry/                       # AgentOps Telemetry feature
+            │   └── update/                          # Self-Update feature
+            └── ui/theme/
+                └── LipiRxTheme.kt                   # 60/120 FPS linear theme color interpolation engine
                 │       ├── LoadingView.kt           # Live multi-agent analysis UI with per-agent task progress
                 │       ├── ImagePreviewAndProcessView.kt # Prescription photo & pipeline summary UI
                 │       └── MedicineListView.kt      # Extracted medicine list & pharmacist sign-off UI
@@ -372,7 +367,7 @@ The project includes CLI wrappers `kotlin` (macOS/Linux) and `kotlin.bat` (Windo
 
 You can generate custom-named APKs directly into a dedicated `apks/` directory using the provided build helpers:
 
-- **Generate Custom-Named Debug APK (`apks/LipiRx-v0.4-debug.apk`)**:
+- **Generate Custom-Named Debug APK (`apks/LipiRx-v0.5-debug.apk`)**:
   ```powershell
   # Windows PowerShell
   .\build-apk.bat debug
@@ -381,7 +376,7 @@ You can generate custom-named APKs directly into a dedicated `apks/` directory u
   ./build-apk.sh debug
   ```
 
-- **Generate Custom-Named Release APK (`apks/LipiRx-v0.4-release.apk`)**:
+- **Generate Custom-Named Release APK (`apks/LipiRx-v0.5-release.apk`)**:
   ```powershell
   # Windows PowerShell
   .\build-apk.bat release
@@ -390,7 +385,7 @@ You can generate custom-named APKs directly into a dedicated `apks/` directory u
   ./build-apk.sh release
   ```
 
-- **Generate Signed Release APK (`apks/LipiRx-v0.4-release-signed.apk`)**:
+- **Generate Signed Release APK (`apks/LipiRx-v0.5-release-signed.apk`)**:
   ```powershell
   # Windows PowerShell
   .\sign-release.bat

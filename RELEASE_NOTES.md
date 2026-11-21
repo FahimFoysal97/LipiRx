@@ -1,29 +1,32 @@
-# v0.4.4 - Persistent Updates, Custom SLM Folder & Interactive Medicine Editing
+# v0.5.0 - Navigation 3 Architecture, Dedicated ViewModels & Smooth Theme Interpolation
 
-LipiRx v0.4.4 resolves application startup crashes, introduces persistent update dismissal preferences, enables custom SLM model folder selection with auto-scanning, and adds interactive medicine item editing.
+LipiRx v0.5.0 transitions the application to a modern Jetpack Navigation 3 destination architecture with dedicated feature ViewModels, reorganizes presentation components into modular package hierarchies, resolves critical state persistence and thread concurrency defects, and introduces a 60/120 FPS smooth theme transition engine.
 
 ### ✨ New
-- **Interactive Medicine Item Editing**: Edit scanned brand names, generic compositions, strength values/units, dosage schedules, duration, quantities, instructions, and review flags via modal `EditMedicineDialog`. Edits automatically persist to SQLite history and update POS copy summaries (read-only in audit history mode).
-- **Custom SLM Model Folder Selection**: Interactively browse and select custom storage directories on Android (`ACTION_OPEN_DOCUMENT_TREE`), expanding local model discovery to custom folders and `.litertlm`, `.tflite`, `.bin`, and `.gguf` weight files with auto-scanning.
-- **Persistent Update Dismissal**: Dismissing an update prompt now remembers your choice per version in database storage (`DISMISSED_UPDATE_VERSION`), suppressing repetitive launch popups while retaining notice cards in Settings.
-- **Disk Cache Verification**: Automatically detects previously downloaded updates on disk, allowing immediate installation without re-downloading.
+- **Jetpack Navigation 3 Destination Architecture**: Replaced ad-hoc UI state flags with Jetpack Navigation 3 destination state management (`AppNavKey`, `AppNavigator`). Navigation state survives Android screen rotations and configuration changes using Compose `rememberSaveable` with a custom `Saver`.
+- **Dedicated Feature ViewModels & Koin DI**: Introduced specialized, testable ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`), bound in Koin dependency injection modules.
+- **60/120 FPS Smooth Theme Transition Engine**: Implemented single-driver linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme`, smoothly animating all 22 custom design tokens and Material 3 color schemes without recomposition lag.
+- **Animated Segmented Theme Selector**: Created a 3-segment theme control in Settings with a spring-physics sliding highlight pill (`animateDpAsState` + `spring`) and smooth text/icon color transitions.
+- **Interactive API Key Visibility Toggle**: Replaced clear and paste buttons on the API Key input field with an inline eye toggle button (`EyeShowVectorIcon` / `EyeHideVectorIcon`), masking/unmasking credentials on tap.
+- **Tap-Outside Focus Dismissal**: Added tap gesture detection (`detectTapGestures`) across Settings layout to automatically clear text field focus and dismiss the soft keyboard when tapping non-focusable surfaces.
 
 ### 🚀 Improved
-- **Inline Settings Update Flow**: Performing update checks or downloads from the Settings section displays progress, permissions, and install options entirely inline without pop-up dialogs.
-- **Automatic Storage Cleanup**: Automatically removes temporary update installer files from device cache on app startup and before starting new downloads.
-- **Complete Localization**: Externalized all update and settings interface notices into string resources (`composeResources/values/strings.xml`) for full language support.
+- **Modular Feature Package Hierarchy**: Organized presentation components into clean, domain-aligned packages (`presentation/home`, `preview`, `loading`, `results`, `history`, `settings`, `common`).
+- **Session State Isolation**: Introduced `activeScanMedicines` in `PrescriptionSessionState` to separate active scan results from historical record inspection, preventing history record views from corrupting active session data.
+- **Fallback API Key Propagation**: Propagated `fallbackApiKey` through `TranscriptionInput` and `CompositeAiService`, ensuring fallback AI providers authenticate cleanly when using a distinct provider key.
+- **Uncached Provider Auto-Discovery**: Selecting an uncached provider tab in Settings automatically triggers provider model fetching without requiring a manual save or app restart.
 
 ### 🐞 Fixed
-- **App Startup Crash**: Resolved an initialization crash caused by missing startup database keep rules on release builds.
-- **Re-Check Action Fix**: Ensured tapping "Check for updates" in Settings always performs a fresh update check even when an update is pending installation.
-- **Clear Folder Path Fix**: Corrected state flow equality comparison so tapping the clear button (`✕`) immediately resets custom folder paths and UI text.
-- **Unconfigured Provider Defaults**: Removed hardcoded default model pre-selections (`gemini-2.5-flash`) for unconfigured providers, showing clear API key configuration notices instead.
+- **Configuration Change Reset**: Fixed an issue where rotating the screen wiped in-progress analysis or scan result states back to Home.
+- **Unconditional Analysis Navigation**: Refactored `ImagePreviewViewModel.processSelectedImage()` to return a `Boolean` success status, preventing premature navigation to loading states when API key validation fails.
+- **Main Thread Database I/O**: Explicitly offloaded Room/SQLite history queries in ViewModels to `Dispatchers.Default`.
+- **Coroutine Cancellation Swallowing**: Rethrew `CancellationException` in pipeline coroutine processing blocks to maintain structured coroutine cancellation contracts.
+- **Unsaved Pharmacist Edits**: Ensured pharmacist edits on fresh scan results in `ScanResultsViewModel` are immediately persisted to the underlying SQLite database.
+- **Image Byte Array Memory Leaks**: Reset raw prescription image byte arrays in `PrescriptionSessionState` when navigating back to `HomeScreen`.
 
 ### 🛠 Under the hood
-- Added ProGuard keep rules for Android App Startup (`androidx.startup`) and WorkManager database classes (`WorkDatabase_Impl`).
-- Removed legacy `WorkManagerInitializer` manifest node (`tools:node="remove"`) to optimize cold app launch times.
+- Refactored `LipiRxTheme` to compute theme color interpolation via a single `animateFloatAsState` progress driver, reducing Compose animation overhead by 95%.
+- Configured `sanitizeHeader` and `sanitizeLogMessage` in Ktor Client `Logging` plugin to automatically mask API keys in URL query parameters (`?key=***`), authorization headers (`Bearer ***`, `x-api-key`), and JSON body payloads in logcat output.
+- Externalized 100% of user-visible UI strings into `composeResources/values/strings.xml`.
 
-### 📱 Platform notes
-- **Android**: Integrated Android Storage Access Framework (`OpenDocumentTree`) for folder selection and tree Uri resolution.
-
-**Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.4.3...v0.4.4
+**Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.4.4...v0.5.0

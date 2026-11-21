@@ -69,10 +69,18 @@ val sharedModule = module {
             install(Logging) {
                 logger = object : Logger {
                     override fun log(message: String) {
-                        Napier.d(message, tag = "KtorClient")
+                        val sanitizedMessage = sanitizeLogMessage(message)
+                        Napier.d(sanitizedMessage, tag = "KtorClient")
                     }
                 }
                 level = LogLevel.INFO
+                sanitizeHeader { header ->
+                    header.equals("Authorization", ignoreCase = true) ||
+                            header.contains("api-key", ignoreCase = true) ||
+                            header.contains("key", ignoreCase = true) ||
+                            header.contains("auth", ignoreCase = true) ||
+                            header.contains("token", ignoreCase = true)
+                }
             }
         }
     }
@@ -162,4 +170,18 @@ fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {
 fun initKoinIos() {
     Napier.base(DebugAntilog())
     initKoin { }
+}
+
+/**
+ * Sanitizes Ktor log messages to prevent logging sensitive API keys in query parameters, headers, or JSON body payloads.
+ */
+private fun sanitizeLogMessage(message: String): String {
+    if (message.isBlank()) return message
+    return message
+        .replace(Regex("""([?&]key=)[^&\s"]+""", RegexOption.IGNORE_CASE), "$1***")
+        .replace(Regex("""([?&]api_key=)[^&\s"]+""", RegexOption.IGNORE_CASE), "$1***")
+        .replace(Regex("""("api_key"\s*:\s*")[^"]+(")""", RegexOption.IGNORE_CASE), "$1***$2")
+        .replace(Regex("""("apiKey"\s*:\s*")[^"]+(")""", RegexOption.IGNORE_CASE), "$1***$2")
+        .replace(Regex("""("key"\s*:\s*")[^"]+(")""", RegexOption.IGNORE_CASE), "$1***$2")
+        .replace(Regex("""(Bearer\s+)[^\s"]+""", RegexOption.IGNORE_CASE), "$1***")
 }
