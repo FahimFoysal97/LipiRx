@@ -21,6 +21,8 @@ DEFAULT_CONFIG = {
         "composeApp/build.gradle.kts",
         "iosApp/Configuration/Config.xcconfig",
     ],
+    # Whether release.py updates version_files locally before building (never commits/pushes)
+    "sync_version_files": True,
     # Release note markdown file (supports {version} and {tag} placeholders)
     "release_notes_file": "RELEASE_NOTES.md",
     # Optional keystore file in repo root; if empty, auto-detects *.jks in root
@@ -45,7 +47,7 @@ DEFAULT_CONFIG = {
     "require_ios_artifact": True,
     # README path relative to repo root
     "readme_file": "README.md",
-    # Git remote name
+    # Git remote name (used for checking existing tags and pushing the release tag)
     "remote": "origin",
 }
 # ==============================================================================
@@ -487,7 +489,7 @@ def confirm_before_github_release(
         asset_summary = ", ".join(
             f"{a.name} ({a.stat().st_size / (1024 * 1024):.2f} MB)" for a in assets
         )
-        release_kind = "Pre-release (draft/staging on GitHub)" if is_prerelease else "Full Release"
+        release_kind = "Pre-release" if is_prerelease else "Full Release"
 
         print("\n================ CONFIRM GITHUB RELEASE ================")
         print(f"Tag           : {tag}")
@@ -500,7 +502,7 @@ def confirm_before_github_release(
 
         choice = (
             input(
-                "Create this pre-release on GitHub now? "
+                "Publish this pre-release on GitHub now? "
                 "[y = publish pre-release / e = edit title & notes / n = cancel]: "
             )
             .strip()
@@ -621,17 +623,9 @@ def main() -> None:
     explicit_apk = prompt_optional_path(args.apk, "APK")
     explicit_ipa = prompt_optional_path(args.ipa, "iOS artifact") if build_ios else None
 
-    # 3. Sync version files, commit & push
-    update_version_files(cfg, version, version_code)
-
-    run(["git", "add", "-A"])
-    has_changes = (
-            subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=ROOT_DIR).returncode
-            != 0
-    )
-    if has_changes:
-        run(["git", "commit", "-m", f"chore(release): {tag}"])
-        run(["git", "push", remote, "HEAD"])
+    # 3. Optional local version file sync (never commits or pushes branch changes)
+    if cfg.get("sync_version_files", True):
+        update_version_files(cfg, version, version_code)
 
     # 4. Build Android / KMP APK (interactive console so password prompts work)
     extra_build_env = {}
@@ -666,7 +660,7 @@ def main() -> None:
             print(f"[OK] iOS artifact ready: {ipa_path}")
             assets.append(ipa_path)
 
-    # 6. Explicit confirmation before tagging and publishing on GitHub
+    # 6. Explicit confirmation before tagging and publishing pre-release on GitHub
     if not args.auto_publish:
         release_title, release_notes = confirm_before_github_release(
             tag, release_title, release_notes, assets, is_prerelease
