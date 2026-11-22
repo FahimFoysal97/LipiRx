@@ -157,10 +157,10 @@ def run_interactive_shell(command: str, extra_env: Optional[dict] = None) -> Non
 
 
 def resolve_android_build_cmd(
-    cfg: dict,
-    version: str = "",
-    tag: str = "",
-    keystore_path: Optional[Path] = None,
+        cfg: dict,
+        version: str = "",
+        tag: str = "",
+        keystore_path: Optional[Path] = None,
 ) -> str:
     raw_cmd = str(cfg.get("build_cmd", "")).strip()
     if raw_cmd:
@@ -222,13 +222,13 @@ def guard_keystore_not_tracked(jks_path: Path | None) -> None:
         return
     rel = jks_path.relative_to(ROOT_DIR).as_posix()
     tracked = (
-        subprocess.run(
-            ["git", "ls-files", "--error-unmatch", rel],
-            cwd=ROOT_DIR,
-            capture_output=True,
-            text=True,
-        ).returncode
-        == 0
+            subprocess.run(
+                ["git", "ls-files", "--error-unmatch", rel],
+                cwd=ROOT_DIR,
+                capture_output=True,
+                text=True,
+            ).returncode
+            == 0
     )
     if tracked:
         log_err(
@@ -460,10 +460,10 @@ def update_version_files(cfg: dict, version: str, version_code: int | None) -> N
 
 
 def find_existing_artifact(
-    candidates: list[str],
-    explicit_path: str | None,
-    label: str,
-    required: bool,
+        candidates: list[str],
+        explicit_path: str | None,
+        label: str,
+        required: bool,
 ) -> Path | None:
     patterns: list[str] = []
     if explicit_path:
@@ -492,11 +492,11 @@ def find_existing_artifact(
 
 
 def confirm_before_github_release(
-    tag: str,
-    release_title: str,
-    notes_text: str,
-    assets: list[Path],
-    is_prerelease: bool,
+        tag: str,
+        release_title: str,
+        notes_text: str,
+        assets: list[Path],
+        is_prerelease: bool,
 ) -> tuple[str, str]:
     current_title = release_title
     current_notes = notes_text
@@ -545,7 +545,7 @@ def confirm_before_github_release(
             )
             if open_editor == "y":
                 with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".md", delete=False, encoding="utf-8"
+                        mode="w", suffix=".md", delete=False, encoding="utf-8"
                 ) as tmp:
                     tmp.write(current_notes + "\n")
                     tmp_path = Path(tmp.name)
@@ -586,11 +586,11 @@ class ProgressFileWrapper:
 
 
 def render_upload_progress(
-    filename: str,
-    uploaded_bytes: int,
-    total_bytes: int,
-    start_time: float,
-    bar_width: int = 30,
+        filename: str,
+        uploaded_bytes: int,
+        total_bytes: int,
+        start_time: float,
+        bar_width: int = 30,
 ) -> None:
     elapsed = max(time.time() - start_time, 0.001)
     fraction = min(uploaded_bytes / max(total_bytes, 1), 1.0)
@@ -615,9 +615,9 @@ def render_upload_progress(
 
 
 def upload_asset_with_progress(
-    gh_exe: str,
-    tag: str,
-    asset_path: Path,
+        gh_exe: str,
+        tag: str,
+        asset_path: Path,
 ) -> bool:
     filename = asset_path.name
     total_bytes = asset_path.stat().st_size
@@ -826,7 +826,7 @@ def main() -> None:
         sys.exit(1)
 
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".md", delete=False, encoding="utf-8"
+            mode="w", suffix=".md", delete=False, encoding="utf-8"
     ) as notes_tmp:
         notes_tmp.write(release_notes + "\n")
         notes_tmp_path = Path(notes_tmp.name)
@@ -841,7 +841,6 @@ def main() -> None:
             "release",
             "create",
             tag,
-            *[str(a) for a in assets],
             "--title",
             release_title,
             "--notes-file",
