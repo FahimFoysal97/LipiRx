@@ -45,6 +45,10 @@ dependencies@ios:
   - $libs.ktor.client.darwin
   - $libs.sqldelight.native.driver
 
+test-dependencies:
+  - $libs.kotlin.test
+  - $libs.kotlinx.coroutines.test
+
 settings:
   kotlin:
     serialization: enabled

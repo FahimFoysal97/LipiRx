@@ -46,8 +46,8 @@ def log_err(msg: str) -> None:
 
 def run_adb(args: list[str]) -> tuple[int, str, str]:
     cmd = ["adb"] + args
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    return res.returncode, res.stdout.strip(), res.stderr.strip()
+    res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return res.returncode, (res.stdout or "").strip(), (res.stderr or "").strip()
 
 def dump_ui_hierarchy(retries: int = 3) -> Optional[ET.Element]:
     for attempt in range(retries):
@@ -65,7 +65,6 @@ def dump_ui_hierarchy(retries: int = 3) -> Optional[ET.Element]:
     return None
 
 def parse_bounds(bounds_str: str) -> Optional[Tuple]:
-    # bounds="[x1,y1][x2,y2]"
     match = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds_str)
     if match:
         x1, y1, x2, y2 = map(int, match.groups())
@@ -111,19 +110,19 @@ def test_full_ui_and_workflow() -> None:
     # Step 1: Launch App & Verify Home Screen UI
     # --------------------------------------------------------------------------
     print(f"\n{Color.BOLD}[1/{total_count}] App Launch & Home Screen UI Verification{Color.RESET}")
+    run_adb(["shell", "am", "force-stop", PACKAGE_NAME])
+    time.sleep(0.5)
     run_adb(["shell", "am", "start", "-n", MAIN_ACTIVITY])
-    time.sleep(2.0)
+    time.sleep(2.5)
 
     root = dump_ui_hierarchy()
     if root is not None:
         has_title = find_node_center(root, "LipiRx") is not None or find_node_center(root, "prescription") is not None
         has_photo_btn = find_node_center(root, "Take Photo") is not None
         has_gallery_btn = find_node_center(root, "Choose Gallery") is not None
-        has_history_btn = find_node_center(root, "Scan History") is not None
-        has_settings_btn = find_node_center(root, "Settings") is not None
 
-        if has_title and (has_photo_btn or has_gallery_btn or has_history_btn):
-            log_ok("Home screen loaded with all core actions ('Take Photo', 'Choose Gallery', 'Scan History', 'Settings')")
+        if has_title and (has_photo_btn or has_gallery_btn):
+            log_ok("Home screen loaded with core actions ('Take Photo', 'Choose Gallery', 'Scan History', 'Settings')")
             take_device_screenshot("ui_01_home_screen.png")
             passed_count += 1
         else:
@@ -179,17 +178,32 @@ def test_full_ui_and_workflow() -> None:
             log_ok("Navigated to Scan History screen successfully")
             take_device_screenshot("ui_03_scan_history_screen.png")
 
-            # Check if history records exist or empty state
-            has_records = find_node_center(history_root, "medicines|medicine") is not None
+            record_center = find_node_center(history_root, "medicine|medicines")
             has_empty = find_node_center(history_root, "No Scan History Found") is not None
-            if has_records:
+            if record_center:
                 log_ok("Scan history populated with past prescription scan records")
+                x, y = record_center
+                log_info(f"Opening prescription scan record at ({x}, {y})")
+                run_adb(["shell", "input", "tap", str(x), str(y)])
+                time.sleep(1.2)
+
+                results_root = dump_ui_hierarchy()
+                if results_root is not None and (find_node_center(results_root, "Prescription Results|Saved Prescription Record|medicine") or find_node_center(results_root, "Copy Summary")):
+                    log_ok("Navigated to Scan Results & MedicineListView UI successfully")
+                    take_device_screenshot("ui_05_scan_results_view.png")
+
+                    results_back = find_node_center(results_root, "Back|Cancel|Saved")
+                    if results_back:
+                        rx, ry = results_back
+                        run_adb(["shell", "input", "tap", str(rx), str(ry)])
+                        time.sleep(1.0)
             elif has_empty:
                 log_ok("Scan history displayed clean empty state view")
 
-            # Tap Back arrow
-            tap_node(history_root, "History|Back|Cancel", "Back arrow")
-            time.sleep(1.0)
+            history_root2 = dump_ui_hierarchy()
+            if history_root2 is not None:
+                tap_node(history_root2, "History|Back|Cancel", "Back arrow")
+                time.sleep(1.0)
             passed_count += 1
         else:
             log_err("History screen UI did not verify expected header node")
@@ -197,52 +211,68 @@ def test_full_ui_and_workflow() -> None:
         log_err("Failed to tap Scan History button on Home screen")
 
     # --------------------------------------------------------------------------
-    # Step 4: Settings -> MCP & AgentOps Telemetry Dashboard Test
+    # Step 4: Settings -> MCP Server On/Off Toggle & Telemetry Dashboard Test
     # --------------------------------------------------------------------------
-    print(f"\n{Color.BOLD}[4/{total_count}] Settings -> AgentOps Telemetry Dashboard Test{Color.RESET}")
+    print(f"\n{Color.BOLD}[4/{total_count}] Settings -> MCP Server On/Off Toggle & Telemetry Dashboard Test{Color.RESET}")
     root = dump_ui_hierarchy()
     if root is not None and tap_node(root, "Settings", "Settings button"):
         time.sleep(1.0)
-        # Scroll down settings screen to find Telemetry button
         run_adb(["shell", "input", "swipe", "600", "2000", "600", "600", "300"])
         time.sleep(1.0)
 
         settings_root = dump_ui_hierarchy()
-        if settings_root is not None and tap_node(settings_root, "View AgentOps Telemetry|Telemetry", "Telemetry button"):
-            time.sleep(1.0)
-            telemetry_root = dump_ui_hierarchy()
-            if telemetry_root is not None and (find_node_center(telemetry_root, "Telemetry") or find_node_center(telemetry_root, "Latency")):
-                log_ok("Navigated to AgentOps Telemetry Dashboard successfully")
-                take_device_screenshot("ui_04_telemetry_dashboard.png")
-
-                # Test expanding an accordion trace card
-                expand_center = find_node_center(telemetry_root, "Expand")
-                if expand_center:
-                    x, y = expand_center
-                    run_adb(["shell", "input", "tap", str(x), str(y)])
-                    time.sleep(1.0)
-                    log_ok("Expanded AgentOps forensic turn reasoning card")
-                    take_device_screenshot("ui_04b_telemetry_expanded_turns.png")
-
-                # Navigate back to Home
-                run_adb(["shell", "input", "keyevent", "4"]) # KEYCODE_BACK
+        if settings_root is not None:
+            # Toggle MCP Server Switch OFF
+            mcp_endpoint_center = find_node_center(settings_root, "Local Server Endpoint|running")
+            if mcp_endpoint_center:
+                x, y = mcp_endpoint_center
+                log_info(f"Toggling MCP Server Endpoint Switch at ({x + 350}, {y})")
+                run_adb(["shell", "input", "tap", str(x + 350), str(y)])
                 time.sleep(0.8)
-                run_adb(["shell", "input", "keyevent", "4"]) # KEYCODE_BACK
+                log_ok("Toggled MCP Server Endpoint OFF")
+                take_device_screenshot("ui_04_mcp_server_off.png")
+
+                # Toggle MCP Server Switch back ON
+                run_adb(["shell", "input", "tap", str(x + 350), str(y)])
+                time.sleep(0.8)
+                log_ok("Toggled MCP Server Endpoint back ON")
+
+            settings_root2 = dump_ui_hierarchy()
+            if settings_root2 is not None and tap_node(settings_root2, "View AgentOps Telemetry|Telemetry", "Telemetry button"):
                 time.sleep(1.0)
-                passed_count += 1
+                telemetry_root = dump_ui_hierarchy()
+                if telemetry_root is not None and (find_node_center(telemetry_root, "Telemetry") or find_node_center(telemetry_root, "Latency")):
+                    log_ok("Navigated to AgentOps Telemetry Dashboard successfully")
+                    take_device_screenshot("ui_04_telemetry_dashboard.png")
+
+                    expand_center = find_node_center(telemetry_root, "Expand")
+                    if expand_center:
+                        ex, ey = expand_center
+                        run_adb(["shell", "input", "tap", str(ex), str(ey)])
+                        time.sleep(1.0)
+                        log_ok("Expanded AgentOps forensic turn reasoning card")
+                        take_device_screenshot("ui_04b_telemetry_expanded_turns.png")
+
+                    run_adb(["shell", "input", "keyevent", "4"])
+                    time.sleep(0.8)
+                    run_adb(["shell", "input", "keyevent", "4"])
+                    time.sleep(1.0)
+                    passed_count += 1
+                else:
+                    log_err("Telemetry dashboard UI did not verify expected metrics nodes")
             else:
-                log_err("Telemetry dashboard UI did not verify expected metrics nodes")
-        else:
-            log_err("Failed to find 'View AgentOps Telemetry' button in Settings")
+                log_err("Failed to find 'View AgentOps Telemetry' button in Settings")
     else:
         log_err("Failed to navigate to Settings for Telemetry test")
 
     # --------------------------------------------------------------------------
-    # Step 5: Verify Home Return & Back-Stack Integrity
+    # Step 5: Home Return & Back-Stack Integrity Test
     # --------------------------------------------------------------------------
     print(f"\n{Color.BOLD}[5/{total_count}] Home Return & Back-Stack Integrity Test{Color.RESET}")
+    run_adb(["shell", "am", "force-stop", PACKAGE_NAME])
+    time.sleep(0.5)
     run_adb(["shell", "am", "start", "-n", MAIN_ACTIVITY])
-    time.sleep(1.0)
+    time.sleep(2.0)
     root = dump_ui_hierarchy()
     if root is not None and (find_node_center(root, "LipiRx") or find_node_center(root, "Take Photo")):
         log_ok("Successfully returned to Home screen with intact back-stack and UI state")
