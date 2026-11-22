@@ -18,7 +18,7 @@ val LipiRxSchema = object : SqlSchema<QueryResult.Value<Unit>> {
         driver.execute(
             identifier = null,
             sql = """
-                CREATE TABLE IF NOT EXISTS PrescriptionHistory (
+                asdasdCREATE TABLE IF NOT EXISTS PrescriptionHistory (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     scannedAt INTEGER NOT NULL,
                     medicineSummary TEXT NOT NULL
