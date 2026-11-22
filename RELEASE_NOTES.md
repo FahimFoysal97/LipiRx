@@ -1,37 +1,29 @@
-# LipiRx v0.5.1 - Navigation 3 Architecture, Dedicated ViewModels & Smooth Theme Engine
+# LipiRx v0.5.2 - Native KMP Test Suite, Screen Container Architecture & MCP Toggle Automation
 
-LipiRx v0.5.1 introduces Jetpack Navigation 3 destination state persistence across device rotations, dedicated feature ViewModels, a 60/120 FPS smooth theme transition engine, and fixes embedded MCP server HTTP connection drops.
+LipiRx v0.5.2 introduces a native Kotlin Multiplatform unit test suite, standardizes 1:1 stateful screen container architecture, fixes singleton ViewModel state propagation for theme changes, and enhances end-to-end UI automation.
 
 ### ✨ New
-- **Navigation State Persistence**: Screen navigation and back-stack states now survive device orientation changes and process restarts without resetting to Home.
-- **Smooth Theme Transitions**: Switching between Light, Dark, and System theme modes now smoothly animates all app colors and card surfaces without screen flickering.
-- **Spring Theme Selector**: Interactive 3-segment theme control in Settings with a spring-physics sliding highlight pill.
-- **API Key Visibility Toggle**: Tap the eye icon on API key input fields to securely mask or reveal credentials inline.
-- **Tap-Outside Keyboard Dismissal**: Tap anywhere outside text fields in Settings to automatically dismiss the soft keyboard.
-- **Automated MCP Test Runner**: Added `test_mcp.py` script to test embedded MCP server JSON-RPC tools and resources automatically over ADB.
+- **Native KMP Unit Test Suite**: Added comprehensive native unit & integration test coverage in `shared/test/` using `kotlin.test` and `kotlinx-coroutines-test`:
+  - `AppNavKeyTest`: Tests Navigation 3 route string serialization and fallback resolution.
+  - `PrescriptionSessionStateTest`: Tests session state isolation, active scan persistence, and history item opening.
+  - `SemVerTest`: Tests semantic versioning parsing and version comparison.
+  - `LipiRxMcpServerTest`: Tests JSON-RPC 2.0 request parsing and error response handling.
+- **Custom Image Testing Support**: `test_full_app.py` and `test_full_app_ui.py` now support custom prescription image CLI arguments (`--image`) and interactive image prompts.
+- **MCP Server Endpoint Toggle Test**: Added automated UI testing for toggling the MCP server endpoint switch ON/OFF in Settings.
 
 ### 🚀 Improved
-- **Prescription Session Isolation**: Viewing historical scan records no longer overwrites or clears your active prescription scan session.
-- **Automatic Model Discovery**: Selecting an uncached provider tab in Settings automatically fetches available models without requiring a manual save.
-- **Fallback API Key Support**: Secondary fallback AI providers now use their dedicated API keys when primary cloud requests fail.
-- **Network Log Sanitization**: Automatically masks API keys, Bearer tokens, and credential headers in app logs.
-- **Beautified Build Scripts**: Terminal build scripts (`build-apk`, `sign-release`, `release.py`) now display color-coded status banners.
+- **Stateful Screen Container Architecture**: Standardized presentation screens into 1:1 stateful container composables (`HomeScreen`, `ImagePreviewScreen`, `AnalysisLoadingScreen`, `ScanResultsScreen`, `HistoryScreen`, `SettingsScreen`, `AgentTelemetryScreen`) delegating to stateless views (`HistoryView`, `SettingsView`).
+- **Theme Mode State Propagation**: Changed `SettingsViewModel` scope from `factory` to `single` in Koin DI module, ensuring `App.kt` and `SettingsScreen` share the same ViewModel instance so theme mode switches immediately apply across the app.
+- **Formatted Model Display Names**: Applied model name formatting in `ImagePreviewAndProcessView` to clean up model labels in the pipeline summary.
+- **Release Automation Formatting**: Refactored `release.py` to parse Line 1 of `RELEASE_NOTES.md` as the GitHub Release Title and the remaining body as description notes.
 
 ### 🐞 Fixed
-- **MCP Server Connection Drop**: Resolved an issue where embedded MCP server socket connections dropped during JSON-RPC initialization and tool execution requests.
-- **Prescription Edit Persistence**: Saved pharmacist edits on fresh scan results directly to the history database.
-- **Screen Rotation Navigation Reset**: Fixed in-progress prescription analysis or result views resetting to Home when rotating the device.
-- **Background Thread Database Queries**: Offloaded all local database queries off the main thread to prevent UI freezing.
-- **Memory Optimization**: Automatically clears raw prescription image byte arrays when returning to the home screen.
+- **Theme Change Propagation Fix**: Fixed theme mode switches in Settings not reflecting globally due to duplicate ViewModel instance creation.
+- **MCP Connection Drop Fix**: Resolved socket stream reading desynchronization in `McpHttpServer.kt` by consuming body bytes directly on `Dispatchers.IO`.
+- **UTF-8 ADB Console Encoding**: Handled non-ASCII character decoding in ADB test runner output (`test_full_app_ui.py`).
 
 ### 🛠 Under the hood
-- Transitioned presentation layer to Jetpack Navigation 3 key-based routing (`AppNavKey`, `AppNavigator`) with `rememberSaveable` state serialization.
-- Introduced dedicated feature ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`) bound in Koin DI.
-- Reorganized presentation layer into feature packages (`presentation/home`, `preview`, `loading`, `results`, `history`, `settings`, `common`).
-- Optimized `LipiRxTheme` using single-driver `animateFloatAsState` and `LipiColors.lerp` linear color interpolation.
-- Rethrew `CancellationException` in pipeline coroutine processing to maintain structured coroutine cancellation.
+- Added `kotlin-test` and `kotlinx-coroutines-test` dependencies to `libs.versions.toml` and `shared/module.yaml`.
+- Added `/screenshots/` to `.gitignore`.
 
-### 📱 Platform notes
-- **Android**: Integrated Android Storage Access Framework URI resolution for custom SLM model folders and `FileProvider` package installer support.
-
-**Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.4.4...v0.5.1
+**Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.5.1...v0.5.2
