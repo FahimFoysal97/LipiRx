@@ -80,26 +80,14 @@ def send_mcp_request(rpc_id: str, method: str, params: Optional[dict] = None) ->
         log_err(f"MCP RPC Error for method '{method}': {e}")
         return None
 
-def test_full_application(custom_image_path: str = "") -> None:
+def test_full_application() -> None:
     log_title("LipiRx Full Functionality & Integration Test Suite")
 
-    image_file_path = custom_image_path.strip()
-    if not image_file_path and sys.stdin.isatty():
-        prompt_res = input(f"{Color.YELLOW}Enter path to prescription photo file to analyze (or press Enter for default sample): {Color.RESET}").strip().strip('"\'')
-        if prompt_res and os.path.exists(prompt_res):
-            image_file_path = prompt_res
-
-    sample_base64_image = None
-    if image_file_path and os.path.exists(image_file_path):
-        log_ok(f"Loading custom prescription image for Vision OCR test: {image_file_path}")
-        with open(image_file_path, "rb") as img_file:
-            sample_base64_image = base64.b64encode(img_file.read()).decode("utf-8")
-    else:
-        sample_base64_image = (
-            "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP////////////////////////////////"
-            "//////////////////////////////////////////////////////wgALCAABAAE"
-            "BAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA="
-        )
+    sample_base64_image = (
+        "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP////////////////////////////////"
+        "//////////////////////////////////////////////////////wgALCAABAAE"
+        "BAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA="
+    )
 
     passed_count = 0
     total_count = 15
@@ -348,7 +336,4 @@ def test_full_application(custom_image_path: str = "") -> None:
         print(f"{Color.YELLOW}{Color.BOLD}⚠ [SUMMARY] {passed_count}/{total_count} system tests passed.{Color.RESET}\n")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="LipiRx Full Functionality & Integration Test Suite")
-    parser.add_argument("--image", default="", help="Path to prescription image file (JPEG/PNG) to analyze")
-    args = parser.parse_args()
-    test_full_application(custom_image_path=args.image)
+    test_full_application()

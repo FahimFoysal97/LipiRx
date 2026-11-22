@@ -6,7 +6,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.request
+import urllib.error
 from pathlib import Path
+from typing import Optional, Tuple
 
 # Enable VT100 / ANSI escape sequences in Windows console
 if os.name == "nt":
@@ -131,7 +135,7 @@ def run(cmd: list[str], check: bool = True) -> str:
     return result.stdout.strip()
 
 
-def run_interactive_shell(command: str, extra_env: dict[str, str] | None = None) -> None:
+def run_interactive_shell(command: str, extra_env: Optional[dict] = None) -> None:
     """
     Runs build commands attached to the real terminal so interactive scripts
     can prompt or read environment variables directly when needed.
@@ -156,7 +160,7 @@ def resolve_android_build_cmd(
     cfg: dict,
     version: str = "",
     tag: str = "",
-    keystore_path: Path | None = None,
+    keystore_path: Optional[Path] = None,
 ) -> str:
     raw_cmd = str(cfg.get("build_cmd", "")).strip()
     if raw_cmd:
@@ -292,7 +296,7 @@ def load_release_notes(cfg: dict) -> tuple[Path, str, str, str, int | None]:
     if not version:
         log_err(
             f"Could not find a version heading in '{notes_path.relative_to(ROOT_DIR)}'. "
-            "Expected a heading like '# v0.5.1 - Release Title'."
+            "Expected a heading like '# v0.5.2 - Release Title'."
         )
         sys.exit(1)
 
@@ -363,7 +367,7 @@ def is_tag_on_remote(remote: str, tag: str) -> bool:
 
 def is_release_already_published(tag: str, remote: str) -> bool:
     if is_tag_on_remote(remote, tag):
-        return False
+        return True
 
     gh_exe = resolve_gh_executable()
     if not gh_exe:
@@ -562,6 +566,123 @@ def confirm_before_github_release(
             sys.exit(0)
 
 
+class ProgressFileWrapper:
+    def __init__(self, file_path: Path, progress_callback):
+        self.file_path = file_path
+        self.total_size = file_path.stat().st_size
+        self.bytes_read = 0
+        self.progress_callback = progress_callback
+        self.file_obj = open(file_path, "rb")
+
+    def read(self, chunk_size=65536):
+        data = self.file_obj.read(chunk_size)
+        if data:
+            self.bytes_read += len(data)
+            self.progress_callback(self.bytes_read, self.total_size)
+        return data
+
+    def close(self):
+        self.file_obj.close()
+
+
+def render_upload_progress(
+    filename: str,
+    uploaded_bytes: int,
+    total_bytes: int,
+    start_time: float,
+    bar_width: int = 30,
+) -> None:
+    elapsed = max(time.time() - start_time, 0.001)
+    fraction = min(uploaded_bytes / max(total_bytes, 1), 1.0)
+    filled_len = int(bar_width * fraction)
+
+    bar = f"{Color.GREEN}{'━' * filled_len}{Color.CYAN}{'•' * (bar_width - filled_len)}{Color.RESET}"
+    mb_uploaded = uploaded_bytes / (1024 * 1024)
+    mb_total = total_bytes / (1024 * 1024)
+    percent = fraction * 100
+
+    speed_mbps = (uploaded_bytes / (1024 * 1024)) / elapsed
+    remaining_bytes = max(total_bytes - uploaded_bytes, 0)
+    eta_sec = int(remaining_bytes / max(uploaded_bytes / elapsed, 1)) if uploaded_bytes > 0 else 0
+    eta_str = f"{eta_sec // 60:02d}:{eta_sec % 60:02d}"
+
+    sys.stdout.write(
+        f"\r[ {bar} ] {Color.BOLD}{mb_uploaded:.1f} MB{Color.RESET} / {mb_total:.1f} MB "
+        f"({Color.YELLOW}{percent:.1f}%{Color.RESET})  "
+        f"{Color.GREEN}{speed_mbps:.1f} MB/s{Color.RESET}  ETA {eta_str}  \033[K"
+    )
+    sys.stdout.flush()
+
+
+def upload_asset_with_progress(
+    gh_exe: str,
+    tag: str,
+    asset_path: Path,
+) -> bool:
+    filename = asset_path.name
+    total_bytes = asset_path.stat().st_size
+    mb_size = total_bytes / (1024 * 1024)
+
+    token = run([gh_exe, "auth", "token"], check=False).strip()
+    repo_info = run(["git", "config", "--get", "remote.origin.url"], check=False).strip()
+    match = re.search(r"github\.com[:/]([^/]+)/([^/\.]+)(?:\.git)?$", repo_info)
+
+    if token and match:
+        owner, repo = match.group(1), match.group(2)
+        rel_view = run([gh_exe, "release", "view", tag, "--json", "uploadUrl"], check=False)
+        upload_url_template = ""
+        if rel_view:
+            try:
+                upload_url_template = json.loads(rel_view).get("uploadUrl", "")
+            except Exception:
+                pass
+
+        if upload_url_template:
+            clean_upload_url = upload_url_template.split("{")[0] + f"?name={filename}"
+            start_time = time.time()
+            log_info(f"Uploading {filename} ({mb_size:.2f} MB)...")
+
+            try:
+                wrapper = ProgressFileWrapper(
+                    asset_path,
+                    lambda read_b, total_b: render_upload_progress(filename, read_b, total_b, start_time)
+                )
+
+                req = urllib.request.Request(
+                    clean_upload_url,
+                    data=wrapper,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/octet-stream",
+                        "Content-Length": str(total_bytes),
+                        "User-Agent": "LipiRx-Release-Uploader/1.0",
+                    },
+                    method="POST",
+                )
+
+                with urllib.request.urlopen(req) as resp:
+                    wrapper.close()
+                    elapsed = max(time.time() - start_time, 0.1)
+                    speed = mb_size / elapsed
+                    sys.stdout.write("\n")
+                    log_ok(f"Uploaded {filename} ({mb_size:.2f} MB) in {elapsed:.1f}s ({speed:.1f} MB/s)")
+                    return True
+            except Exception as ex:
+                sys.stdout.write("\n")
+                log_warn(f"Direct API upload fallback to gh CLI: {ex}")
+
+    log_info(f"Uploading {filename} ({mb_size:.2f} MB) via GitHub CLI...")
+    start_time = time.time()
+    res = subprocess.run([gh_exe, "release", "upload", tag, str(asset_path), "--clobber"], capture_output=True, text=True)
+    elapsed = max(time.time() - start_time, 0.1)
+    if res.returncode == 0:
+        log_ok(f"Uploaded {filename} ({mb_size:.2f} MB) in {elapsed:.1f}s")
+        return True
+    else:
+        log_err(f"Failed to upload {filename}: {res.stderr.strip()}")
+        return False
+
+
 def main() -> None:
     print_banner("LipiRx Multi-Platform Release Engine", "KMP • Android • iOS • MCP Protocol")
 
@@ -729,6 +850,9 @@ def main() -> None:
         if is_prerelease:
             gh_cmd.append("--prerelease")
         run(gh_cmd)
+
+        for asset_path in assets:
+            upload_asset_with_progress(gh_exe, tag, asset_path)
     finally:
         if notes_tmp_path.exists():
             notes_tmp_path.unlink(missing_ok=True)
