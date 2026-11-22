@@ -15,7 +15,7 @@ for /f "tokens=2 delims=: " %%a in ('findstr /i "versionName" androidApp\module.
 if defined VERSION (
     set "VERSION=%VERSION:"=%"
 ) else (
-    set "VERSION=0.5.0"
+    set "VERSION=0.5.1"
 )
 
 set "MODE=%~1"

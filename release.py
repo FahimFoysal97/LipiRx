@@ -507,10 +507,8 @@ def confirm_before_github_release(
         print(f"{Color.CYAN}║{Color.RESET} {Color.BOLD}Release Title{Color.RESET} : {Color.BOLD}{current_title}{Color.RESET}")
         print(f"{Color.CYAN}║{Color.RESET} {Color.BOLD}Assets       {Color.RESET} : {asset_summary}")
         print(f"{Color.CYAN}{Color.BOLD}╟────────────────────────────────────────────────────────────────╢{Color.RESET}")
-        for line in current_notes.splitlines()[:15]:
+        for line in current_notes.splitlines():
             print(f"{Color.CYAN}║{Color.RESET} {line}")
-        if len(current_notes.splitlines()) > 15:
-            print(f"{Color.CYAN}║{Color.RESET} {Color.DIM}... (notes truncated in preview){Color.RESET}")
         print(f"{Color.CYAN}{Color.BOLD}╚════════════════════════════════════════════════════════════════╝{Color.RESET}\n")
 
         choice = (

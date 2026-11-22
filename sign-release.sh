@@ -9,7 +9,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 VERSION=$(grep -i "versionName" androidApp/module.yaml | head -n 1 | awk -F ':' '{print $2}' | tr -d ' "' | tr -d "'")
-if [ -z "$VERSION" ]; then VERSION="0.5.0"; fi
+if [ -z "$VERSION" ]; then VERSION="0.5.1"; fi
 
 KEYSTORE="lipirx-release-key.jks"
 ALIAS="lipirx-key"

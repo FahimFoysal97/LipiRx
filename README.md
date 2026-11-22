@@ -6,7 +6,7 @@
 [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
-[![Release v0.5.0](https://img.shields.io/badge/Release_v0.5.0-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![Release v0.5.1](https://img.shields.io/badge/Release_v0.5.1-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![MIT License](https://img.shields.io/badge/License-MIT-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
@@ -367,7 +367,7 @@ The project includes CLI wrappers `kotlin` (macOS/Linux) and `kotlin.bat` (Windo
 
 You can generate custom-named APKs directly into a dedicated `apks/` directory using the provided build helpers:
 
-- **Generate Custom-Named Debug APK (`apks/LipiRx-v0.5-debug.apk`)**:
+- **Generate Custom-Named Debug APK (`apks/LipiRx-v0.5.1-debug.apk`)**:
   ```powershell
   # Windows PowerShell
   .\build-apk.bat debug
@@ -376,7 +376,7 @@ You can generate custom-named APKs directly into a dedicated `apks/` directory u
   ./build-apk.sh debug
   ```
 
-- **Generate Custom-Named Release APK (`apks/LipiRx-v0.5-release.apk`)**:
+- **Generate Custom-Named Release APK (`apks/LipiRx-v0.5.1-release.apk`)**:
   ```powershell
   # Windows PowerShell
   .\build-apk.bat release
@@ -385,7 +385,7 @@ You can generate custom-named APKs directly into a dedicated `apks/` directory u
   ./build-apk.sh release
   ```
 
-- **Generate Signed Release APK (`apks/LipiRx-v0.5-release-signed.apk`)**:
+- **Generate Signed Release APK (`apks/LipiRx-v0.5.1-release-signed.apk`)**:
   ```powershell
   # Windows PowerShell
   .\sign-release.bat

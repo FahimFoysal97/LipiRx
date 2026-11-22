@@ -12,7 +12,7 @@ set "C_RESET=%ESC%[0m"
 
 set "VERSION="
 for /f "tokens=2 delims=: " %%a in ('findstr /i "versionName" androidApp\module.yaml') do set "VERSION=%%a"
-if defined VERSION (set "VERSION=%VERSION:"=%") else (set "VERSION=0.5.0")
+if defined VERSION (set "VERSION=%VERSION:"=%") else (set "VERSION=0.5.1")
 
 set KEYSTORE=lipirx-release-key.jks
 set ALIAS=lipirx-key
