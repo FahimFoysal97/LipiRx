@@ -1,18 +1,37 @@
-# v0.5.1 - MCP Server HTTP Connection Fix & Credentials Sanitization
+# LipiRx v0.5.1 - Navigation 3 Architecture, Dedicated ViewModels & Smooth Theme Engine
 
-LipiRx v0.5.1 resolves an HTTP POST payload desynchronization issue in the embedded MCP server, introduces an automated MCP test harness, adds API key log sanitization across network calls, and refines theme selector animations.
+LipiRx v0.5.1 introduces Jetpack Navigation 3 destination state persistence across device rotations, dedicated feature ViewModels, a 60/120 FPS smooth theme transition engine, and fixes embedded MCP server HTTP connection drops.
 
 ### ✨ New
-- **Automated MCP Test Suite (`test_mcp.py`)**: Added a root-level Python test runner that configures ADB port forwarding (`tcp:8080 -> tcp:8080`) and executes JSON-RPC 2.0 integration tests across all 8 MCP tools and resources (`initialize`, `tools/list`, `resources/list`, `resources/read`, `parse_medical_entities`, `search_generic_substitutes`, `audit_patient_safety`, `eval_run_benchmark`).
-- **Interactive API Key Visibility Toggle**: Replaced clear and paste buttons on the API Key input field with an inline eye toggle button (`EyeShowVectorIcon` / `EyeHideVectorIcon`), masking/unmasking credentials on tap.
-- **Tap-Outside Focus Dismissal**: Added tap gesture detection (`detectTapGestures`) across Settings layout to automatically clear text field focus and dismiss the soft keyboard when tapping non-focusable surfaces.
-- **Sequential Theme Selector Animation**: Implemented a two-stage animation sequence where the 3-segment theme indicator pill completes its spring slide before triggering global app theme color transitions.
+- **Navigation State Persistence**: Screen navigation and back-stack states now survive device orientation changes and process restarts without resetting to Home.
+- **Smooth Theme Transitions**: Switching between Light, Dark, and System theme modes now smoothly animates all app colors and card surfaces without screen flickering.
+- **Spring Theme Selector**: Interactive 3-segment theme control in Settings with a spring-physics sliding highlight pill.
+- **API Key Visibility Toggle**: Tap the eye icon on API key input fields to securely mask or reveal credentials inline.
+- **Tap-Outside Keyboard Dismissal**: Tap anywhere outside text fields in Settings to automatically dismiss the soft keyboard.
+- **Automated MCP Test Runner**: Added `test_mcp.py` script to test embedded MCP server JSON-RPC tools and resources automatically over ADB.
 
 ### 🚀 Improved
-- **Ktor Network Log Sanitization**: Configured `sanitizeHeader` and `sanitizeLogMessage` in Ktor Client `Logging` plugin to automatically mask API keys in URL query parameters (`?key=***`), authorization headers (`Bearer ***`, `x-api-key`), and JSON body payloads in logcat output.
-- **60/120 FPS Theme Transition Engine**: Optimized `LipiRxTheme` with a single `animateFloatAsState` progress driver and `LipiColors.lerp` linear color interpolation, reducing theme recomposition overhead by 95%.
+- **Prescription Session Isolation**: Viewing historical scan records no longer overwrites or clears your active prescription scan session.
+- **Automatic Model Discovery**: Selecting an uncached provider tab in Settings automatically fetches available models without requiring a manual save.
+- **Fallback API Key Support**: Secondary fallback AI providers now use their dedicated API keys when primary cloud requests fail.
+- **Network Log Sanitization**: Automatically masks API keys, Bearer tokens, and credential headers in app logs.
+- **Beautified Build Scripts**: Terminal build scripts (`build-apk`, `sign-release`, `release.py`) now display color-coded status banners.
 
 ### 🐞 Fixed
-- **MCP Server Connection Drop Fix**: Resolved an issue in `McpHttpServer.kt` where wrapping the socket stream in a `BufferedReader` after parsing HTTP headers desynchronized input bytes, causing JSON-RPC `initialize` and POST requests to fail with `Remote end closed connection without response`. Stream reading now reads payload bytes directly into a `ByteArray` on `Dispatchers.IO`.
+- **MCP Server Connection Drop**: Resolved an issue where embedded MCP server socket connections dropped during JSON-RPC initialization and tool execution requests.
+- **Prescription Edit Persistence**: Saved pharmacist edits on fresh scan results directly to the history database.
+- **Screen Rotation Navigation Reset**: Fixed in-progress prescription analysis or result views resetting to Home when rotating the device.
+- **Background Thread Database Queries**: Offloaded all local database queries off the main thread to prevent UI freezing.
+- **Memory Optimization**: Automatically clears raw prescription image byte arrays when returning to the home screen.
 
-**Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.5.0...v0.5.1
+### 🛠 Under the hood
+- Transitioned presentation layer to Jetpack Navigation 3 key-based routing (`AppNavKey`, `AppNavigator`) with `rememberSaveable` state serialization.
+- Introduced dedicated feature ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`) bound in Koin DI.
+- Reorganized presentation layer into feature packages (`presentation/home`, `preview`, `loading`, `results`, `history`, `settings`, `common`).
+- Optimized `LipiRxTheme` using single-driver `animateFloatAsState` and `LipiColors.lerp` linear color interpolation.
+- Rethrew `CancellationException` in pipeline coroutine processing to maintain structured coroutine cancellation.
+
+### 📱 Platform notes
+- **Android**: Integrated Android Storage Access Framework URI resolution for custom SLM model folders and `FileProvider` package installer support.
+
+**Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.4.4...v0.5.1

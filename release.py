@@ -239,25 +239,29 @@ def resolve_notes_path(cfg: dict) -> Path:
     return ROOT_DIR / configured
 
 
-def parse_release_note_metadata(notes_text: str) -> tuple[str | None, str | None, int | None]:
-    version: str | None = None
-    title: str | None = None
-    code: int | None = None
+def parse_release_note_metadata(notes_text: str) -> tuple[str, str, str, int | None]:
+    """
+    Parses RELEASE_NOTES.md where:
+    - Line 1 is the Title (e.g. '# v0.5.1 - Navigation 3 Architecture...')
+    - Line 2 onwards is the Description/Body section for GitHub Release
+    Returns: (version, release_title, description_body, version_code)
+    """
+    lines = notes_text.strip().splitlines()
+    if not lines:
+        return "", "", "", None
 
-    for line in notes_text.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("#"):
-            continue
-        match = re.match(
-            r"^#{1,3}\s+v?([0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\s*(?:[-–—:]\s*(.+))?$",
-            stripped,
-        )
-        if match:
-            version = normalize_version(match.group(1))
-            subtitle = (match.group(2) or "").strip()
-            title = f"v{version} - {subtitle}" if subtitle else f"v{version}"
-            break
+    first_line = lines[0].strip()
+    clean_title = re.sub(r"^#+\s*", "", first_line).strip()
 
+    version_match = re.search(r"\bv?([0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\b", clean_title)
+    version = normalize_version(version_match.group(1)) if version_match else ""
+
+    body_lines = lines[1:]
+    while body_lines and not body_lines[0].strip():
+        body_lines.pop(0)
+    description_body = "\n".join(body_lines).strip()
+
+    code = None
     code_match = re.search(
         r"(?mi)^\s*(?:version[_\s-]*code|build[_\s-]*number)\s*[:=]\s*(\d+)\s*$",
         notes_text,
@@ -270,7 +274,7 @@ def parse_release_note_metadata(notes_text: str) -> tuple[str | None, str | None
     if code_match:
         code = int(code_match.group(1))
 
-    return version, title, code
+    return version, clean_title, description_body, code
 
 
 def load_release_notes(cfg: dict) -> tuple[Path, str, str, str, int | None]:
@@ -284,19 +288,19 @@ def load_release_notes(cfg: dict) -> tuple[Path, str, str, str, int | None]:
         log_err(f"Release note file '{notes_path.relative_to(ROOT_DIR)}' is empty.")
         sys.exit(1)
 
-    version, derived_title, code = parse_release_note_metadata(raw_text)
+    version, derived_title, description_body, code = parse_release_note_metadata(raw_text)
     if not version:
         log_err(
             f"Could not find a version heading in '{notes_path.relative_to(ROOT_DIR)}'. "
-            "Expected a heading like '# v0.5.0 - Release Title'."
+            "Expected a heading like '# v0.5.1 - Release Title'."
         )
         sys.exit(1)
 
     log_ok(
-        f"Read version {version} from {notes_path.relative_to(ROOT_DIR)}"
+        f"Read version {version} and title '{derived_title}' from {notes_path.relative_to(ROOT_DIR)}"
         + (f" (code {code})" if code is not None else "")
     )
-    return notes_path, version, derived_title or f"v{version}", raw_text, code
+    return notes_path, version, derived_title, description_body, code
 
 
 def extract_readme_versions(readme_text: str) -> list[str]:
@@ -359,7 +363,7 @@ def is_tag_on_remote(remote: str, tag: str) -> bool:
 
 def is_release_already_published(tag: str, remote: str) -> bool:
     if is_tag_on_remote(remote, tag):
-        return True
+        return False
 
     gh_exe = resolve_gh_executable()
     if not gh_exe:
