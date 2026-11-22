@@ -5,6 +5,10 @@
 
 # Jetpack App Startup & Initializers
 -keep class androidx.startup.** { *; }
+-keep class androidx.profileinstaller.** { *; }
+-keepclassmembers class * {
+    @androidx.annotation.Keep *;
+}
 -keep class * implements androidx.startup.Initializer {
     public <init>();
 }

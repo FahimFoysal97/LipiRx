@@ -1,0 +1,44 @@
+# Baseline Profile for LipiRx (com.snehonir.lipirx)
+# Optimizes cold launch, Jetpack Navigation 3 destinations, Compose Multiplatform UI rendering,
+# Koin DI, SQLDelight DB initialization, and Koog Multi-Agent pipeline execution.
+
+HSPLcom/snehonir/lipirx/LipiRxApplication;-><init>()V
+HSPLcom/snehonir/lipirx/LipiRxApplication;->onCreate()V
+HSPLcom/snehonir/lipirx/MainActivity;-><init>()V
+HSPLcom/snehonir/lipirx/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/snehonir/lipirx/McpHttpServer;-><init>(Lcom/snehonir/lipirx/domain/mcp/LipiRxMcpServer;ILjava/lang/String;)V
+HSPLcom/snehonir/lipirx/McpHttpServer;->start()V
+
+HSPLcom/snehonir/lipirx/AppKt;->App()V
+HSPLcom/snehonir/lipirx/AppKt;->LipiRxAppContent()V
+
+# Navigation 3 Destinations & Routers
+HSPLcom/snehonir/lipirx/navigation/AppNavKey;->toRouteString()Ljava/lang/String;
+HSPLcom/snehonir/lipirx/navigation/AppNavKey$Companion;->fromRouteString(Ljava/lang/String;)Lcom/snehonir/lipirx/navigation/AppNavKey;
+HSPLcom/snehonir/lipirx/navigation/AppNavigator;-><init>(Lcom/snehonir/lipirx/navigation/AppNavKey;)V
+HSPLcom/snehonir/lipirx/navigation/AppNavigatorKt;->rememberAppNavigator(Lcom/snehonir/lipirx/navigation/AppNavKey;Landroidx/compose/runtime/Composer;I)Lcom/snehonir/lipirx/navigation/AppNavigator;
+
+# Stateful Screen Containers
+HSPLcom/snehonir/lipirx/presentation/home/HomeScreenKt;->HomeScreen(Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lcom/snehonir/lipirx/presentation/home/HomeViewModel;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/snehonir/lipirx/presentation/home/EmptyStateViewKt;->EmptyStateView(Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
+
+HSPLcom/snehonir/lipirx/presentation/preview/ImagePreviewScreenKt;->ImagePreviewScreen(Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lcom/snehonir/lipirx/presentation/preview/ImagePreviewViewModel;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/snehonir/lipirx/presentation/loading/AnalysisLoadingScreenKt;->AnalysisLoadingScreen(Lkotlin/jvm/functions/Function0;Lcom/snehonir/lipirx/presentation/loading/AnalysisLoadingViewModel;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/snehonir/lipirx/presentation/results/ScanResultsScreenKt;->ScanResultsScreen(Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lcom/snehonir/lipirx/presentation/results/ScanResultsViewModel;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/snehonir/lipirx/presentation/history/HistoryScreenKt;->HistoryScreen(Lcom/snehonir/lipirx/presentation/history/HistoryViewModel;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/snehonir/lipirx/presentation/settings/SettingsScreenKt;->SettingsScreen(Lcom/snehonir/lipirx/presentation/settings/SettingsViewModel;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/snehonir/lipirx/presentation/telemetry/AgentTelemetryScreenKt;->AgentTelemetryScreen(Lcom/snehonir/lipirx/presentation/telemetry/AgentTraceViewModel;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
+
+# Design System & Theme Engine
+HSPLcom/snehonir/lipirx/ui/theme/LipiRxThemeKt;->LipiRxTheme(Lcom/snehonir/lipirx/domain/model/ThemeMode;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/snehonir/lipirx/ui/theme/Lipi;->getBackground(Landroidx/compose/runtime/Composer;I)J
+HSPLcom/snehonir/lipirx/ui/theme/Lipi;->getSurface(Landroidx/compose/runtime/Composer;I)J
+
+# Dependency Injection & Session State
+HSPLcom/snehonir/lipirx/di/KoinModuleKt;->getSharedModule()Lorg/koin/core/module/Module;
+HSPLcom/snehonir/lipirx/domain/session/PrescriptionSessionState;-><init>()V
+HSPLcom/snehonir/lipirx/domain/session/PrescriptionSessionState;->setResults(Ljava/util/List;ZLjava/lang/String;Ljava/lang/String;)V
+
+# Koog Multi-Agent Supervisor Pipeline
+HSPLcom/snehonir/lipirx/domain/agent/koog/KoogRxSupervisorEngine;->executePipeline(Lcom/snehonir/lipirx/domain/agent/TranscriptionInput;Ljava/util/Map;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+HSPLcom/snehonir/lipirx/domain/agent/koog/RxAgentTools;-><init>(Lcom/snehonir/lipirx/data/remote/CompositeAiService;Lcom/snehonir/lipirx/domain/repository/PrescriptionRepository;)V
