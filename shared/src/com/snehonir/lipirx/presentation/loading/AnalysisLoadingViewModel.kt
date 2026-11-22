@@ -71,7 +71,7 @@ class AnalysisLoadingViewModel(
         }
     }
 
-    fun stopAnalysis(flow: String = "com.snehonir.lipirx.App -> AnalysisLoadingViewModel.stopAnalysis") {
+    fun stopAnalysis(flow: String = "App -> AnalysisLoadingViewModel.stopAnalysis") {
         Napier.d("[$flow] Cancelling ongoing analysis", tag = TAG)
         sessionState.cancelActiveAnalysis()
     }

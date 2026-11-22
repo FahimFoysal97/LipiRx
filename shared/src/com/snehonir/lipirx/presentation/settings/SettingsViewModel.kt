@@ -155,7 +155,7 @@ class SettingsViewModel(
 
     fun fetchModelsForProvider(
         targetProvider: AiProvider,
-        flow: String = "com.snehonir.lipirx.App -> SettingsViewModel.fetchModelsForProvider"
+        flow: String = "App -> SettingsViewModel.fetchModelsForProvider"
     ) {
         viewModelScope.launch(Dispatchers.Default) {
             val apiKey = manageProviderConfigUseCase.getApiKeyForProvider(targetProvider.id)
@@ -202,7 +202,7 @@ class SettingsViewModel(
         customUrl: String,
         apiKey: String,
         selectedModel: String,
-        flow: String = "com.snehonir.lipirx.App -> SettingsViewModel.saveAndTestProviderConfig"
+        flow: String = "App -> SettingsViewModel.saveAndTestProviderConfig"
     ) {
         val prov = AiProvider.fromId(providerType)
         _uiState.update { it.copy(isTestingApiKey = true, apiKeyError = null, apiKeySuccess = null) }
@@ -254,7 +254,7 @@ class SettingsViewModel(
         }
     }
 
-    fun onSelectOnDeviceStrategy(strategy: OnDeviceStrategy, flow: String = "com.snehonir.lipirx.App -> SettingsViewModel.onSelectOnDeviceStrategy") {
+    fun onSelectOnDeviceStrategy(strategy: OnDeviceStrategy, flow: String = "App -> SettingsViewModel.onSelectOnDeviceStrategy") {
         _uiState.update { it.copy(onDeviceStrategy = strategy) }
         viewModelScope.launch(Dispatchers.Default) {
             runCatching { manageProviderConfigUseCase.saveOnDeviceStrategy(strategy, flow = flow) }
@@ -262,7 +262,7 @@ class SettingsViewModel(
         fetchModelsForProvider(AiProvider.OnDevice, flow = "$flow -> fetchModelsForProvider.OnDevice")
     }
 
-    fun onSaveSlmDirectoryPath(path: String, flow: String = "com.snehonir.lipirx.App -> SettingsViewModel.onSaveSlmDirectoryPath") {
+    fun onSaveSlmDirectoryPath(path: String, flow: String = "App -> SettingsViewModel.onSaveSlmDirectoryPath") {
         val trimmed = path.trim()
         _uiState.update { it.copy(slmModelDirectory = trimmed) }
         viewModelScope.launch(Dispatchers.Default) {
@@ -271,7 +271,7 @@ class SettingsViewModel(
         fetchModelsForProvider(AiProvider.OnDevice, flow = "$flow -> fetchModelsForProvider.OnDevice")
     }
 
-    fun updateThemeMode(themeMode: ThemeMode, flow: String = "com.snehonir.lipirx.App -> SettingsViewModel.updateThemeMode") {
+    fun updateThemeMode(themeMode: ThemeMode, flow: String = "App -> SettingsViewModel.updateThemeMode") {
         _uiState.update { it.copy(themeMode = themeMode) }
         val currentProviderType = _uiState.value.providerType
         val customUrl = _uiState.value.customUrl
@@ -292,7 +292,7 @@ class SettingsViewModel(
         }
     }
 
-    fun onMcpServerToggled(enabled: Boolean, flow: String = "com.snehonir.lipirx.App -> SettingsViewModel.onMcpServerToggled") {
+    fun onMcpServerToggled(enabled: Boolean, flow: String = "App -> SettingsViewModel.onMcpServerToggled") {
         _uiState.update { it.copy(isMcpServerEnabled = enabled) }
         viewModelScope.launch(Dispatchers.Default) {
             runCatching { manageProviderConfigUseCase.saveMcpServerEnabled(enabled, flow = flow) }

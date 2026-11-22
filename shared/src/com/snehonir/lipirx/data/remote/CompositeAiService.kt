@@ -28,7 +28,7 @@ class CompositeAiService(
         providedApiKey: String = "",
         provider: AiProvider = AiProvider.Gemini,
         customUrl: String = "",
-        flow: String = "com.snehonir.lipirx.App -> CompositeAiService.fetchAvailableModels"
+        flow: String = "App -> CompositeAiService.fetchAvailableModels"
     ): Result<List<ModelInfoDto>> {
         val activeService = getService(provider)
         Napier.d("[$flow] Routing fetchAvailableModels to ${activeService::class.simpleName} for ${provider.displayName}", tag = TAG)
@@ -46,7 +46,7 @@ class CompositeAiService(
         fallbackProvider: AiProvider? = null,
         fallbackModel: String = "",
         fallbackApiKey: String = "",
-        flow: String = "com.snehonir.lipirx.App -> CompositeAiService.processPrescriptionImage",
+        flow: String = "App -> CompositeAiService.processPrescriptionImage",
         onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
     ): Result<List<MedicineItem>> {
         val primaryService = getService(provider)
@@ -130,7 +130,7 @@ class CompositeAiService(
         strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
         fallbackProvider: AiProvider? = null,
         fallbackModel: String = "",
-        flow: String = "com.snehonir.lipirx.App -> CompositeAiService.processTextPrompt"
+        flow: String = "App -> CompositeAiService.processTextPrompt"
     ): Result<String> {
         val primaryService = getService(provider)
         val targetFallbackProvider = fallbackProvider ?: when (strategy) {

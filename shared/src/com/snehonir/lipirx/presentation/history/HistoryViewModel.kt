@@ -36,7 +36,7 @@ class HistoryViewModel(
         loadHistoryList()
     }
 
-    fun loadHistoryList(flow: String = "com.snehonir.lipirx.App -> HistoryViewModel.loadHistoryList") {
+    fun loadHistoryList(flow: String = "App -> HistoryViewModel.loadHistoryList") {
         Napier.d("[$flow] Querying scan history list from SQLite database", tag = TAG)
         viewModelScope.launch(Dispatchers.Default) {
             _uiState.update { it.copy(isLoading = true) }
@@ -50,13 +50,13 @@ class HistoryViewModel(
         }
     }
 
-    fun openRecord(record: PrescriptionHistoryEntity, flow: String = "com.snehonir.lipirx.App -> HistoryViewModel.openRecord") {
+    fun openRecord(record: PrescriptionHistoryEntity, flow: String = "App -> HistoryViewModel.openRecord") {
         Napier.d("[$flow] Opening history record ID=${record.id}, scannedAt=${record.formattedDateTime}", tag = TAG)
         val medicines = parseSummaryToMedicineItems(record.medicineSummary)
         sessionState.openHistoryRecord(record, medicines)
     }
 
-    fun deleteRecord(id: Long, flow: String = "com.snehonir.lipirx.App -> HistoryViewModel.deleteRecord") {
+    fun deleteRecord(id: Long, flow: String = "App -> HistoryViewModel.deleteRecord") {
         Napier.d("[$flow] Deleting history record ID=$id", tag = TAG)
         viewModelScope.launch(Dispatchers.Default) {
             runCatching { getScanHistoryUseCase.deleteHistoryRecord(id, flow = flow) }
@@ -64,7 +64,7 @@ class HistoryViewModel(
         }
     }
 
-    fun clearAllHistory(flow: String = "com.snehonir.lipirx.App -> HistoryViewModel.clearAllHistory") {
+    fun clearAllHistory(flow: String = "App -> HistoryViewModel.clearAllHistory") {
         Napier.d("[$flow] Clearing all history records from SQLite database", tag = TAG)
         viewModelScope.launch(Dispatchers.Default) {
             runCatching { getScanHistoryUseCase.clearAllHistory(flow = flow) }

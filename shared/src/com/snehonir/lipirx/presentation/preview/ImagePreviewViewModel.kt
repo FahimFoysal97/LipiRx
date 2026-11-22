@@ -88,7 +88,7 @@ class ImagePreviewViewModel(
         sessionState.setImageBytes(null)
     }
 
-    fun processSelectedImage(flow: String = "com.snehonir.lipirx.App -> ImagePreviewViewModel.processSelectedImage"): Boolean {
+    fun processSelectedImage(flow: String = "App -> ImagePreviewViewModel.processSelectedImage"): Boolean {
         val bytes = sessionState.session.value.imageByteArray
         if (bytes == null || bytes.isEmpty()) {
             _uiState.update { it.copy(errorMessage = "Please select an image first.") }

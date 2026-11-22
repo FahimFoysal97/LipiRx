@@ -25,7 +25,7 @@ if [ "$BUILD_TYPE" == "release" ]; then
     echo -e "${CYAN}└──────────────────────────────────────────────────────────┘${NC}\n"
     ./kotlin task :androidApp:buildAndroidRelease || exit 1
     mkdir -p apks
-    cp build/tasks/_androidApp_buildAndroidRelease/gradle-project-release-unsigned.apk apks/LipiRx-v${VERSION}-release.apk
+    cp build/tasks/_androidApp_buildAndroidRelease/gradle-project-release-unsigned.apk apks/LipiRx-v"${VERSION}"-release.apk
     echo -e "\n${GREEN}${BOLD}✔ SUCCESS: Release APK created at: apks/LipiRx-v${VERSION}-release.apk${NC}\n"
 else
     echo -e "\n${CYAN}┌──────────────────────────────────────────────────────────┐${NC}"
@@ -34,6 +34,6 @@ else
     echo -e "${CYAN}└──────────────────────────────────────────────────────────┘${NC}\n"
     ./kotlin task :androidApp:buildAndroidDebug || exit 1
     mkdir -p apks
-    cp build/tasks/_androidApp_buildAndroidDebug/gradle-project-debug.apk apks/LipiRx-v${VERSION}-debug.apk
+    cp build/tasks/_androidApp_buildAndroidDebug/gradle-project-debug.apk apks/LipiRx-v"${VERSION}"-debug.apk
     echo -e "\n${GREEN}${BOLD}✔ SUCCESS: Debug APK created at: apks/LipiRx-v${VERSION}-debug.apk${NC}\n"
 fi

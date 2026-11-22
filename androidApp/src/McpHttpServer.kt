@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.ServerSocket
@@ -122,15 +123,16 @@ class McpHttpServer(
             }
         }
 
-        val bodyChars = CharArray(contentLength)
-        val reader = input.bufferedReader(Charsets.UTF_8)
+        val bodyBytes = ByteArray(contentLength)
         var readTotal = 0
         while (readTotal < contentLength) {
-            val read = reader.read(bodyChars, readTotal, contentLength - readTotal)
+            val read = withContext(Dispatchers.IO) {
+                input.read(bodyBytes, readTotal, contentLength - readTotal)
+            }
             if (read == -1) break
             readTotal += read
         }
-        val requestBody = String(bodyChars, 0, readTotal)
+        val requestBody = String(bodyBytes, 0, readTotal, Charsets.UTF_8)
 
         val responseBody = if (requestBody.isNotBlank()) {
             mcpServer.handleJsonRpcRequest(requestBody)
@@ -145,9 +147,11 @@ class McpHttpServer(
                 "Content-Length: ${responseBytes.size}\r\n" +
                 "\r\n"
 
-        output.write(headersStr.toByteArray(Charsets.UTF_8))
-        output.write(responseBytes)
-        output.flush()
+        withContext(Dispatchers.IO) {
+            output.write(headersStr.toByteArray(Charsets.UTF_8))
+            output.write(responseBytes)
+            output.flush()
+        }
     }
 
     private suspend fun handleWebSocketSession(input: InputStream, output: OutputStream, clientKey: String) {
@@ -158,8 +162,10 @@ class McpHttpServer(
                 "Sec-WebSocket-Accept: $acceptKey\r\n" +
                 "\r\n"
 
-        output.write(handshakeResponse.toByteArray(Charsets.UTF_8))
-        output.flush()
+        withContext(Dispatchers.IO) {
+            output.write(handshakeResponse.toByteArray(Charsets.UTF_8))
+            output.flush()
+        }
 
         Napier.i("[McpHttpServer -> WebSocket] Client connected to persistent MCP WebSocket session.", tag = TAG)
 

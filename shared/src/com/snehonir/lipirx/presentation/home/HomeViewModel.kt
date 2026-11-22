@@ -28,14 +28,14 @@ class HomeViewModel(
         loadHistoryCount()
     }
 
-    fun loadHistoryCount(flow: String = "com.snehonir.lipirx.App -> HomeViewModel.loadHistoryCount") {
+    fun loadHistoryCount(flow: String = "App -> HomeViewModel.loadHistoryCount") {
         viewModelScope.launch(Dispatchers.Default) {
             val count = runCatching { getScanHistoryUseCase.getHistory(flow = flow).size }.getOrDefault(0)
             _uiState.update { it.copy(historyCount = count) }
         }
     }
 
-    fun onImageSelected(imageByteArray: ByteArray, flow: String = "com.snehonir.lipirx.App -> HomeViewModel.onImageSelected") {
+    fun onImageSelected(imageByteArray: ByteArray, flow: String = "App -> HomeViewModel.onImageSelected") {
         Napier.d("[$flow] Image selected (${imageByteArray.size} bytes)", tag = TAG)
         sessionState.setImageBytes(imageByteArray)
     }
