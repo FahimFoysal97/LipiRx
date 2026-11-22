@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.presentation.common.AppHeader
@@ -259,7 +260,8 @@ private fun PipelineSummary(
     val assignments = RxAgentType.ALL.map { agentType ->
         val config = agentConfigs[agentType]
         val provider = config?.provider ?: agentType.defaultProvider
-        val model = config?.selectedModel?.ifBlank { agentType.defaultModel } ?: agentType.defaultModel
+        val rawModel = config?.selectedModel?.ifBlank { provider.defaultModel } ?: provider.defaultModel
+        val model = formatModelDisplayName(rawModel)
         Triple(agentType, provider, model)
     }
     val providerNames = assignments.map { it.second.displayName }.distinct().joinToString(" · ")
@@ -374,8 +376,9 @@ private fun PipelineSummary(
                                     modifier = Modifier.size(12.dp),
                                     tint = provider.brandColor
                                 )
+                                val modelLabel = if (model.isNotBlank()) "${provider.displayName} ($model)" else provider.displayName
                                 Text(
-                                    text = "${provider.displayName} ($model)",
+                                    text = modelLabel,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = provider.brandColor,
@@ -389,4 +392,15 @@ private fun PipelineSummary(
             }
         }
     }
+}
+
+private fun formatModelDisplayName(modelName: String): String {
+    if (modelName.isBlank()) return ""
+    var result = modelName.removePrefix(AppConstants.MODEL_PREFIX_GEMINI)
+    AppConstants.SLM_MODEL_EXTENSIONS.forEach { ext ->
+        if (result.endsWith(ext, ignoreCase = true)) {
+            result = result.dropLast(ext.length)
+        }
+    }
+    return result.trim()
 }

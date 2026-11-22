@@ -26,12 +26,12 @@ import com.snehonir.lipirx.domain.session.PrescriptionSessionState
 import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.navigation.AppNavKey
 import com.snehonir.lipirx.navigation.rememberAppNavigator
-import com.snehonir.lipirx.presentation.history.HistoryScreenWrapper
 import com.snehonir.lipirx.presentation.home.HomeScreen
 import com.snehonir.lipirx.presentation.loading.AnalysisLoadingScreen
 import com.snehonir.lipirx.presentation.preview.ImagePreviewScreen
 import com.snehonir.lipirx.presentation.results.ScanResultsScreen
 import com.snehonir.lipirx.presentation.common.FullScreenImagePreviewDialog
+import com.snehonir.lipirx.presentation.history.HistoryScreen
 import com.snehonir.lipirx.presentation.settings.SettingsScreen
 import com.snehonir.lipirx.presentation.settings.SettingsViewModel
 import com.snehonir.lipirx.presentation.telemetry.AgentTelemetryScreen
@@ -52,13 +52,12 @@ fun App() {
     val settingsUiState by settingsViewModel.uiState.collectAsState()
 
     LipiRxTheme(themeMode = settingsUiState.themeMode) {
-        LipiRxAppContent(settingsViewModel = settingsViewModel)
+        LipiRxAppContent()
     }
 }
 
 @Composable
 fun LipiRxAppContent(
-    settingsViewModel: SettingsViewModel = koinInject(),
     flow: String = "App -> LipiRxAppContent"
 ) {
     Napier.d("[$flow] Rendering Navigation 3 LipiRxAppContent", tag = TAG)
@@ -156,7 +155,7 @@ fun LipiRxAppContent(
                 }
 
                 is AppNavKey.History -> {
-                    HistoryScreenWrapper(
+                    HistoryScreen(
                         onClose = { navigator.goBack() },
                         onSelectRecord = { navigator.goTo(AppNavKey.Results) }
                     )
@@ -170,58 +169,9 @@ fun LipiRxAppContent(
                 }
 
                 is AppNavKey.Settings -> {
-                    val settingsUiState by settingsViewModel.uiState.collectAsState()
                     SettingsScreen(
-                        selectedModel = settingsUiState.selectedModel,
-                        apiKey = settingsUiState.apiKey,
-                        geminiApiKey = settingsUiState.geminiApiKey,
-                        groqApiKey = settingsUiState.groqApiKey,
-                        openaiApiKey = settingsUiState.openaiApiKey,
-                        claudeApiKey = settingsUiState.claudeApiKey,
-                        customApiKey = settingsUiState.customApiKey,
-                        providerType = settingsUiState.providerType,
-                        customUrl = settingsUiState.customUrl,
-                        apiKeyError = settingsUiState.apiKeyError,
-                        apiKeySuccess = settingsUiState.apiKeySuccess,
-                        isTestingApiKey = settingsUiState.isTestingApiKey,
-                        onDeviceStrategy = settingsUiState.onDeviceStrategy,
-                        isMcpServerEnabled = settingsUiState.isMcpServerEnabled,
-                        onToggleMcpServer = { enabled ->
-                            settingsViewModel.onMcpServerToggled(enabled)
-                        },
-                        agentConfigs = settingsUiState.agentConfigs,
-                        providerModelsMap = settingsUiState.providerModelsMap,
-                        onAgentProviderSelected = { agent, prov ->
-                            settingsViewModel.onAgentProviderSelected(agent, prov)
-                        },
-                        onAgentModelSelected = { agent, model ->
-                            settingsViewModel.onAgentModelSelected(agent, model)
-                        },
-                        onAgentFallbackProviderSelected = { agent, prov ->
-                            settingsViewModel.onAgentFallbackProviderSelected(agent, prov)
-                        },
-                        onAgentFallbackModelSelected = { agent, model ->
-                            settingsViewModel.onAgentFallbackModelSelected(agent, model)
-                        },
-                        onProviderTabSelected = { type ->
-                            settingsViewModel.onProviderTabSelected(type)
-                        },
-                        onSaveProviderConfig = { type, url, key, model ->
-                            settingsViewModel.saveAndTestProviderConfig(type, url, key, model)
-                        },
-                        onSelectOnDeviceStrategy = { strat ->
-                            settingsViewModel.onSelectOnDeviceStrategy(strat)
-                        },
-                        slmModelDirectory = settingsUiState.slmModelDirectory,
-                        onSaveSlmDirectoryPath = { path ->
-                            settingsViewModel.onSaveSlmDirectoryPath(path)
-                        },
-                        themeMode = settingsUiState.themeMode,
-                        onSelectThemeMode = { mode ->
-                            settingsViewModel.updateThemeMode(mode)
-                        },
-                        onViewTelemetry = { navigator.goTo(AppNavKey.Telemetry) },
-                        onClose = { navigator.goBack() }
+                        onClose = { navigator.goBack() },
+                        onViewTelemetry = { navigator.goTo(AppNavKey.Telemetry) }
                     )
                 }
             }

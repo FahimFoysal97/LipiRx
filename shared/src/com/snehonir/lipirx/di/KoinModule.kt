@@ -152,7 +152,7 @@ val sharedModule = module {
     factory { AnalysisLoadingViewModel(sessionState = get()) }
     factory { ScanResultsViewModel(sessionState = get(), getScanHistoryUseCase = get(), jsonParser = get()) }
     factory { HistoryViewModel(getScanHistoryUseCase = get(), sessionState = get(), jsonParser = get()) }
-    factory { SettingsViewModel(manageProviderConfigUseCase = get(), processPrescriptionUseCase = get()) }
+    single { SettingsViewModel(manageProviderConfigUseCase = get(), processPrescriptionUseCase = get()) }
 
     factory {
         AgentTraceViewModel(
