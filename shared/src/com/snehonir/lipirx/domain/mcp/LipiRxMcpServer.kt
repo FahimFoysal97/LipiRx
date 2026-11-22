@@ -65,7 +65,7 @@ class LipiRxMcpServer(
         return McpResponse(id = id, result = jsonParser.encodeToJsonElement(McpResourcesListResult.serializer(), result))
     }
 
-    private fun handleResourcesRead(id: String?, request: McpRequest): McpResponse {
+    private suspend fun handleResourcesRead(id: String?, request: McpRequest): McpResponse {
         val paramsObj = request.params as? JsonObject
         val uri = paramsObj?.get("uri")?.jsonPrimitive?.content
             ?: throw IllegalArgumentException("Missing required parameter 'uri' for resources/read")

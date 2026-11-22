@@ -1,6 +1,6 @@
 package com.snehonir.lipirx.domain.agent
 
-import com.snehonir.lipirx.data.remote.CompositeAiService
+import com.snehonir.lipirx.data.remote.service.CompositeAiService
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.ClinicalApprovalReasons
 import io.github.aakira.napier.Napier

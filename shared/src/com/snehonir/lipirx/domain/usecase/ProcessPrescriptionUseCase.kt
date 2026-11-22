@@ -1,6 +1,6 @@
 package com.snehonir.lipirx.domain.usecase
 
-import com.snehonir.lipirx.data.remote.CompositeAiService
+import com.snehonir.lipirx.data.remote.service.CompositeAiService
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.OrchestrationResult
 import com.snehonir.lipirx.domain.agent.RxAgentType

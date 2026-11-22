@@ -1,4 +1,4 @@
-package com.snehonir.lipirx.data.remote
+package com.snehonir.lipirx.data.remote.prompt
 
 const val SINGLE_CALL_PROMPT = """You are an expert Bangladeshi retail pharmacist skilled at reading handwritten doctor prescriptions and familiar with pharmaceutical brands sold in Bangladesh (DGDA-registered products).
 

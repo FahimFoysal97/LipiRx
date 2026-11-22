@@ -2,6 +2,8 @@
 -dontwarn java.lang.management.**
 -dontwarn javax.annotation.**
 -dontwarn org.slf4j.**
+-dontwarn org.intellij.lang.annotations.**
+-dontwarn org.jetbrains.annotations.**
 
 # Jetpack App Startup & Initializers
 -keep class androidx.startup.** { *; }
@@ -42,9 +44,14 @@
 # Koin Dependency Injection
 -keep class io.insertkoin.** { *; }
 
-# SQLDelight Database
--keep class app.cash.sqldelight.** { *; }
+# Room Database & Generated Impl Classes
+-keep class androidx.room.** { *; }
+-keep class androidx.sqlite.** { *; }
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep class * extends androidx.room.RoomDatabaseConstructor { *; }
 -keep class com.snehonir.lipirx.data.local.** { *; }
+-keep class com.snehonir.lipirx.data.local.dao.** { *; }
+-keep class com.snehonir.lipirx.data.local.entity.** { *; }
 
 # Ktor & Napier Logging
 -keep class io.ktor.** { *; }

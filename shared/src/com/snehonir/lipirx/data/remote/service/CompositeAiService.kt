@@ -1,4 +1,6 @@
-package com.snehonir.lipirx.data.remote
+package com.snehonir.lipirx.data.remote.service
+
+import com.snehonir.lipirx.data.remote.prompt.SINGLE_CALL_PROMPT
 
 import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.data.remote.dto.ModelInfoDto

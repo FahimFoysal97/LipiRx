@@ -1,4 +1,4 @@
-package com.snehonir.lipirx.data.remote
+package com.snehonir.lipirx.data.remote.service
 
 actual class OnDeviceLlmEngine actual constructor() {
     actual fun isModelInstalled(): Boolean = false

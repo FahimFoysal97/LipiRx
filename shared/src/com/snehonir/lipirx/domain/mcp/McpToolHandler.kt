@@ -1,12 +1,12 @@
 package com.snehonir.lipirx.domain.mcp
 
-import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
 import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
 import com.snehonir.lipirx.domain.eval.RxAgentEvaluator
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -18,7 +18,7 @@ import kotlin.io.encoding.Base64
 
 class McpToolHandler(
     private val rxAgentTools: RxAgentTools,
-    private val database: LipiRxLocalDatabase,
+    private val repository: PrescriptionRepository,
     private val rxAgentEvaluator: RxAgentEvaluator? = null,
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 ) {
@@ -164,10 +164,10 @@ class McpToolHandler(
         return jsonParser.encodeToString(result)
     }
 
-    private fun executeGetTracesTool(args: JsonObject): String {
+    private suspend fun executeGetTracesTool(args: JsonObject): String {
         val limitStr = getOptionalArg(args, "limit", "50")
         val limit = limitStr.toIntOrNull() ?: 50
-        val traces = database.getAgentTraces(limit = limit, flow = "MCP -> executeGetTracesTool")
+        val traces = repository.getAgentTraces(limit = limit, flow = "MCP -> executeGetTracesTool")
         return jsonParser.encodeToString(traces)
     }
 

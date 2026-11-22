@@ -3,6 +3,7 @@ package com.snehonir.lipirx.domain.usecase
 import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
+import com.snehonir.lipirx.domain.mcp.McpServerController
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
@@ -10,67 +11,93 @@ import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 class ManageProviderConfigUseCase(
     private val repository: PrescriptionRepository
 ) {
-    fun getProviderConfig(flow: String = ""): ProviderConfigEntity {
+    suspend fun getProviderConfig(flow: String = ""): ProviderConfigEntity {
         return repository.getProviderConfig(flow)
     }
 
-    fun saveProviderConfig(providerType: String, customUrl: String, apiKey: String, modelName: String, themeMode: String = "system", flow: String = "") {
+    suspend fun saveProviderConfig(
+        providerType: String,
+        customUrl: String,
+        apiKey: String,
+        modelName: String,
+        themeMode: String = "system",
+        flow: String = ""
+    ) {
         repository.saveProviderConfig(providerType, customUrl, apiKey, modelName, themeMode, flow)
     }
 
-    fun getApiKeyForProvider(providerType: String): String {
+    suspend fun getApiKeyForProvider(providerType: String): String {
         return repository.getApiKeyForProvider(providerType)
     }
 
-    fun saveSelectedModel(modelName: String, provider: AiProvider = AiProvider.Gemini, flow: String = "") {
+    suspend fun saveSelectedModel(
+        modelName: String,
+        provider: AiProvider = AiProvider.Gemini,
+        flow: String = ""
+    ) {
         repository.saveSelectedModel(modelName, provider, flow)
     }
 
-    fun getLastSelectedModel(provider: AiProvider = AiProvider.Gemini, flow: String = ""): String {
+    suspend fun getLastSelectedModel(
+        provider: AiProvider = AiProvider.Gemini,
+        flow: String = ""
+    ): String {
         return repository.getLastSelectedModel(provider, flow)
     }
 
-    fun getOnDeviceStrategy(): OnDeviceStrategy {
+    suspend fun getOnDeviceStrategy(): OnDeviceStrategy {
         return repository.getOnDeviceStrategy()
     }
 
-    fun saveOnDeviceStrategy(strategy: OnDeviceStrategy, flow: String = "") {
+    suspend fun saveOnDeviceStrategy(strategy: OnDeviceStrategy, flow: String = "") {
         repository.saveOnDeviceStrategy(strategy, flow)
     }
 
-    fun isMcpServerEnabled(): Boolean {
+    suspend fun isMcpServerEnabled(): Boolean {
         return repository.isMcpServerEnabled()
     }
 
-    fun saveMcpServerEnabled(enabled: Boolean, flow: String = "") {
+    suspend fun saveMcpServerEnabled(enabled: Boolean, flow: String = "") {
         repository.saveMcpServerEnabled(enabled, flow)
+        McpServerController.setEnabled(enabled)
     }
 
-    fun getSlmModelDirectory(): String {
+    suspend fun getSlmModelDirectory(): String {
         return repository.getSlmModelDirectory()
     }
 
-    fun saveSlmModelDirectory(path: String, flow: String = "") {
+    suspend fun saveSlmModelDirectory(path: String, flow: String = "") {
         repository.saveSlmModelDirectory(path, flow)
     }
 
-    fun getAgentConfig(agentType: RxAgentType): AgentConfig {
+    suspend fun getAgentConfig(agentType: RxAgentType): AgentConfig {
         return repository.getAgentConfig(agentType)
     }
 
-    fun getAllAgentConfigs(): Map<RxAgentType, AgentConfig> {
+    suspend fun getAllAgentConfigs(): Map<RxAgentType, AgentConfig> {
         return repository.getAllAgentConfigs()
     }
 
-    fun saveAgentConfig(agentType: RxAgentType, provider: AiProvider, modelName: String = "", fallbackProvider: AiProvider? = null, fallbackModel: String = "", flow: String = "") {
+    suspend fun saveAgentConfig(
+        agentType: RxAgentType,
+        provider: AiProvider,
+        modelName: String = "",
+        fallbackProvider: AiProvider? = null,
+        fallbackModel: String = "",
+        flow: String = ""
+    ) {
         repository.saveAgentConfig(agentType, provider, modelName, fallbackProvider, fallbackModel, flow)
     }
 
-    fun saveProviderModels(providerType: String, models: List<String>, flow: String = "") {
+    suspend fun saveProviderModels(
+        providerType: String,
+        models: List<String>,
+        flow: String = ""
+    ) {
         repository.saveProviderModels(providerType, models, flow)
     }
 
-    fun getAllProviderModelsMap(): Map<String, List<String>> {
+    suspend fun getAllProviderModelsMap(): Map<String, List<String>> {
         return repository.getAllProviderModelsMap()
     }
 }

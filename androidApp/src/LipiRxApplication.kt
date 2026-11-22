@@ -7,6 +7,9 @@ import com.snehonir.lipirx.domain.mcp.McpServerController
 import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
 
@@ -35,11 +38,13 @@ class LipiRxApplication : Application() {
             }
         }
 
-        if (manageProviderConfigUseCase.isMcpServerEnabled()) {
-            Napier.i("[LipiRxApplication] MCP Server enabled in config, starting HTTP listener...", tag = "LipiRxApplication")
-            httpServer.start()
-        } else {
-            Napier.i("[LipiRxApplication] MCP Server disabled by default in config.", tag = "LipiRxApplication")
+        CoroutineScope(Dispatchers.IO).launch {
+            if (manageProviderConfigUseCase.isMcpServerEnabled()) {
+                Napier.i("[LipiRxApplication] MCP Server enabled in config, starting HTTP listener...", tag = "LipiRxApplication")
+                httpServer.start()
+            } else {
+                Napier.i("[LipiRxApplication] MCP Server disabled by default in config.", tag = "LipiRxApplication")
+            }
         }
     }
 }

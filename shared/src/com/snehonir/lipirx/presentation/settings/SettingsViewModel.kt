@@ -122,7 +122,7 @@ class SettingsViewModel(
         }
     }
 
-    private fun loadProviderModelsMap(): ImmutableMap<String, ImmutableList<String>> {
+    private suspend fun loadProviderModelsMap(): ImmutableMap<String, ImmutableList<String>> {
         val rawMap = runCatching { manageProviderConfigUseCase.getAllProviderModelsMap() }.getOrDefault(emptyMap())
         val resultMap = mutableMapOf<String, ImmutableList<String>>()
 
@@ -138,19 +138,24 @@ class SettingsViewModel(
         flow: String = "App -> SettingsViewModel.onProviderTabSelected"
     ) {
         val providerObj = AiProvider.fromId(providerType)
-        val savedModel = runCatching {
-            manageProviderConfigUseCase.getLastSelectedModel(providerObj, flow = flow)
-        }.getOrDefault("").ifBlank { providerObj.defaultModel }
-
         _uiState.update {
             it.copy(
                 provider = providerObj,
-                selectedModel = savedModel,
                 apiKeyError = null,
                 apiKeySuccess = null
             )
         }
-        fetchModelsForProvider(providerObj, flow = flow)
+
+        viewModelScope.launch(Dispatchers.Default) {
+            val savedModel = runCatching {
+                manageProviderConfigUseCase.getLastSelectedModel(providerObj, flow = flow)
+            }.getOrDefault("").ifBlank { providerObj.defaultModel }
+
+            _uiState.update {
+                it.copy(selectedModel = savedModel)
+            }
+            fetchModelsForProvider(providerObj, flow = flow)
+        }
     }
 
     fun fetchModelsForProvider(

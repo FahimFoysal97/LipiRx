@@ -2,7 +2,7 @@ package com.snehonir.lipirx.presentation.telemetry
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.data.local.entity.AgentExecutionTraceEntity
 import com.snehonir.lipirx.domain.eval.RxAgentEvaluator
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +19,7 @@ data class TelemetryUiState(
 )
 
 class AgentTraceViewModel(
-    private val database: LipiRxLocalDatabase,
+    private val repository: PrescriptionRepository,
     private val rxAgentEvaluator: RxAgentEvaluator? = null
 ) : ViewModel() {
 
@@ -34,7 +34,7 @@ class AgentTraceViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val rawTraces = runCatching {
-                database.getAgentTraces(limit = 100, flow = flow)
+                repository.getAgentTraces(limit = 100, flow = flow)
             }.getOrDefault(emptyList())
 
             val totalTime = rawTraces.sumOf { it.executionTimeMs }
@@ -67,7 +67,7 @@ class AgentTraceViewModel(
         if (traceIds.isEmpty()) return
         viewModelScope.launch {
             runCatching {
-                database.deleteAgentTraces(traceIds = traceIds, flow = flow)
+                repository.deleteAgentTraces(traceIds = traceIds, flow = flow)
             }
             loadAgentTraces(flow = flow)
         }
@@ -76,7 +76,7 @@ class AgentTraceViewModel(
     fun clearAllTraces(flow: String = "App -> AgentTraceViewModel.clearAllTraces") {
         viewModelScope.launch {
             runCatching {
-                database.clearAgentTraces(flow = flow)
+                repository.clearAgentTraces(flow = flow)
             }
             loadAgentTraces(flow = flow)
         }

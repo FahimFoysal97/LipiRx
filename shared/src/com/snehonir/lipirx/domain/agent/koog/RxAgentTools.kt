@@ -1,6 +1,6 @@
 package com.snehonir.lipirx.domain.agent.koog
 
-import com.snehonir.lipirx.data.remote.CompositeAiService
+import com.snehonir.lipirx.data.remote.service.CompositeAiService
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.agent.koog.dto.*
 import com.snehonir.lipirx.domain.model.AiProvider

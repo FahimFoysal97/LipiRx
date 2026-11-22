@@ -12,16 +12,16 @@ import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
-import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
 import com.snehonir.lipirx.data.local.getPlatformEpochMillis
 import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
 import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import io.github.aakira.napier.Napier
 
 class KoogRxSupervisorEngine(
     private val rxSupervisorAgent: RxSupervisorAgent,
     private val rxAgentTools: RxAgentTools,
-    private val database: LipiRxLocalDatabase,
+    private val repository: PrescriptionRepository,
     private val selfHealingExecutor: SelfHealingAgentExecutor = SelfHealingAgentExecutor()
 ) {
     suspend fun runOrchestration(
@@ -81,7 +81,7 @@ class KoogRxSupervisorEngine(
                 executionTimeMs = supervisorTimeMs
             )
 
-            database.saveAgentTrace(
+            repository.saveAgentTrace(
                 turnNumber = state.turnCount + 1,
                 agentType = RxAgentType.SUPERVISOR.id,
                 provider = supervisorRuntime.provider.id,
@@ -134,7 +134,7 @@ class KoogRxSupervisorEngine(
             val agentTimeMs = getPlatformEpochMillis() - agentStartTime
             Napier.d("[$TAG -> ToolResult] Agent '${targetAgentType.id}' execution finished in ${agentTimeMs}ms. Success=${newItemsResult.isSuccess}, ExtractedItemsCount=${if (newItemsResult.isSuccess) newItemsResult.getOrThrow().size else 0}", tag = TAG)
 
-            database.saveAgentTrace(
+            repository.saveAgentTrace(
                 turnNumber = state.turnCount + 1,
                 agentType = targetAgentType.id,
                 provider = workerRuntime.provider.id,
@@ -243,19 +243,19 @@ class KoogRxSupervisorEngine(
         }
     }
 
-    private fun resolveRuntimeConfig(
+    private suspend fun resolveRuntimeConfig(
         agentType: RxAgentType,
         agentConfigs: Map<RxAgentType, AgentConfig>,
         fallbackApiKey: String,
         fallbackCustomUrl: String
     ): RuntimeConfig {
-        val config = agentConfigs[agentType] ?: database.getAgentConfig(agentType)
+        val config = agentConfigs[agentType] ?: repository.getAgentConfig(agentType)
         val provider = config.provider
-        val savedProviderModel = database.getLastSelectedModel(provider, flow = "KoogEngine -> getLastSelectedModel")
+        val savedProviderModel = repository.getLastSelectedModel(provider, flow = "KoogEngine -> getLastSelectedModel")
             .ifBlank { provider.defaultModel }
         val model = config.selectedModel.ifBlank { savedProviderModel }
 
-        val activeStrategy = database.getOnDeviceStrategy()
+        val activeStrategy = repository.getOnDeviceStrategy()
         val defaultFallbackProv = when (activeStrategy) {
             OnDeviceStrategy.CLOUD_ONLY -> if (provider != AiProvider.OnDevice) provider else AiProvider.Gemini
             OnDeviceStrategy.ON_DEVICE_ONLY -> AiProvider.OnDevice
@@ -265,22 +265,22 @@ class KoogRxSupervisorEngine(
 
         val fallbackProvider = config.fallbackProvider ?: defaultFallbackProv
         val fallbackModel = config.fallbackModel.ifBlank {
-            database.getLastSelectedModel(fallbackProvider, flow = "KoogEngine -> getFallbackModel")
+            repository.getLastSelectedModel(fallbackProvider, flow = "KoogEngine -> getFallbackModel")
                 .ifBlank { fallbackProvider.defaultModel }
         }
 
-        val apiKey = database.getApiKeyForProvider(provider.id).ifBlank { fallbackApiKey }
+        val apiKey = repository.getApiKeyForProvider(provider.id).ifBlank { fallbackApiKey }
         val customUrl = when (provider) {
-            AiProvider.Custom -> database.getProviderConfig().customUrl.ifBlank { fallbackCustomUrl }
+            AiProvider.Custom -> repository.getProviderConfig().customUrl.ifBlank { fallbackCustomUrl }
             else -> ""
         }
         return RuntimeConfig(provider, model, apiKey, customUrl, fallbackProvider, fallbackModel)
     }
 
-    private fun updateEpisodicMemoryIfNeeded(state: SupervisorState): SupervisorState {
+    private suspend fun updateEpisodicMemoryIfNeeded(state: SupervisorState): SupervisorState {
         if (state.items.isEmpty()) return state
         val generics = state.items.map { it.genericName }.filter { it.isNotBlank() }
-        val memoryContext = database.getEpisodicMemoryContext(generics)
+        val memoryContext = repository.getEpisodicMemoryContext(generics)
         return if (memoryContext.isNotBlank()) state.copy(episodicMemory = memoryContext) else state
     }
 

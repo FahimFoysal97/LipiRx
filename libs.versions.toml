@@ -13,6 +13,9 @@ navigation-compose = "2.9.2"
 napier = "2.7.1"
 litert-lm = "0.18.0"
 litert = "2.3.0"
+room3 = "3.0.3"
+sqlite = "2.7.1"
+kotlin = "2.3.0"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity-compose" }
@@ -49,9 +52,13 @@ navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-co
 
 napier = { module = "io.github.aakira:napier", version.ref = "napier" }
 
-kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" , version.ref = "kotlin"}
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 
 litertlm-android = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litert-lm" }
 litert-runtime = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
 litert-gpu = { module = "com.google.ai.edge.litert:litert-gpu", version.ref = "litert" }
+
+androidx-room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room3" }
+androidx-room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room3" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }

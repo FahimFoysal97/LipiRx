@@ -80,6 +80,18 @@ class ImagePreviewViewModel(
         }
     }
 
+    fun refreshAgentConfigs() {
+        viewModelScope.launch {
+            val configs = runCatching {
+                manageProviderConfigUseCase.getAllAgentConfigs()
+            }.getOrDefault(emptyMap()).toImmutableMap()
+
+            _uiState.update {
+                it.copy(agentConfigs = configs)
+            }
+        }
+    }
+
     fun onImageSelected(bytes: ByteArray) {
         sessionState.setImageBytes(bytes)
     }
@@ -88,100 +100,117 @@ class ImagePreviewViewModel(
         sessionState.setImageBytes(null)
     }
 
-    fun processSelectedImage(flow: String = "App -> ImagePreviewViewModel.processSelectedImage"): Boolean {
+    fun processSelectedImage(
+        flow: String = "App -> ImagePreviewViewModel.processSelectedImage",
+        onStarted: (Boolean) -> Unit = {}
+    ) {
         val bytes = sessionState.session.value.imageByteArray
         if (bytes == null || bytes.isEmpty()) {
             _uiState.update { it.copy(errorMessage = "Please select an image first.") }
-            return false
+            onStarted(false)
+            return
         }
 
-        val config = manageProviderConfigUseCase.getProviderConfig()
-        val visionConfig = _uiState.value.agentConfigs[RxAgentType.TRANSCRIPTION]
-        val visionProvider = visionConfig?.provider ?: AiProvider.Gemini
-        val visionApiKey = manageProviderConfigUseCase.getApiKeyForProvider(visionProvider.id)
+        viewModelScope.launch {
+            val currentAgentConfigs = runCatching {
+                manageProviderConfigUseCase.getAllAgentConfigs()
+            }.getOrDefault(emptyMap()).toImmutableMap()
 
-        if (visionProvider.requiresApiKey && visionApiKey.isBlank()) {
-            val errorMsg = "${visionProvider.displayName} API key is required. Please set your API key in Model Settings."
-            _uiState.update { it.copy(errorMessage = errorMsg) }
-            sessionState.setResults(medicines = emptyList(), error = errorMsg)
-            return false
-        }
+            _uiState.update { it.copy(agentConfigs = currentAgentConfigs) }
 
-        val analyzeStartTime = getPlatformEpochMillis()
-        val customUrl = if (visionProvider == AiProvider.Custom) config.customUrl else ""
-        val visionModel = visionConfig?.selectedModel?.ifBlank { visionProvider.defaultModel } ?: visionProvider.defaultModel
-        val savedStrategy = manageProviderConfigUseCase.getOnDeviceStrategy()
+            val config = manageProviderConfigUseCase.getProviderConfig()
+            val visionConfig = currentAgentConfigs[RxAgentType.TRANSCRIPTION]
+            val visionProvider = visionConfig?.provider ?: AiProvider.Gemini
+            val visionApiKey = manageProviderConfigUseCase.getApiKeyForProvider(visionProvider.id)
 
-        val fallbackProvider = visionConfig?.fallbackProvider
-        val fallbackApiKey = if (fallbackProvider != null) manageProviderConfigUseCase.getApiKeyForProvider(fallbackProvider.id) else ""
+            if (visionProvider.requiresApiKey && visionApiKey.isBlank()) {
+                val errorMsg = "${visionProvider.displayName} API key is required. Please set your API key in Model Settings."
+                _uiState.update { it.copy(errorMessage = errorMsg) }
+                sessionState.setResults(medicines = emptyList(), error = errorMsg)
+                onStarted(false)
+                return@launch
+            }
 
-        val input = TranscriptionInput(
-            imageByteArray = bytes,
-            selectedModel = visionModel,
-            provider = visionProvider,
-            providedApiKey = visionApiKey,
-            customUrl = customUrl,
-            strategy = savedStrategy,
-            fallbackProvider = fallbackProvider,
-            fallbackModel = visionConfig?.fallbackModel ?: "",
-            fallbackApiKey = fallbackApiKey
-        )
+            val analyzeStartTime = getPlatformEpochMillis()
+            val customUrl = if (visionProvider == AiProvider.Custom) config.customUrl else ""
+            val visionModel = visionConfig?.selectedModel?.ifBlank { visionProvider.defaultModel } ?: visionProvider.defaultModel
+            val savedStrategy = manageProviderConfigUseCase.getOnDeviceStrategy()
 
-        sessionState.setLoadingState(
-            isLoading = true,
-            step = 0,
-            statusText = "Initiating Vision AI Analysis...",
-            progressPercent = 10,
-            agent = RxAgentType.SUPERVISOR
-        )
+            val fallbackProvider = visionConfig?.fallbackProvider
+            val fallbackApiKey = if (fallbackProvider != null) {
+                manageProviderConfigUseCase.getApiKeyForProvider(fallbackProvider.id)
+            } else {
+                ""
+            }
 
-        sessionState.startPipelineAnalysis {
-            val result = processPrescriptionUseCase.executePipeline(
-                input = input,
-                agentConfigs = _uiState.value.agentConfigs,
-                onProgress = { agentType, reasoning ->
-                    sessionState.setLoadingState(
-                        isLoading = true,
-                        step = agentType.ordinal,
-                        statusText = reasoning.ifBlank { "Agent active..." },
-                        progressPercent = 100,
-                        agent = agentType
-                    )
-                }
+            val input = TranscriptionInput(
+                imageByteArray = bytes,
+                selectedModel = visionModel,
+                provider = visionProvider,
+                providedApiKey = visionApiKey,
+                customUrl = customUrl,
+                strategy = savedStrategy,
+                fallbackProvider = fallbackProvider,
+                fallbackModel = visionConfig?.fallbackModel ?: "",
+                fallbackApiKey = fallbackApiKey
             )
 
-            result.fold(
-                onSuccess = { orchResult ->
-                    delay(800.milliseconds)
-                    sessionState.setResults(
-                        medicines = orchResult.items,
-                        isSuspended = orchResult.isSuspendedForApproval,
-                        approvalReason = orchResult.approvalReason.ifBlank { null }
-                    )
+            sessionState.setLoadingState(
+                isLoading = true,
+                step = 0,
+                statusText = "Initiating Vision AI Analysis...",
+                progressPercent = 10,
+                agent = RxAgentType.SUPERVISOR
+            )
+            onStarted(true)
 
-                    runCatching {
-                        val dbFlow = "$flow -> saveSummary"
-                        val summaryJson = runCatching { jsonParser.encodeToString(orchResult.items) }.getOrDefault("")
-                        val summaryToSave = summaryJson.ifBlank {
-                            orchResult.items.joinToString("; ") { "${it.formattedFullName} (${it.genericName}) [${it.schedule}] Qty: ${it.formattedQuantity}" }
-                        }
-                        if (summaryToSave.isNotBlank() && orchResult.items.isNotEmpty()) {
-                            getScanHistoryUseCase.saveSummary(summaryToSave, timestampMillis = analyzeStartTime, flow = dbFlow)
-                            getScanHistoryUseCase.saveDispensedHistory(orchResult.items, flow = dbFlow)
-                        }
+            sessionState.startPipelineAnalysis {
+                val result = processPrescriptionUseCase.executePipeline(
+                    input = input,
+                    agentConfigs = currentAgentConfigs,
+                    onProgress = { agentType, reasoning ->
+                        sessionState.setLoadingState(
+                            isLoading = true,
+                            step = agentType.ordinal,
+                            statusText = reasoning.ifBlank { "Agent active..." },
+                            progressPercent = 100,
+                            agent = agentType
+                        )
                     }
-                },
-                onFailure = { error ->
-                    if (error is CancellationException) throw error
-                    val errorMsg = error.message ?: "Analysis failed."
-                    sessionState.setResults(
-                        medicines = emptyList(),
-                        error = errorMsg
-                    )
-                }
-            )
+                )
+
+                result.fold(
+                    onSuccess = { orchResult ->
+                        delay(800.milliseconds)
+                        sessionState.setResults(
+                            medicines = orchResult.items,
+                            isSuspended = orchResult.isSuspendedForApproval,
+                            approvalReason = orchResult.approvalReason.ifBlank { null }
+                        )
+
+                        runCatching {
+                            val dbFlow = "$flow -> saveSummary"
+                            val summaryJson = runCatching { jsonParser.encodeToString(orchResult.items) }.getOrDefault("")
+                            val summaryToSave = summaryJson.ifBlank {
+                                orchResult.items.joinToString("; ") { "${it.formattedFullName} (${it.genericName}) [${it.schedule}] Qty: ${it.formattedQuantity}" }
+                            }
+                            if (summaryToSave.isNotBlank() && orchResult.items.isNotEmpty()) {
+                                getScanHistoryUseCase.saveSummary(summaryToSave, timestampMillis = analyzeStartTime, flow = dbFlow)
+                                getScanHistoryUseCase.saveDispensedHistory(orchResult.items, flow = dbFlow)
+                            }
+                        }
+                    },
+                    onFailure = { error ->
+                        if (error is CancellationException) throw error
+                        val errorMsg = error.message ?: "Analysis failed."
+                        sessionState.setResults(
+                            medicines = emptyList(),
+                            error = errorMsg
+                        )
+                    }
+                )
+            }
         }
-        return true
     }
 
     companion object {

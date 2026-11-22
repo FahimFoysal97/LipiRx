@@ -1,10 +1,10 @@
 package com.snehonir.lipirx.presentation.preview
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.snehonir.lipirx.presentation.common.rememberImagePicker
-import com.snehonir.lipirx.presentation.preview.ImagePreviewAndProcessView
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -16,6 +16,10 @@ fun ImagePreviewScreen(
     onClear: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshAgentConfigs()
+    }
 
     val imagePicker = rememberImagePicker { imageBytes ->
         viewModel.onImageSelected(imageBytes)
@@ -30,8 +34,10 @@ fun ImagePreviewScreen(
             onOpenSettings = onOpenSettings,
             onZoom = onZoom,
             onAnalyze = {
-                if (viewModel.processSelectedImage()) {
-                    onStartAnalysis()
+                viewModel.processSelectedImage { started ->
+                    if (started) {
+                        onStartAnalysis()
+                    }
                 }
             },
             onRetake = { imagePicker.launchCamera() },

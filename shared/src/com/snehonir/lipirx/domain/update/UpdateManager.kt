@@ -9,6 +9,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -227,7 +228,9 @@ class UpdateManager(
             else -> null
         }
         if (!versionName.isNullOrBlank()) {
-            repository.saveDismissedUpdateVersion(versionName)
+            scope.launch(Dispatchers.IO) {
+                repository.saveDismissedUpdateVersion(versionName)
+            }
         }
         _isDialogDismissed.value = true
     }

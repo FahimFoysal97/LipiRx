@@ -1,4 +1,4 @@
-package com.snehonir.lipirx.data.remote
+package com.snehonir.lipirx.data.remote.service
 
 import com.snehonir.lipirx.data.local.scanInstalledOnDeviceModels
 import com.snehonir.lipirx.data.remote.dto.ModelInfoDto

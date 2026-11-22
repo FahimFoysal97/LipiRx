@@ -1,7 +1,7 @@
 package com.snehonir.lipirx.domain.mcp
 
 import com.snehonir.lipirx.common.AppConstants
-import com.snehonir.lipirx.data.local.LipiRxLocalDatabase
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -23,7 +23,7 @@ data class McpProviderConfigItemDto(
 )
 
 class McpResourceHandler(
-    private val database: LipiRxLocalDatabase,
+    private val repository: PrescriptionRepository,
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 ) {
     fun listResources(): List<McpResource> {
@@ -31,7 +31,7 @@ class McpResourceHandler(
             McpResource(
                 uri = URI_SCAN_HISTORY,
                 name = "Prescription Scan History",
-                description = "SQLDelight database records of past scanned prescriptions and extracted items",
+                description = "Room database records of past scanned prescriptions and extracted items",
                 mimeType = AppConstants.MIME_TYPE_JSON
             ),
             McpResource(
@@ -43,13 +43,13 @@ class McpResourceHandler(
             McpResource(
                 uri = URI_AGENT_TRACES,
                 name = "AgentOps Forensic Execution Traces",
-                description = "SQLite forensic execution traces for supervisor reasoning steps and tool calls",
+                description = "Room/SQLite forensic execution traces for supervisor reasoning steps and tool calls",
                 mimeType = AppConstants.MIME_TYPE_JSON
             )
         )
     }
 
-    fun readResource(uri: String): Result<McpResourceContents> {
+    suspend fun readResource(uri: String): Result<McpResourceContents> {
         Napier.d("[McpResourceHandler] Reading MCP Resource: $uri", tag = TAG)
         return runCatching {
             val contentJson = when (uri.trim()) {
@@ -69,8 +69,8 @@ class McpResourceHandler(
         }
     }
 
-    private fun readScanHistory(): String {
-        val history = database.getHistory("MCP -> readResource")
+    private suspend fun readScanHistory(): String {
+        val history = repository.getHistory("MCP -> readResource")
         val dtos = history.map { entity ->
             McpScanHistoryItemDto(
                 id = entity.id,
@@ -82,8 +82,8 @@ class McpResourceHandler(
         return jsonParser.encodeToString(dtos)
     }
 
-    private fun readProviderConfig(): String {
-        val config = database.getProviderConfig()
+    private suspend fun readProviderConfig(): String {
+        val config = repository.getProviderConfig()
         val dto = McpProviderConfigItemDto(
             providerType = config.providerType,
             customUrl = config.customUrl,
@@ -93,8 +93,8 @@ class McpResourceHandler(
         return jsonParser.encodeToString(dto)
     }
 
-    private fun readAgentTraces(): String {
-        val traces = database.getAgentTraces(limit = 100, flow = "MCP -> readAgentTraces")
+    private suspend fun readAgentTraces(): String {
+        val traces = repository.getAgentTraces(limit = 100, flow = "MCP -> readAgentTraces")
         return jsonParser.encodeToString(traces)
     }
 
