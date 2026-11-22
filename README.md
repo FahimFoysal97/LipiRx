@@ -6,7 +6,7 @@
 [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
-[![Release v0.5.2](https://img.shields.io/badge/Release_v0.5.2-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![Release v0.5.3](https://img.shields.io/badge/Release_v0.5.3-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![MIT License](https://img.shields.io/badge/License-MIT-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
@@ -61,7 +61,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 
 5. **Embedded Model Context Protocol (MCP) & OS Integration**:
     - JSON-RPC 2.0 server (`LipiRxMcpServer`) and local HTTP listener (`McpHttpServer` on port `8080`).
-    - Exposes SQLDelight prescription history (`lipirx://history/scans`), provider configurations (`lipirx://config/providers`), and SQLite AgentOps forensic traces (`lipirx://history/traces`) as MCP Resources.
+    - Exposes Room 3 KMP prescription history (`lipirx://history/scans`), provider configurations (`lipirx://config/providers`), and SQLite AgentOps forensic traces (`lipirx://history/traces`) as MCP Resources.
     - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit, `get_agent_execution_traces`, and `eval_run_benchmark`) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
 
 6. **Production AgentOps Forensic Execution Tracing**:
@@ -82,7 +82,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **On-Device SLM & Folder Picker** (`Color(0xFF0B7A6E)`): Local offline inference via LiteRT-LM. Features an interactive Android System Folder Picker (`ACTION_OPEN_DOCUMENT_TREE`) allowing users to select any folder on their device storage, discovering `.litertlm`, `.tflite`, `.bin`, and `.gguf` model weight files with auto-scanning.
 
 9. **Scan History & Full JSON Local Storage Management**:
-    - SQLDelight SQLite storage saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
+    - Room 3 KMP SQLite storage saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
     - Interactive `HistoryScreen` displaying medicine count & review requirement chips, supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
 
 10. **In-App Self-Update Engine (`UpdateManager` & `PlatformUpdater`)**:
@@ -159,14 +159,14 @@ LipiRx includes a complete **Model Context Protocol (MCP)** server engine (`Lipi
                  ▼                               ▼
      ┌───────────────────────┐       ┌───────────────────────┐
      │     MCP Resources     │       │       MCP Tools       │
-     │  (SQLDelight History, │       │    (RxAgentTools      │
+     │  (Room 3 KMP History, │       │    (RxAgentTools      │
      │   Config & Traces)    │       │   OCR/Parsing/Traces) │
      └───────────────────────┘       └───────────────────────┘
 ```
 
 ### Exposed Capabilities:
 - **MCP Resources (`resources/list`, `resources/read`)**:
-    - `lipirx://history/scans`: Accesses SQLDelight prescription scan history and extracted items.
+    - `lipirx://history/scans`: Accesses Room 3 KMP prescription scan history and extracted items.
     - `lipirx://config/providers`: Queries current AI provider configurations and assigned models.
     - `lipirx://history/traces`: Reads AgentOps SQLite forensic execution traces.
 - **MCP Tools (`tools/list`, `tools/call`)**:
@@ -201,9 +201,9 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 - **Architecture**: MVVM + Feature-based ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`)
 - **Session State Management**: Centralized `PrescriptionSessionState` managing active scan sessions, isolating history record inspection (`activeScanMedicines`)
 - **Theme Animation System**: Single-driver 60/120 FPS linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme.kt` with spring-animated segmented theme controls
-- **Local Database**: SQLDelight 2.x SQLite database logging provider keys, per-provider models, agent matrix configurations, theme preferences, offline prescription history, and AgentOps execution traces
+- **Local Database**: Room 3.0.3 (`androidx.room3`) KMP SQLite database with `BundledSQLiteDriver` logging provider keys, per-provider models, agent matrix configurations, theme preferences, offline prescription history, and AgentOps execution traces
 - **Networking**: Ktor Client 3.x (`OkHttp` for Android, `Darwin` for iOS) with `kotlinx.serialization`
-- **Dependency Injection**: Koin 4.x (`koin-core`, `koin-compose`, `koin-compose-viewmodel`, `koin-android`)
+- **Dependency Injection**: Koin 4.x (`koin-core`, `koin-compose`, `koin-compose-viewmodel`, `koin-android`) with modularized DI sub-modules (`networkModule`, `databaseModule`, `aiAgentModule`, `mcpModule`, `domainModule`, `presentationModule`)
 - **Testing Framework**: Native KMP unit test suite in `shared/test/` (`AppNavKeyTest`, `PrescriptionSessionStateTest`, `SemVerTest`, `LipiRxMcpServerTest`) + E2E Python automation test runners (`test_full_app.py`, `test_full_app_ui.py`, `test_mcp.py`)
 
 ---
@@ -244,8 +244,8 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   │   ├── PrescriptionHistoryEntity.kt
             │   │   │   ├── ProviderConfigEntity.kt
             │   │   │   └── AgentExecutionTraceEntity.kt
-            │   │   ├── LipiRxLocalDatabase.kt       # SQLDelight repository database implementation
-            │   │   └── DatabaseDriverFactory.kt     # Expect/actual database driver factory
+            │   │   ├── LipiRxRoomDatabase.kt        # Room 3 KMP database definition & DAOs
+            │   │   └── LipiRxRoomRepository.kt      # Room 3 repository implementation with Dispatchers.IO coroutine safety
             │   └── remote/
             │       ├── dto/                         # Remote API DTOs
             │       ├── PrescriptionAiService.kt     # Core AI Service interface

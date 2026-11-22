@@ -296,7 +296,7 @@ def load_release_notes(cfg: dict) -> tuple[Path, str, str, str, int | None]:
     if not version:
         log_err(
             f"Could not find a version heading in '{notes_path.relative_to(ROOT_DIR)}'. "
-            "Expected a heading like '# v0.5.2 - Release Title'."
+            "Expected a heading like '# v0.5.3 - Release Title'."
         )
         sys.exit(1)
 

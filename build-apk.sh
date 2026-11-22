@@ -10,7 +10,7 @@ NC='\033[0m'
 
 VERSION=$(grep -i "versionName" androidApp/module.yaml | head -n 1 | awk -F ':' '{print $2}' | tr -d ' "' | tr -d "'")
 if [ -z "$VERSION" ]; then
-    VERSION="0.5.2"
+    VERSION="0.5.3"
 fi
 
 BUILD_TYPE="debug"
