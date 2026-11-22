@@ -204,6 +204,7 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 - **Local Database**: SQLDelight 2.x SQLite database logging provider keys, per-provider models, agent matrix configurations, theme preferences, offline prescription history, and AgentOps execution traces
 - **Networking**: Ktor Client 3.x (`OkHttp` for Android, `Darwin` for iOS) with `kotlinx.serialization`
 - **Dependency Injection**: Koin 4.x (`koin-core`, `koin-compose`, `koin-compose-viewmodel`, `koin-android`)
+- **Testing Framework**: Native KMP unit test suite in `shared/test/` (`AppNavKeyTest`, `PrescriptionSessionStateTest`, `SemVerTest`, `LipiRxMcpServerTest`) + E2E Python automation test runners (`test_full_app.py`, `test_full_app_ui.py`, `test_mcp.py`)
 
 ---
 
@@ -285,38 +286,35 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   └── FullScreenImagePreviewDialog.kt # Pinch-to-zoom 6x prescription dialog
             │   ├── history/                         # Scan History feature
             │   │   ├── HistoryViewModel.kt          # History ViewModel (offloaded DB I/O)
-            │   │   ├── HistoryScreenWrapper.kt       # History screen wrapper
-            │   │   └── HistoryScreen.kt             # Saved scan list & deletion UI
+            │   │   ├── HistoryView.kt               # Stateless scan history list UI
+            │   │   └── HistoryScreen.kt             # Stateful history container composable
             │   ├── home/                            # Home Scan feature
             │   │   ├── HomeViewModel.kt             # Home ViewModel
-            │   │   ├── HomeScreen.kt                # Home screen composable
+            │   │   ├── HomeScreen.kt                # Home screen container composable
             │   │   └── EmptyStateView.kt            # Home scan upload & viewfinder UI
             │   ├── loading/                         # Analysis Loading feature
             │   │   ├── AnalysisLoadingViewModel.kt  # Loading ViewModel
-            │   │   ├── AnalysisLoadingScreen.kt     # Loading screen composable
+            │   │   ├── AnalysisLoadingScreen.kt     # Loading screen container composable
             │   │   └── LoadingView.kt               # Multi-agent live analysis UI
             │   ├── preview/                         # Image Preview feature
             │   │   ├── ImagePreviewViewModel.kt     # Preview ViewModel (rethrows CancellationException)
-            │   │   ├── ImagePreviewScreen.kt        # Preview screen composable
+            │   │   ├── ImagePreviewScreen.kt        # Preview screen container composable
             │   │   └── ImagePreviewAndProcessView.kt # Prescription preview & AI pipeline summary
             │   ├── results/                         # Scan Results feature
             │   │   ├── ScanResultsViewModel.kt      # Results ViewModel (auto-persists pharmacist edits)
-            │   │   ├── ScanResultsScreen.kt         # Scan results screen
+            │   │   ├── ScanResultsScreen.kt         # Scan results container composable
             │   │   ├── MedicineListView.kt          # Extracted medicine list & pharmacist sign-off
             │   │   └── EditMedicineDialog.kt        # Interactive medicine item editing dialog
             │   ├── settings/                        # Settings feature
-            │   │   ├── SettingsViewModel.kt         # Settings ViewModel
-            │   │   └── SettingsScreen.kt            # Settings UI with 3-segment spring theme selector
+            │   │   ├── SettingsViewModel.kt         # Settings ViewModel (Koin singleton)
+            │   │   ├── SettingsView.kt              # Stateless settings UI view
+            │   │   └── SettingsScreen.kt            # Settings container composable
             │   ├── telemetry/                       # AgentOps Telemetry feature
+            │   │   ├── AgentTraceViewModel.kt       # Telemetry trace ViewModel
+            │   │   └── AgentTelemetryScreen.kt      # AgentOps per-scan accordion telemetry UI
             │   └── update/                          # Self-Update feature
             └── ui/theme/
                 └── LipiRxTheme.kt                   # 60/120 FPS linear theme color interpolation engine
-                │       ├── LoadingView.kt           # Live multi-agent analysis UI with per-agent task progress
-                │       ├── ImagePreviewAndProcessView.kt # Prescription photo & pipeline summary UI
-                │       └── MedicineListView.kt      # Extracted medicine list & pharmacist sign-off UI
-                └── telemetry/
-                    ├── AgentTraceViewModel.kt       # Telemetry trace ViewModel
-                    └── AgentTelemetryScreen.kt      # AgentOps per-scan accordion telemetry UI
 ```
 
 ---
