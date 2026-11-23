@@ -110,6 +110,8 @@ fun LipiRxAppContent(
     BackHandler(enabled = navigator.backStack.size > 1) {
         if (navigator.currentKey == AppNavKey.AnalysisLoading) {
             sessionState.cancelActiveAnalysis()
+            navigator.replaceTop(AppNavKey.ImagePreview)
+            return@BackHandler
         }
         if (navigator.backStack.size == 2 && navigator.currentKey != AppNavKey.History && navigator.currentKey != AppNavKey.Settings) {
             sessionState.resetSession()
@@ -150,7 +152,10 @@ fun LipiRxAppContent(
 
                 is AppNavKey.AnalysisLoading -> {
                     AnalysisLoadingScreen(
-                        onCancel = { navigator.popToHome() }
+                        onCancel = {
+                            sessionState.cancelActiveAnalysis()
+                            navigator.replaceTop(AppNavKey.ImagePreview)
+                        }
                     )
                 }
 
