@@ -84,6 +84,37 @@ class RxAgentTools(
         return Result.success(applyLocalSafetyRules(audited))
     }
 
+    /**
+     * Merges results from multiple parallel worker agent executions non-destructively into a unified item list.
+     */
+    fun mergeParallelResults(
+        baseItems: List<MedicineItem>,
+        results: List<Result<List<MedicineItem>>>
+    ): List<MedicineItem> {
+        if (baseItems.isEmpty() || results.isEmpty()) return baseItems
+
+        var currentList = baseItems
+        for (res in results) {
+            val agentList = res.getOrNull() ?: continue
+            currentList = currentList.mapIndexed { index, baseItem ->
+                val agentItem = agentList.getOrNull(index) ?: return@mapIndexed baseItem
+                baseItem.copy(
+                    genericName = agentItem.genericName.ifBlank { baseItem.genericName },
+                    similarBrands = agentItem.similarBrands.ifEmpty { baseItem.similarBrands },
+                    dosageForm = agentItem.dosageForm.ifBlank { baseItem.dosageForm },
+                    strengthValue = agentItem.strengthValue.ifBlank { baseItem.strengthValue },
+                    strengthUnit = agentItem.strengthUnit.ifBlank { baseItem.strengthUnit },
+                    schedule = agentItem.schedule.ifBlank { baseItem.schedule },
+                    units = agentItem.units.takeIf { it > 0 } ?: baseItem.units,
+                    needsReview = baseItem.needsReview || agentItem.needsReview,
+                    possibleMisreading = agentItem.possibleMisreading.ifBlank { baseItem.possibleMisreading },
+                    confidence = agentItem.confidence.ifBlank { baseItem.confidence }
+                )
+            }
+        }
+        return currentList
+    }
+
     // ---------- Shared AI loop ----------
 
     private fun canExecute(provider: AiProvider, apiKey: String, customUrl: String) =

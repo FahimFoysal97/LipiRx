@@ -7,6 +7,7 @@ import com.snehonir.lipirx.domain.agent.OrchestrationResult
 import com.snehonir.lipirx.domain.agent.PipelineFailureReason
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
+import com.snehonir.lipirx.domain.agent.SupervisorConstants
 import com.snehonir.lipirx.domain.agent.SupervisorState
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -17,6 +18,9 @@ import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
 import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 class KoogRxSupervisorEngine(
     private val rxSupervisorAgent: RxSupervisorAgent,
@@ -31,7 +35,7 @@ class KoogRxSupervisorEngine(
         onProgress: (agentType: RxAgentType, reasoning: String) -> Unit = { _, _ -> }
     ): Result<OrchestrationResult> {
         Napier.d("[$TAG] Starting JetBrains Koog Multi-Agent Supervisor Engine...", tag = TAG)
-        onProgress(RxAgentType.SUPERVISOR, "Manager Agent evaluating workspace state & initiating orchestration...")
+        onProgress(RxAgentType.SUPERVISOR, SupervisorConstants.PROGRESS_EVALUATING_WORKSPACE)
 
         val supervisorRuntime = resolveRuntimeConfig(
             agentType = RxAgentType.SUPERVISOR,
@@ -64,12 +68,107 @@ class KoogRxSupervisorEngine(
                 break
             }
 
-            if (decision.isFinished || decision.nextAgent == null) {
+            if (decision.isFinished || (decision.nextAgent == null && decision.parallelAgents.isEmpty())) {
                 Napier.d("[$TAG -> Complete] Supervisor finished execution at turn ${state.turnCount}", tag = TAG)
                 break
             }
 
-            val targetAgentType = decision.nextAgent
+            // Handle Explicit Multi-Agent Parallel Execution (e.g. Generic Substitute Search + Safety Audit)
+            if (decision.parallelAgents.size > 1) {
+                val parallelWorkers = decision.parallelAgents
+                Napier.d("[$TAG -> Parallel Dispatch Turn ${state.turnCount + 1}] Concurrently executing worker agents: ${parallelWorkers.map { it.id }}...", tag = TAG)
+                onProgress(parallelWorkers.first(), decision.reasoning)
+
+                val supervisorRecord = AgentExecutionRecord(
+                    agentType = RxAgentType.SUPERVISOR,
+                    reasoning = decision.reasoning,
+                    feedbackPrompt = decision.feedbackPrompt,
+                    itemCount = state.items.size,
+                    executionTimeMs = supervisorTimeMs
+                )
+
+                repository.saveAgentTrace(
+                    turnNumber = state.turnCount + 1,
+                    agentType = RxAgentType.SUPERVISOR.id,
+                    provider = supervisorRuntime.provider.id,
+                    modelName = supervisorRuntime.model,
+                    reasoning = decision.reasoning,
+                    feedbackPrompt = decision.feedbackPrompt,
+                    itemCount = state.items.size,
+                    executionTimeMs = supervisorTimeMs,
+                    isSuccess = true,
+                    errorMessage = "",
+                    flow = "KoogEngine -> ParallelSupervisorTrace"
+                )
+
+                state = updateEpisodicMemoryIfNeeded(state)
+
+                val agentStartTime = getPlatformEpochMillis()
+                val parallelResults = coroutineScope {
+                    parallelWorkers.map { agentType ->
+                        val workerRuntime = resolveRuntimeConfig(
+                            agentType = agentType,
+                            agentConfigs = agentConfigs,
+                            fallbackApiKey = input.providedApiKey,
+                            fallbackCustomUrl = input.customUrl
+                        )
+                        val toolParams = ToolExecutionParams(
+                            provider = workerRuntime.provider.id,
+                            model = workerRuntime.model,
+                            apiKey = workerRuntime.apiKey,
+                            customUrl = workerRuntime.customUrl,
+                            feedbackPrompt = decision.feedbackPrompt,
+                            memoryContext = state.episodicMemory,
+                            strategy = input.strategy.id,
+                            fallbackProvider = workerRuntime.fallbackProvider.id,
+                            fallbackModel = workerRuntime.fallbackModel
+                        )
+                        async {
+                            val res = executeToolForAgent(agentType, input, state.items, toolParams)
+                            Triple(agentType, workerRuntime, res)
+                        }
+                    }.awaitAll()
+                }
+                val agentTimeMs = getPlatformEpochMillis() - agentStartTime
+
+                // Record individual AgentOps trace logs for each parallel worker agent
+                parallelResults.forEach { (agentType, runtime, res) ->
+                    repository.saveAgentTrace(
+                        turnNumber = state.turnCount + 1,
+                        agentType = agentType.id,
+                        provider = runtime.provider.id,
+                        modelName = runtime.model,
+                        reasoning = decision.reasoning,
+                        feedbackPrompt = decision.feedbackPrompt,
+                        itemCount = if (res.isSuccess) res.getOrThrow().size else state.items.size,
+                        executionTimeMs = agentTimeMs,
+                        isSuccess = res.isSuccess,
+                        errorMessage = res.exceptionOrNull()?.message ?: "",
+                        flow = "KoogEngine -> ParallelToolTrace"
+                    )
+                }
+
+                val mergedItems = rxAgentTools.mergeParallelResults(state.items, parallelResults.map { it.third })
+                val workerRecords = parallelResults.map { (agentType, _, _) ->
+                    AgentExecutionRecord(
+                        agentType = agentType,
+                        reasoning = decision.reasoning,
+                        feedbackPrompt = decision.feedbackPrompt,
+                        itemCount = mergedItems.size,
+                        executionTimeMs = agentTimeMs
+                    )
+                }
+
+                state = state.copy(
+                    items = mergedItems,
+                    safetyAudited = parallelWorkers.contains(RxAgentType.SAFETY_AUDITOR),
+                    history = state.history + supervisorRecord + workerRecords,
+                    turnCount = state.turnCount + 1
+                )
+                continue
+            }
+
+            val targetAgentType = decision.nextAgent ?: break
             Napier.d("[$TAG -> Turn ${state.turnCount + 1}] Dispatching agent '${targetAgentType.id}' with reasoning: '${decision.reasoning}'", tag = TAG)
             onProgress(targetAgentType, decision.reasoning)
 
@@ -205,7 +304,7 @@ class KoogRxSupervisorEngine(
             )
         }
 
-        onProgress(RxAgentType.SAFETY_AUDITOR, "Finalizing clinical safety audit & pharmacist review gate...")
+        onProgress(RxAgentType.SAFETY_AUDITOR, SupervisorConstants.PROGRESS_FINALIZING_AUDIT)
 
         return Result.success(
             OrchestrationResult(
@@ -262,7 +361,6 @@ class KoogRxSupervisorEngine(
             OnDeviceStrategy.HYBRID_FALLBACK -> AiProvider.OnDevice
             OnDeviceStrategy.ON_DEVICE_FIRST -> AiProvider.Gemini
         }
-
         val fallbackProvider = config.fallbackProvider ?: defaultFallbackProv
         val fallbackModel = config.fallbackModel.ifBlank {
             repository.getLastSelectedModel(fallbackProvider, flow = "KoogEngine -> getFallbackModel")
@@ -274,14 +372,26 @@ class KoogRxSupervisorEngine(
             AiProvider.Custom -> repository.getProviderConfig().customUrl.ifBlank { fallbackCustomUrl }
             else -> ""
         }
+
         return RuntimeConfig(provider, model, apiKey, customUrl, fallbackProvider, fallbackModel)
     }
 
-    private suspend fun updateEpisodicMemoryIfNeeded(state: SupervisorState): SupervisorState {
-        if (state.items.isEmpty()) return state
-        val generics = state.items.map { it.genericName }.filter { it.isNotBlank() }
-        val memoryContext = repository.getEpisodicMemoryContext(generics)
-        return if (memoryContext.isNotBlank()) state.copy(episodicMemory = memoryContext) else state
+    private fun updateEpisodicMemoryIfNeeded(state: SupervisorState): SupervisorState {
+        if (state.history.isEmpty()) return state
+
+        val memoryBuilder = StringBuilder()
+        memoryBuilder.appendLine("PAST EXECUTIONS & MEMORY:")
+        state.history.forEach { record ->
+            memoryBuilder.appendLine("- Agent ${record.agentType.id}: Reason='${record.reasoning}', OutputItems=${record.itemCount}, Success=${record.failureReason == null}")
+            if (record.failureReason != null) {
+                memoryBuilder.appendLine("  * Error: ${record.failureReason.displayName}")
+            }
+        }
+        return state.copy(episodicMemory = memoryBuilder.toString())
+    }
+
+    companion object {
+        private const val TAG = "KoogRxSupervisorEngine"
     }
 
     private data class RuntimeConfig(
@@ -292,8 +402,4 @@ class KoogRxSupervisorEngine(
         val fallbackProvider: AiProvider = AiProvider.OnDevice,
         val fallbackModel: String = ""
     )
-
-    companion object {
-        private const val TAG = "KoogRxSupervisorEngine"
-    }
 }

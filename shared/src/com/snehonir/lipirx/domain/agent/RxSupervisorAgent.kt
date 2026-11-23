@@ -214,9 +214,19 @@ class RxSupervisorAgent(
                     feedbackPrompt = SupervisorConstants.PROMPT_CLEAN_STRENGTHS
                 )
             }
+            !historyTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) && !historyTypes.contains(RxAgentType.SAFETY_AUDITOR) -> {
+                SupervisorDecision(
+                    nextAgent = RxAgentType.GENERIC_SUBSTITUTE,
+                    parallelAgents = listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR),
+                    isFinished = false,
+                    reasoning = SupervisorConstants.REASON_PARALLEL_ENRICHMENT,
+                    feedbackPrompt = SupervisorConstants.PROMPT_PARALLEL_ENRICHMENT
+                )
+            }
             !historyTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.GENERIC_SUBSTITUTE,
+                    parallelAgents = emptyList(),
                     isFinished = false,
                     reasoning = SupervisorConstants.REASON_ENTITIES_NORMALIZED,
                     feedbackPrompt = SupervisorConstants.PROMPT_PROVIDE_SUBSTITUTES
@@ -225,6 +235,7 @@ class RxSupervisorAgent(
             !historyTypes.contains(RxAgentType.SAFETY_AUDITOR) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.SAFETY_AUDITOR,
+                    parallelAgents = emptyList(),
                     isFinished = false,
                     reasoning = SupervisorConstants.REASON_SUBSTITUTES_ENRICHED,
                     feedbackPrompt = SupervisorConstants.PROMPT_AUDIT_RISKS

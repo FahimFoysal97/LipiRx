@@ -1,7 +1,5 @@
 package com.snehonir.lipirx.domain.agent
 
-import org.jetbrains.compose.resources.StringResource
-
 object SupervisorConstants {
     const val AGENT_NAME = "Rx Supervisor Manager Agent"
 
@@ -23,6 +21,7 @@ object SupervisorConstants {
     const val REASON_TRANSCRIPTION_DONE = "Raw transcription complete. Requesting Medical Entity Parser Agent to clean brand names and normalize forms."
     const val REASON_ENTITIES_NORMALIZED = "Entities normalized. Requesting Generic & Substitute Agent to match DGDA active ingredients and BD brand substitutes."
     const val REASON_SUBSTITUTES_ENRICHED = "Substitutes enriched. Requesting Safety Auditor Agent to verify clinical dosage safety and review flags."
+    const val REASON_PARALLEL_ENRICHMENT = "Entities normalized. Assigning Generic Substitute Search & Safety Audit in parallel."
     const val REASON_FLAGGED_ITEMS = "Flagged low confidence or dosage review items requiring human sign-off."
     const val REASON_PIPELINE_SUCCESS = "All pipeline capabilities executed successfully."
 
@@ -33,5 +32,10 @@ object SupervisorConstants {
     const val PROMPT_TRANSCRIBE_DEFAULT = "Transcribe prescription."
     const val PROMPT_CLEAN_STRENGTHS = "Clean prefixes and normalize strengths."
     const val PROMPT_PROVIDE_SUBSTITUTES = "Provide 3 to 5 Bangladeshi brand substitutes per item."
+    const val PROMPT_PARALLEL_ENRICHMENT = "Provide Bangladeshi brand substitutes and audit clinical dosage safety in parallel."
     const val PROMPT_AUDIT_RISKS = "Audit safety risks and unreadable spellings."
+
+    // Engine & Progress Messages
+    const val PROGRESS_EVALUATING_WORKSPACE = "Manager Agent evaluating workspace state & initiating orchestration..."
+    const val PROGRESS_FINALIZING_AUDIT = "Finalizing clinical safety audit & pharmacist review gate..."
 }
