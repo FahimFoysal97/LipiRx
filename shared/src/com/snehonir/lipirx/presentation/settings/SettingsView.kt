@@ -9,7 +9,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +35,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -120,6 +122,7 @@ import com.snehonir.lipirx.resources.app_name
 import com.snehonir.lipirx.resources.btn_browse_folder
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_check_for_updates
+import com.snehonir.lipirx.resources.btn_clear
 import com.snehonir.lipirx.resources.btn_connecting_saving
 import com.snehonir.lipirx.resources.btn_discard
 import com.snehonir.lipirx.resources.btn_keep_editing
@@ -180,7 +183,6 @@ import com.snehonir.lipirx.resources.slm_models_found_count
 import com.snehonir.lipirx.resources.status_add_api_key_detail
 import com.snehonir.lipirx.resources.status_agents_no_model_detail
 import com.snehonir.lipirx.resources.status_fix_action
-import com.snehonir.lipirx.resources.status_needs_attention
 import com.snehonir.lipirx.resources.status_ready_detail
 import com.snehonir.lipirx.resources.status_ready_to_scan
 import com.snehonir.lipirx.resources.status_setup_needed
@@ -190,6 +192,7 @@ import com.snehonir.lipirx.resources.theme_dark
 import com.snehonir.lipirx.resources.theme_light
 import com.snehonir.lipirx.resources.theme_system_default
 import com.snehonir.lipirx.resources.update_checking
+import com.snehonir.lipirx.ui.BackHandler
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.ApiKeyVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.CustomUrlVectorIcon
@@ -200,6 +203,7 @@ import com.snehonir.lipirx.ui.theme.icons.LightThemeVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.McpEndpointVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.McpServerVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.OnDeviceStrategyVectorIcon
+import com.snehonir.lipirx.ui.theme.icons.OnDeviceVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.PipelineMatrixVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.ProviderSettingsVectorIcon
 import com.snehonir.lipirx.ui.theme.icons.SystemThemeVectorIcon
@@ -271,7 +275,23 @@ fun SettingsView(
     val agentNeedsModel: (RxAgentType) -> Boolean = { agent ->
         val config = agentConfigs[agent]
         val agentProvider = config?.provider ?: agent.defaultProvider
-        providerModelsMap[agentProvider.id].isNullOrEmpty() && config?.selectedModel.isNullOrBlank()
+        val selectedModel = config?.selectedModel ?: ""
+        val availableModels = providerModelsMap[agentProvider.id] ?: emptyList()
+
+        if (agentProvider.requiresApiKey) {
+            val key = keyFor(agentProvider.id)
+            if (key.isBlank()) {
+                true
+            } else if (availableModels.isEmpty()) {
+                true
+            } else if (selectedModel.isNotBlank() && !availableModels.contains(selectedModel)) {
+                true
+            } else {
+                selectedModel.isBlank()
+            }
+        } else {
+            selectedModel.isBlank() && availableModels.isEmpty()
+        }
     }
     val agentsNeedingModel = RxAgentType.ALL.count(agentNeedsModel)
 
@@ -291,6 +311,12 @@ fun SettingsView(
     var showDiscardDialog by remember { mutableStateOf(false) }
     val requestClose: () -> Unit = {
         if (hasUnsavedChanges) showDiscardDialog = true else onClose()
+    }
+
+    // The system back gesture / back button must respect unsaved changes too.
+    // Before, only the header arrow asked first; the gesture closed the screen and dropped the edits.
+    BackHandler(enabled = hasUnsavedChanges) {
+        showDiscardDialog = true
     }
 
     val providerSectionRequester = remember { BringIntoViewRequester() }
@@ -440,9 +466,7 @@ fun SettingsView(
                         }
 
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Surface(
@@ -452,12 +476,13 @@ fun SettingsView(
                                 border = BorderStroke(1.dp, Lipi.Outline.copy(alpha = 0.4f))
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
+                                    // The on-device icon says "local models"; a magnifier read as "search".
                                     Icon(
-                                        imageVector = Icons.Default.Search,
+                                        imageVector = OnDeviceVectorIcon,
                                         contentDescription = null,
                                         modifier = Modifier.size(20.dp),
                                         tint = Lipi.Primary
@@ -470,7 +495,11 @@ fun SettingsView(
                                             color = Lipi.Muted
                                         )
                                         Text(
-                                            text = slmModelDirectory.ifBlank { stringResource(Res.string.default_slm_directory_name) },
+                                            text = if (slmModelDirectory.isBlank()) {
+                                                stringResource(Res.string.default_slm_directory_name)
+                                            } else {
+                                                formatDirectoryForDisplay(slmModelDirectory)
+                                            },
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Lipi.Ink,
@@ -479,19 +508,15 @@ fun SettingsView(
                                         )
                                     }
                                     if (slmModelDirectory.isNotBlank()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(28.dp)
-                                                .clip(CircleShape)
-                                                .background(Lipi.Muted.copy(alpha = 0.15f))
-                                                .clickable { onSaveSlmDirectoryPath("") },
-                                            contentAlignment = Alignment.Center
+                                        IconButton(
+                                            onClick = { onSaveSlmDirectoryPath("") },
+                                            modifier = Modifier.size(40.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Clear,
-                                                contentDescription = stringResource(Res.string.content_desc_clear_api_key),
-                                                modifier = Modifier.size(16.dp),
-                                                tint = Lipi.Ink
+                                                contentDescription = stringResource(Res.string.btn_clear),
+                                                modifier = Modifier.size(18.dp),
+                                                tint = Lipi.Muted
                                             )
                                         }
                                     }
@@ -529,6 +554,32 @@ fun SettingsView(
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = Lipi.OnPrimaryContainer
+                                        )
+                                    }
+                                }
+                            } else if (slmModelDirectory.isNotBlank()) {
+                                // A folder was chosen but nothing usable is in it: say so instead of staying silent.
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Lipi.AmberContainer
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Lipi.OnAmber
+                                        )
+                                        Text(
+                                            text = stringResource(Res.string.no_local_models_found),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Lipi.OnAmber
                                         )
                                     }
                                 }
@@ -675,9 +726,18 @@ fun SettingsView(
                 var localMcpState by remember(isMcpServerEnabled) { mutableStateOf(isMcpServerEnabled) }
 
                 SettingsCard(contentPadding = 0.dp, spacing = 0.dp) {
+                    // The whole row is the switch (before: only the small thumb was tappable).
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .toggleable(
+                                value = localMcpState,
+                                role = Role.Switch,
+                                onValueChange = { enabled ->
+                                    localMcpState = enabled
+                                    onToggleMcpServer(enabled)
+                                }
+                            )
                             .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -704,10 +764,7 @@ fun SettingsView(
                         Spacer(modifier = Modifier.width(8.dp))
                         Switch(
                             checked = localMcpState,
-                            onCheckedChange = { enabled ->
-                                localMcpState = enabled
-                                onToggleMcpServer(enabled)
-                            },
+                            onCheckedChange = null, // the Row handles the toggle
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = Lipi.Primary,
@@ -888,13 +945,27 @@ private fun AgentAssignmentCard(
                             color = Lipi.Ink
                         )
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "${provider.displayName} · $modelText",
-                            fontSize = 12.sp,
-                            color = if (hasProblem) Lipi.Error else Lipi.Muted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            // A warning icon next to the red text, so the problem is not shown by colour alone.
+                            if (hasProblem) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(13.dp),
+                                    tint = Lipi.Error
+                                )
+                            }
+                            Text(
+                                text = "${provider.displayName} · $modelText",
+                                fontSize = 12.sp,
+                                color = if (hasProblem) Lipi.Error else Lipi.Muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
@@ -1071,10 +1142,14 @@ private fun SetupStatusCard(
         stringResource(Res.string.status_setup_needed)
     }
 
-    val detail = when {
-        isReady -> stringResource(Res.string.status_ready_detail, providerName, totalAgents)
-        needsApiKey -> stringResource(Res.string.status_add_api_key_detail, providerName)
-        else -> stringResource(Res.string.status_agents_no_model_detail, agentsNeedingModel, totalAgents)
+    // Both problems are listed when both exist. Before, a missing key hid the "agents have no model" line.
+    val detail = if (isReady) {
+        stringResource(Res.string.status_ready_detail, providerName, totalAgents)
+    } else {
+        buildList {
+            if (needsApiKey) add(stringResource(Res.string.status_add_api_key_detail, providerName))
+            if (agentsNeedingModel > 0) add(stringResource(Res.string.status_agents_no_model_detail, agentsNeedingModel, totalAgents))
+        }.joinToString(" ")
     }
 
     Surface(
@@ -1173,6 +1248,19 @@ private fun formatModelDisplayName(modelName: String): String {
         }
     }
     return result.trim()
+}
+
+/**
+ * Folder pickers often return a raw URI such as
+ * content://com.android.externalstorage.documents/tree/primary%3ADownload%2FModels.
+ * Show it as "primary:Download/Models". Normal file paths are shown unchanged.
+ */
+private fun formatDirectoryForDisplay(path: String): String {
+    if (!path.startsWith("content://")) return path
+    return path
+        .substringAfter("/tree/", path.substringAfterLast("/"))
+        .replace("%3A", ":", ignoreCase = true)
+        .replace("%2F", "/", ignoreCase = true)
 }
 
 private fun modelOptions(
@@ -1375,6 +1463,11 @@ private fun SearchablePickerDialog(
         }
     }
 
+    // Typing starts a new result list, so show it from the top (it kept the old scroll offset).
+    LaunchedEffect(query) {
+        if (query.isNotBlank()) listState.scrollToItem(0)
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -1468,6 +1561,9 @@ private fun SearchablePickerDialog(
                                     option.onClick()
                                 },
                                 enabled = option.enabled,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 color = if (option.selected) option.tint.copy(alpha = 0.12f) else Color.Transparent,
                                 border = if (option.selected) BorderStroke(1.dp, option.tint.copy(alpha = 0.4f)) else null
@@ -1547,9 +1643,12 @@ private fun ThemeModeSelector(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            // 52dp outer = 44dp tap height per segment (was 40dp), the usual minimum target.
+            .height(52.dp)
             .background(Lipi.ImageWell, RoundedCornerShape(16.dp))
             .padding(4.dp)
+            // Announced to screen readers as one group of mutually exclusive options.
+            .selectableGroup()
     ) {
         val totalSpacing = 8.dp * (modes.size - 1)
         val segmentWidth = (maxWidth - totalSpacing) / modes.size
@@ -1591,18 +1690,24 @@ private fun ThemeModeSelector(
                         .weight(1f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable(
-                            enabled = !isPillAnimating && index != displayedIndex,
-                            role = Role.RadioButton
-                        ) {
-                            displayedIndex = index
-                            isPillAnimating = true
-                            scope.launch {
-                                delay(220.milliseconds)
-                                isPillAnimating = false
-                                onSelect(mode)
+                        // `selectable` tells TalkBack which option is selected; before it only
+                        // knew "radio button" with no state.
+                        .selectable(
+                            selected = isSelected,
+                            enabled = !isPillAnimating,
+                            role = Role.RadioButton,
+                            onClick = {
+                                if (index != displayedIndex) {
+                                    displayedIndex = index
+                                    isPillAnimating = true
+                                    scope.launch {
+                                        delay(220.milliseconds)
+                                        isPillAnimating = false
+                                        onSelect(mode)
+                                    }
+                                }
                             }
-                        },
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -1622,7 +1727,9 @@ private fun ThemeModeSelector(
                             fontSize = 12.5.sp,
                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
                             color = textColor,
-                            maxLines = 1
+                            maxLines = 1,
+                            // "System default" can be too long in a third of the width, especially in Bangla.
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -1805,13 +1912,26 @@ private fun ApiKeyField(
             Icon(ApiKeyVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
         },
         trailingIcon = {
-            IconButton(onClick = { visible = !visible }) {
-                Icon(
-                    imageVector = if (visible) EyeHideVectorIcon else EyeShowVectorIcon,
-                    contentDescription = stringResource(if (visible) Res.string.action_hide else Res.string.action_show),
-                    modifier = Modifier.size(22.dp),
-                    tint = Lipi.Primary
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // One tap to wipe a wrong key, instead of deleting it character by character.
+                if (value.isNotEmpty()) {
+                    IconButton(onClick = { onValueChange("") }) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = stringResource(Res.string.content_desc_clear_api_key),
+                            modifier = Modifier.size(20.dp),
+                            tint = Lipi.Muted
+                        )
+                    }
+                }
+                IconButton(onClick = { visible = !visible }) {
+                    Icon(
+                        imageVector = if (visible) EyeHideVectorIcon else EyeShowVectorIcon,
+                        contentDescription = stringResource(if (visible) Res.string.action_hide else Res.string.action_show),
+                        modifier = Modifier.size(22.dp),
+                        tint = Lipi.Primary
+                    )
+                }
             }
         },
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation('•'),

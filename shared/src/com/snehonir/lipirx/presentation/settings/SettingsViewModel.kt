@@ -10,6 +10,11 @@ import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.model.ThemeMode
 import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.error_connection_failed
+import com.snehonir.lipirx.resources.error_no_models_found
+import com.snehonir.lipirx.resources.success_on_device_saved
+import com.snehonir.lipirx.resources.success_provider_verified
 import io.github.aakira.napier.Napier
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -23,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
 
 data class SettingsUiState(
     val selectedModel: String = "",
@@ -236,23 +242,46 @@ class SettingsViewModel(
                     val modelNames = models.map { it.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim() }.filter { it.isNotBlank() }.toImmutableList()
                     runCatching { manageProviderConfigUseCase.saveProviderModels(prov.id, modelNames, flow = flow) }
 
-                    _uiState.update { state ->
-                        val updatedModelsMap = state.providerModelsMap.toMutableMap()
-                        updatedModelsMap[prov.id] = modelNames
+                    if (modelNames.isEmpty() && prov.requiresApiKey) {
+                        val noModelsMsg = getString(Res.string.error_no_models_found)
+                        _uiState.update { state ->
+                            state.copy(
+                                isTestingApiKey = false,
+                                apiKeySuccess = null,
+                                apiKeyError = noModelsMsg
+                            )
+                        }
+                    } else {
+                        val verifiedMsg = if (prov == AiProvider.OnDevice) {
+                            getString(Res.string.success_on_device_saved)
+                        } else {
+                            getString(Res.string.success_provider_verified, prov.displayName, modelNames.size)
+                        }
+                        _uiState.update { state ->
+                            val updatedModelsMap = state.providerModelsMap.toMutableMap()
+                            updatedModelsMap[prov.id] = modelNames
 
-                        when (prov) {
-                            AiProvider.Gemini -> state.copy(geminiApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = "Settings saved.", providerModelsMap = updatedModelsMap.toImmutableMap())
-                            AiProvider.Groq -> state.copy(groqApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = "Settings saved.", providerModelsMap = updatedModelsMap.toImmutableMap())
-                            AiProvider.OpenAi -> state.copy(openaiApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = "Settings saved.", providerModelsMap = updatedModelsMap.toImmutableMap())
-                            AiProvider.Claude -> state.copy(claudeApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = "Settings saved.", providerModelsMap = updatedModelsMap.toImmutableMap())
-                            AiProvider.Custom -> state.copy(customApiKey = apiKey, customUrl = customUrl, isTestingApiKey = false, apiKeySuccess = "Settings saved.", providerModelsMap = updatedModelsMap.toImmutableMap())
-                            AiProvider.OnDevice -> state.copy(isTestingApiKey = false, apiKeySuccess = "Settings saved.", providerModelsMap = updatedModelsMap.toImmutableMap())
+                            when (prov) {
+                                AiProvider.Gemini -> state.copy(geminiApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.Groq -> state.copy(groqApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.OpenAi -> state.copy(openaiApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.Claude -> state.copy(claudeApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.Custom -> state.copy(customApiKey = apiKey, customUrl = customUrl, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.OnDevice -> state.copy(isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                            }
                         }
                     }
                 },
                 onFailure = { ex ->
+                    val connFailedMsg = getString(Res.string.error_connection_failed)
+                    val errorDetail = ex.message?.ifBlank { null }
+                    val finalMsg = if (errorDetail != null) "$connFailedMsg ($errorDetail)" else connFailedMsg
                     _uiState.update {
-                        it.copy(isTestingApiKey = false, apiKeyError = ex.message ?: "Failed to verify configuration.")
+                        it.copy(
+                            isTestingApiKey = false,
+                            apiKeySuccess = null,
+                            apiKeyError = finalMsg
+                        )
                     }
                 }
             )

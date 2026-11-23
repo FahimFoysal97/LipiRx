@@ -129,6 +129,7 @@
     <string name="error_no_models_found">No supported models found for this endpoint.</string>
     <string name="error_connection_failed">Connection failed. Please check your credentials and URL.</string>
     <string name="success_provider_verified">%1$s verified &amp; saved! (%2$d models loaded)</string>
+    <string name="success_on_device_saved">On-Device SLM configuration saved.</string>
 
     <!-- Prescription Results -->
     <string name="saved_prescription_record">Saved Prescription Record</string>
