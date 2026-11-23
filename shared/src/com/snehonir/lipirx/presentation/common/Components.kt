@@ -49,12 +49,6 @@ import com.snehonir.lipirx.resources.header_history
 import com.snehonir.lipirx.ui.theme.Lipi
 import org.jetbrains.compose.resources.stringResource
 
-// The paper illustration should look like paper in BOTH themes, so it uses fixed colours
-// instead of theme tokens (Lipi.Surface turns dark navy in dark mode).
-private val PaperColor = Color(0xFFFCFDFC)
-private val PaperBrand = Color(0xFF267A70) // same as the light-theme primary
-private val PaperInkLine = Color(0xFF9FB0C8)
-
 @Composable
 fun AppHeader(
     modifier: Modifier = Modifier,
@@ -170,7 +164,6 @@ fun HistoryChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Decorative: the label next to it already says "History".
             Icon(
                 imageVector = Icons.Default.DateRange,
                 contentDescription = null,
@@ -220,7 +213,6 @@ fun PrimaryButton(
         shape = RoundedCornerShape(22.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Lipi.Primary,
-            // White on the bright dark-mode teal is hard to read; onPrimary is white in light, dark teal in dark.
             contentColor = MaterialTheme.colorScheme.onPrimary
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 1.dp),
@@ -284,8 +276,6 @@ fun PaperIllustration(
 ) {
     val shape = RoundedCornerShape(10.dp)
 
-    // Only draw as many text lines as fit, so a short paper is not squashed when the hero is small.
-    // Fixed part ≈ 78dp (padding + "Rx" + gap), each line = 18dp (12 gap + 6 bar).
     val lineWidths = remember(height) {
         val fit = ((height.value - 78f) / 18f).toInt().coerceIn(0, 6)
         listOf(0.85f, 0.65f, 0.76f, 0.52f, 0.8f, 0.58f).take(fit)
@@ -295,12 +285,11 @@ fun PaperIllustration(
         modifier = modifier
             .size(width, height)
             .rotate(rotation)
-            // Black shadow: Lipi.Ink is near-white in dark mode and would glow instead of shade.
             .shadow(20.dp, shape, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.25f))
-            .background(PaperColor, shape)
+            .background(Lipi.PaperSheet, shape)
             .padding(horizontal = 22.dp, vertical = 20.dp),
     ) {
-        Text("Rx", color = PaperBrand, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp)
+        Text("Rx", color = Lipi.PaperBrand, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp)
         Spacer(modifier = Modifier.height(6.dp))
         lineWidths.forEach { w ->
             Spacer(modifier = Modifier.height(12.dp))
@@ -308,7 +297,7 @@ fun PaperIllustration(
                 modifier = Modifier
                     .fillMaxWidth(w)
                     .height(6.dp)
-                    .background(PaperInkLine, CircleShape)
+                    .background(Lipi.PaperInkLine, CircleShape)
             )
         }
     }
