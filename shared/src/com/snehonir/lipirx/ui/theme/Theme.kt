@@ -5,17 +5,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.snehonir.lipirx.domain.model.ThemeMode
 
-/**
- * Entry point for the LipiRx Design System theme.
- * Handles automatic dark/light theme progress interpolation and Material 3 composition.
- */
+private const val THEME_TRANSITION_MILLIS = 280
+
 @Composable
 fun LipiRxTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -29,26 +26,26 @@ fun LipiRxTheme(
 
     val themeProgress by animateFloatAsState(
         targetValue = if (darkTheme) 1f else 0f,
-        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = THEME_TRANSITION_MILLIS, easing = FastOutSlowInEasing),
         label = "themeProgress",
     )
 
-    val lipi = remember(themeProgress) {
+    val lipiColors = remember(themeProgress) {
         when {
             themeProgress <= 0f -> LightLipiColors
             themeProgress >= 1f -> DarkLipiColors
-            else -> lerpLipiColors(LightLipiColors, DarkLipiColors, themeProgress)
+            else -> lerp(LightLipiColors, DarkLipiColors, themeProgress)
         }
     }
 
-    val colorScheme = remember(lipi, darkTheme) {
-        lipi.toMaterialColorScheme(darkTheme)
+    val colorScheme = remember(lipiColors, darkTheme) {
+        lipiColors.toMaterialColorScheme(darkTheme)
     }
 
-    CompositionLocalProvider(LocalLipiColors provides lipi) {
+    CompositionLocalProvider(LocalLipiColors provides lipiColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = Typography(),
+            typography = LipiTypography,
             content = content,
         )
     }
