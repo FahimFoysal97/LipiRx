@@ -2,8 +2,10 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.request
 import urllib.error
+from typing import Optional, Tuple
 
 # Enable VT100 ANSI colors on Windows
 if os.name == "nt":
@@ -11,9 +13,8 @@ if os.name == "nt":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
-from typing import Optional, Tuple
-
 MCP_URL = "http://localhost:8080/lipirx/mcp"
+PACKAGE_NAME = "com.snehonir.lipirx"
 
 class Color:
     def __init__(self):
@@ -36,21 +37,28 @@ def log_title(msg: str) -> None:
 def log_ok(msg: str) -> None:
     print(f"{Color.GREEN}{Color.BOLD}✔ [PASSED]{Color.RESET} {msg}")
 
+def log_info(msg: str) -> None:
+    print(f"{Color.CYAN}{Color.BOLD}ℹ [INFO]{Color.RESET} {msg}")
+
+def log_warn(msg: str) -> None:
+    print(f"{Color.YELLOW}{Color.BOLD}⚠ [WARN]{Color.RESET} {msg}")
+
 def log_err(msg: str) -> None:
     print(f"{Color.RED}{Color.BOLD}✖ [FAILED]{Color.RESET} {msg}")
 
+def run_adb(args: list) -> Tuple[int, str, str]:
+    cmd = ["adb"] + args
+    res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return res.returncode, (res.stdout or "").strip(), (res.stderr or "").strip()
+
 def setup_adb_forward() -> bool:
-    print(f"{Color.YELLOW}ℹ Checking ADB port forwarding (tcp:8080 -> tcp:8080)...{Color.RESET}")
-    try:
-        res = subprocess.run(["adb", "forward", "tcp:8080", "tcp:8080"], capture_output=True, text=True)
-        if res.returncode == 0:
-            log_ok("ADB port 8080 forwarded successfully.")
-            return True
-        else:
-            print(f"{Color.YELLOW}⚠ ADB port forward warning: {res.stdout.strip() or res.stderr.strip()}{Color.RESET}")
-            return False
-    except Exception as e:
-        print(f"{Color.YELLOW}⚠ Could not execute adb: {e}{Color.RESET}")
+    log_info("Configuring ADB port forwarding (tcp:8080 -> tcp:8080)...")
+    code, stdout, stderr = run_adb(["forward", "tcp:8080", "tcp:8080"])
+    if code == 0:
+        log_ok("ADB port 8080 forwarded successfully.")
+        return True
+    else:
+        log_warn(f"ADB port forward warning: {stdout or stderr}")
         return False
 
 def send_mcp_request(rpc_id: str, method: str, params: Optional[dict] = None) -> Optional[dict]:
@@ -73,17 +81,64 @@ def send_mcp_request(rpc_id: str, method: str, params: Optional[dict] = None) ->
         with urllib.request.urlopen(req, timeout=5) as response:
             body = response.read().decode("utf-8")
             return json.loads(body)
-    except urllib.error.URLError as e:
-        log_err(f"HTTP Connection error for method '{method}': {e}")
+    except Exception:
         return None
-    except Exception as e:
-        log_err(f"Unexpected error for method '{method}': {e}")
-        return None
+
+def ensure_mcp_server_running() -> bool:
+    print(f"\n{Color.BOLD}------------------------------------------------------------{Color.RESET}")
+    print(f"{Color.CYAN}▶ Step 0: MCP Server Status Check & Automated UI Switch Toggle{Color.RESET}")
+
+    setup_adb_forward()
+
+    # 1. Quick probe to see if MCP Server is already ON and responding
+    probe_resp = send_mcp_request("probe", "initialize", {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {},
+        "clientInfo": {"name": "LipiRxProbe", "version": "1.0"}
+    })
+
+    if probe_resp and "result" in probe_resp:
+        log_ok("MCP Server is ALREADY enabled and running on port 8080.")
+        return True
+
+    log_warn("MCP Server is OFF or unreachable. Launching LipiRx Settings UI to toggle MCP Server switch ON...")
+
+    # 2. Wake screen & launch Settings screen via intent
+    run_adb(["shell", "input", "keyevent", "224"])
+    run_adb(["shell", "input", "keyevent", "82"])
+    time.sleep(0.5)
+    run_adb(["shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", "lipirx://feature/settings", PACKAGE_NAME])
+    time.sleep(1.5)
+
+    # 3. Scroll down to the MCP Server section
+    run_adb(["shell", "input", "swipe", "600", "2000", "600", "600", "300"])
+    time.sleep(1.0)
+
+    # 4. Tap the MCP Server Switch toggle
+    log_info("Toggling 'Local Server Endpoint' switch ON in Settings UI...")
+    run_adb(["shell", "input", "tap", "1000", "1860"])
+    time.sleep(1.5)
+
+    # 5. Verify connection again after toggle
+    verify_resp = send_mcp_request("probe_2", "initialize", {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {},
+        "clientInfo": {"name": "LipiRxProbe", "version": "1.0"}
+    })
+
+    if verify_resp and "result" in verify_resp:
+        log_ok("MCP Server successfully enabled via Settings UI and running on port 8080!")
+        return True
+    else:
+        log_err("Failed to start MCP Server via Settings UI toggle. Please verify LipiRx app status.")
+        return False
 
 def test_mcp_pipeline() -> None:
     log_title("LipiRx MCP Server Test Suite")
 
-    setup_adb_forward()
+    if not ensure_mcp_server_running():
+        log_err("Aborting MCP test suite because MCP Server is not active.")
+        return
 
     tests = [
         ("1", "initialize", {
