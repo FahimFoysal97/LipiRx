@@ -1,7 +1,5 @@
 package com.snehonir.lipirx.data.remote.service
 
-import com.snehonir.lipirx.data.remote.prompt.SINGLE_CALL_PROMPT
-
 import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -15,6 +13,7 @@ import com.snehonir.lipirx.resources.progress_escalating_to_cloud
 import com.snehonir.lipirx.resources.progress_executing_on_device_first
 import com.snehonir.lipirx.resources.progress_falling_back
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.getString
 import kotlin.time.Duration.Companion.milliseconds
@@ -113,9 +112,26 @@ class CompositeAiService(
                 if (cloudResult.isSuccess) {
                     cloudResult
                 } else {
+                    val ex = cloudResult.exceptionOrNull()
+                    val errMsg = ex?.message ?: ""
+
+                    // 1. If analysis was canceled by user, DO NOT fall back! Return cancellation immediately.
+                    if (ex is CancellationException || errMsg.contains("cancel", ignoreCase = true)) {
+                        return cloudResult
+                    }
+
+                    // 2. If fallback provider is OnDevice but NO local SLM model is installed on device, DO NOT fall back!
+                    if (targetFallbackProvider == AiProvider.OnDevice) {
+                        val onDeviceEngine = OnDeviceLlmEngine()
+                        if (!onDeviceEngine.isModelInstalled()) {
+                            Napier.w("[$flow -> Fallback Skipped] No local SLM model installed on device. Preserving primary Cloud AI error: $errMsg", tag = TAG)
+                            return cloudResult
+                        }
+                    }
+
                     val targetModelName = fallbackModel.ifBlank { selectedModel }
                     val fallingBackMsg = getString(Res.string.progress_falling_back, provider.displayName, AppConstants.MAX_CLOUD_RETRIES, targetFallbackProvider.displayName)
-                    Napier.w("[$flow -> Fallback Triggered] ${provider.displayName} Cloud AI failed after ${AppConstants.MAX_CLOUD_RETRIES} attempts (${cloudResult.exceptionOrNull()?.message}). Falling back to ${targetFallbackProvider.displayName} ($targetModelName)...", tag = TAG)
+                    Napier.w("[$flow -> Fallback Triggered] ${provider.displayName} Cloud AI failed (${errMsg}). Falling back to ${targetFallbackProvider.displayName} ($targetModelName)...", tag = TAG)
                     onProgress(1, fallingBackMsg)
                     fallbackService.processPrescriptionImage(imageByteArray, targetModelName, targetFallbackApiKey, customUrl, mimeType, flow, onProgress)
                 }
@@ -185,8 +201,23 @@ class CompositeAiService(
                 if (cloudResult.isSuccess) {
                     cloudResult
                 } else {
+                    val ex = cloudResult.exceptionOrNull()
+                    val errMsg = ex?.message ?: ""
+
+                    if (ex is CancellationException || errMsg.contains("cancel", ignoreCase = true)) {
+                        return cloudResult
+                    }
+
+                    if (targetFallbackProvider == AiProvider.OnDevice) {
+                        val onDeviceEngine = OnDeviceLlmEngine()
+                        if (!onDeviceEngine.isModelInstalled()) {
+                            Napier.w("[$flow -> Fallback Skipped] No local SLM model installed on device. Preserving primary Cloud AI error: $errMsg", tag = TAG)
+                            return cloudResult
+                        }
+                    }
+
                     val targetModelName = fallbackModel.ifBlank { selectedModel }
-                    Napier.w("[$flow -> Fallback Triggered] ${provider.displayName} Cloud AI text prompt failed after ${AppConstants.MAX_CLOUD_RETRIES} attempts. Falling back to ${targetFallbackProvider.displayName} ($targetModelName)...", tag = TAG)
+                    Napier.w("[$flow -> Fallback Triggered] ${provider.displayName} Cloud AI text prompt failed (${errMsg}). Falling back to ${targetFallbackProvider.displayName} ($targetModelName)...", tag = TAG)
                     fallbackService.processTextPrompt(promptText, targetModelName, providedApiKey, customUrl, flow)
                 }
             }
@@ -213,7 +244,20 @@ class CompositeAiService(
                 return result
             }
             lastResult = result
-            val errMsg = result.exceptionOrNull()?.message ?: unknownErr
+            val ex = result.exceptionOrNull()
+            val errMsg = ex?.message ?: unknownErr
+
+            // Fast return if user canceled or error is unrecoverable (API key, 401, 403, cancellation)
+            if (ex is CancellationException ||
+                errMsg.contains("cancel", ignoreCase = true) ||
+                errMsg.contains("401") || errMsg.contains("403") ||
+                errMsg.contains("API_KEY", ignoreCase = true) ||
+                errMsg.contains("invalid key", ignoreCase = true)
+            ) {
+                Napier.w("[$flow -> Fast Return Error/Cancellation] $errMsg", tag = TAG)
+                return result
+            }
+
             val attemptFailedMsg = getString(Res.string.progress_attempt_failed, providerName, attempt, maxAttempts, errMsg)
             Napier.w("[$flow -> Attempt $attempt/$maxAttempts Failed] $attemptFailedMsg", tag = TAG)
             onRetryProgress?.invoke(attempt, attemptFailedMsg)
