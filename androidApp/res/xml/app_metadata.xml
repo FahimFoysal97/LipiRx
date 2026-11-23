@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppFunctionAppMetadata xmlns:appfn="http://schemas.android.com/apk/androidx.appfunctions"
+    appfn:description="LipiRx manages prescription scanning, medical entity parsing, generic substitute search, patient safety auditing, and AgentOps telemetry traces.
+    Operational Patterns:
+    - Use 'getPrescriptionHistory' to view scanned prescriptions and medicine summaries.
+    - Use 'parseMedicalEntities' to extract structured medicine names, dosages, forms, and schedules from raw medical text.
+    - Use 'searchGenericSubstitutes' to find generic active ingredients and Bangladeshi brand substitutes for prescribed medicines.
+    - Use 'auditPatientSafety' to evaluate dosage safety, flag ambiguous items, and check contraindications.
+    - Use 'getAgentExecutionTraces' to inspect AgentOps execution logs and supervisor turn records."
+    appfn:displayDescription="@string/app_functions_display_description" />

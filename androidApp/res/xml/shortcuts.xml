@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Capability 1: Open App Feature (History, Settings, Results, Telemetry) -->
+    <capability android:name="actions.intent.OPEN_APP_FEATURE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.snehonir.lipirx"
+            android:targetClass="com.snehonir.lipirx.MainActivity">
+            <parameter
+                android:name="feature"
+                android:key="feature" />
+        </intent>
+    </capability>
+
+    <!-- Capability 2: Search or Get Prescription Details / Generic Substitutes -->
+    <capability android:name="actions.intent.GET_THING">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.snehonir.lipirx"
+            android:targetClass="com.snehonir.lipirx.MainActivity">
+            <parameter
+                android:name="thing.name"
+                android:key="query" />
+        </intent>
+    </capability>
+
+    <!-- Shortcut 1: Prescription History -->
+    <shortcut
+        android:shortcutId="scan_history"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_scan_history"
+        android:shortcutLongLabel="@string/shortcut_scan_history">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.snehonir.lipirx"
+            android:targetClass="com.snehonir.lipirx.MainActivity"
+            android:data="lipirx://feature/history" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE" />
+    </shortcut>
+
+    <!-- Shortcut 2: Parse Prescription -->
+    <shortcut
+        android:shortcutId="parse_prescription"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_parse_prescription"
+        android:shortcutLongLabel="@string/shortcut_parse_prescription">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.snehonir.lipirx"
+            android:targetClass="com.snehonir.lipirx.MainActivity"
+            android:data="lipirx://feature/parse" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE" />
+    </shortcut>
+
+    <!-- Shortcut 3: Generic Substitutes Search -->
+    <shortcut
+        android:shortcutId="generic_substitutes"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_generic_substitutes"
+        android:shortcutLongLabel="@string/shortcut_generic_substitutes">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.snehonir.lipirx"
+            android:targetClass="com.snehonir.lipirx.MainActivity"
+            android:data="lipirx://feature/generic" />
+        <capability-binding android:key="actions.intent.GET_THING" />
+    </shortcut>
+
+    <!-- Shortcut 4: Patient Safety Audit -->
+    <shortcut
+        android:shortcutId="safety_audit"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_safety_audit"
+        android:shortcutLongLabel="@string/shortcut_safety_audit">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.snehonir.lipirx"
+            android:targetClass="com.snehonir.lipirx.MainActivity"
+            android:data="lipirx://feature/safety" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE" />
+    </shortcut>
+
+</shortcuts>

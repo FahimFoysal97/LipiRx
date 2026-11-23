@@ -70,4 +70,33 @@ object AppConstants {
     const val ERROR_ENTER_VALID_URL = "error_enter_valid_url"
     const val ERROR_NO_MODELS_FOUND = "error_no_models_found"
     const val ERROR_CONNECTION_FAILED = "error_connection_failed"
+
+    /**
+     * AppActions, AppFunctions, and Launcher Shortcut Constants
+     */
+    object Actions {
+        const val SCHEME_LIPIRX = "lipirx"
+
+        const val SHORTCUT_ID_HISTORY = "scan_history"
+        const val SHORTCUT_ID_PARSE = "parse_prescription"
+        const val SHORTCUT_ID_GENERIC = "generic_substitutes"
+        const val SHORTCUT_ID_SAFETY = "safety_audit"
+
+        const val URI_FEATURE_HISTORY = "lipirx://feature/history"
+        const val URI_FEATURE_PARSE = "lipirx://feature/parse"
+        const val URI_FEATURE_GENERIC = "lipirx://feature/generic"
+        const val URI_FEATURE_SAFETY = "lipirx://feature/safety"
+
+        const val EXTRA_FEATURE = "feature"
+        const val EXTRA_QUERY = "query"
+
+        const val KEYWORD_HISTORY = "history"
+        const val KEYWORD_SETTINGS = "settings"
+        const val KEYWORD_TELEMETRY = "telemetry"
+        const val KEYWORD_TRACE = "trace"
+        const val KEYWORD_PARSE = "parse"
+        const val KEYWORD_SCAN = "scan"
+        const val KEYWORD_SAFETY = "safety"
+        const val KEYWORD_AUDIT = "audit"
+    }
 }

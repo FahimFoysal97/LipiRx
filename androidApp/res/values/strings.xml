@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">LipiRx</string>
+    <string name="app_functions_display_description">LipiRx prescription scanning, entity parsing, generic substitute search, patient safety audit, and trace telemetry.</string>
+    <string name="shortcut_parse_prescription">Parse Prescription</string>
+    <string name="shortcut_scan_history">Scan History</string>
+    <string name="shortcut_generic_substitutes">Search Generic Substitutes</string>
+    <string name="shortcut_safety_audit">Patient Safety Audit</string>
 </resources>

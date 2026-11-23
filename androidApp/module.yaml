@@ -3,6 +3,7 @@ product: android/app
 dependencies:
   - //shared
   - $libs.androidx.activity.compose
+  - $libs.androidx.appfunctions
   - $libs.koin.core
   - $libs.koin.android
   - $libs.litertlm.android
@@ -14,6 +15,10 @@ dependencies:
 
 settings:
   compose: enabled
+  kotlin:
+    ksp:
+      processors:
+        - $libs.androidx.appfunctions.compiler
   android:
     namespace: com.snehonir.lipirx
     applicationId: com.snehonir.lipirx

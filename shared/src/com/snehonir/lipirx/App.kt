@@ -47,29 +47,38 @@ private const val TAG = "LipiRxApp"
 
 @Composable
 @Preview
-fun App() {
+fun App(
+    initialNavKey: AppNavKey = AppNavKey.Home
+) {
     val settingsViewModel: SettingsViewModel = koinInject()
     val settingsUiState by settingsViewModel.uiState.collectAsState()
 
     LipiRxTheme(themeMode = settingsUiState.themeMode) {
-        LipiRxAppContent()
+        LipiRxAppContent(initialNavKey = initialNavKey)
     }
 }
 
 @Composable
 fun LipiRxAppContent(
+    initialNavKey: AppNavKey = AppNavKey.Home,
     flow: String = "App -> LipiRxAppContent"
 ) {
-    Napier.d("[$flow] Rendering Navigation 3 LipiRxAppContent", tag = TAG)
+    Napier.d("[$flow] Rendering Navigation 3 LipiRxAppContent with startDestination=$initialNavKey", tag = TAG)
 
     val traceViewModel: AgentTraceViewModel = koinInject()
     val updateManager: UpdateManager = koinInject()
     val sessionState: PrescriptionSessionState = koinInject()
     val sessionData by sessionState.session.collectAsState()
-    val navigator = rememberAppNavigator(startDestination = AppNavKey.Home)
+    val navigator = rememberAppNavigator(startDestination = initialNavKey)
 
     LaunchedEffect(Unit) {
         updateManager.checkForUpdates(silent = true)
+    }
+
+    LaunchedEffect(initialNavKey) {
+        if (initialNavKey != AppNavKey.Home) {
+            navigator.goTo(initialNavKey)
+        }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current

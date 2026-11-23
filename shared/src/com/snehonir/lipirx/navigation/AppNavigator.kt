@@ -55,13 +55,13 @@ fun rememberAppNavigator(
         },
         restore = { savedRoutes ->
             val keys = savedRoutes.map { AppNavKey.fromRouteString(it) }
-            AppNavigator(keys.firstOrNull() ?: startDestination).apply {
+            AppNavigator(startDestination).apply {
                 backStack.clear()
                 backStack.addAll(keys.ifEmpty { listOf(startDestination) })
             }
         }
     )
-    return rememberSaveable(saver = saver) {
+    return rememberSaveable(inputs = arrayOf(startDestination.toRouteString()), saver = saver) {
         AppNavigator(startDestination)
     }
 }
