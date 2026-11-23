@@ -10,6 +10,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.snehonir.lipirx.domain.model.ThemeMode
+import com.snehonir.lipirx.ui.SystemBarAppearance
 
 private const val THEME_TRANSITION_MILLIS = 280
 
@@ -23,6 +24,8 @@ fun LipiRxTheme(
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
     }
+
+    SystemBarAppearance(darkTheme = darkTheme)
 
     val themeProgress by animateFloatAsState(
         targetValue = if (darkTheme) 1f else 0f,
