@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,13 +21,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -51,7 +53,6 @@ fun MarkdownText(
     val blocks = remember(markdown) { parseMarkdown(markdown) }
     val uriHandler = LocalUriHandler.current
 
-    // Theme colours are read here (composable scope) and handed down as plain values.
     val ink = Lipi.Ink
     val muted = Lipi.Muted
     val primary = Lipi.Primary
@@ -63,7 +64,7 @@ fun MarkdownText(
         try {
             uriHandler.openUri(url)
         } catch (_: Exception) {
-            // No app can open it; ignore rather than crash.
+            // Ignore open error
         }
     }
 
@@ -76,21 +77,19 @@ fun MarkdownText(
         blocks.forEachIndexed { index, block ->
             when (block) {
                 is MdBlock.Heading -> MdText(
-                    text = buildInline(block.text, colors),
+                    text = buildInline(block.text, colors, openUrl),
                     style = TextStyle(
                         fontSize = headingSize(block.level),
                         lineHeight = headingSize(block.level) * 1.3f,
                         fontWeight = FontWeight.ExtraBold,
                         color = ink
                     ),
-                    modifier = Modifier.padding(top = if (index == 0) 0.dp else 4.dp),
-                    onUrl = openUrl
+                    modifier = Modifier.padding(top = if (index == 0) 0.dp else 4.dp)
                 )
 
                 is MdBlock.Paragraph -> MdText(
-                    text = buildInline(block.text, colors),
-                    style = body,
-                    onUrl = openUrl
+                    text = buildInline(block.text, colors, openUrl),
+                    style = body
                 )
 
                 is MdBlock.Bullet -> Row(
@@ -102,10 +101,9 @@ fun MarkdownText(
                         style = body.copy(color = muted)
                     )
                     MdText(
-                        text = buildInline(block.text, colors),
+                        text = buildInline(block.text, colors, openUrl),
                         style = body,
-                        modifier = Modifier.weight(1f),
-                        onUrl = openUrl
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -118,10 +116,9 @@ fun MarkdownText(
                         style = body.copy(color = muted, fontWeight = FontWeight.SemiBold)
                     )
                     MdText(
-                        text = buildInline(block.text, colors),
+                        text = buildInline(block.text, colors, openUrl),
                         style = body,
-                        modifier = Modifier.weight(1f),
-                        onUrl = openUrl
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -134,10 +131,9 @@ fun MarkdownText(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     MdText(
-                        text = buildInline(block.text, colors),
+                        text = buildInline(block.text, colors, openUrl),
                         style = body.copy(color = muted, fontStyle = FontStyle.Italic),
-                        modifier = Modifier.weight(1f),
-                        onUrl = openUrl
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -173,8 +169,6 @@ fun MarkdownText(
 // Rendering helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-private const val URL_TAG = "URL"
-
 private fun headingSize(level: Int): TextUnit = when (level) {
     1 -> 17.sp
     2 -> 15.sp
@@ -182,27 +176,13 @@ private fun headingSize(level: Int): TextUnit = when (level) {
     else -> 13.sp
 }
 
-/** Plain Text when there are no links, tappable text when there are. */
 @Composable
 private fun MdText(
     text: AnnotatedString,
     style: TextStyle,
     modifier: Modifier = Modifier,
-    onUrl: (String) -> Unit,
 ) {
-    val hasLink = text.getStringAnnotations(URL_TAG, 0, text.length).isNotEmpty()
-    if (hasLink) {
-        ClickableText(
-            text = text,
-            style = style,
-            modifier = modifier,
-            onClick = { offset ->
-                text.getStringAnnotations(URL_TAG, offset, offset).firstOrNull()?.let { onUrl(it.item) }
-            }
-        )
-    } else {
-        Text(text = text, style = style, modifier = modifier)
-    }
+    Text(text = text, style = style, modifier = modifier)
 }
 
 private class InlineColors(
@@ -211,15 +191,14 @@ private class InlineColors(
     val codeFg: Color,
 )
 
-private fun buildInline(text: String, colors: InlineColors): AnnotatedString =
-    buildAnnotatedString { appendInline(text, colors) }
+private fun buildInline(text: String, colors: InlineColors, onUrl: (String) -> Unit): AnnotatedString =
+    buildAnnotatedString { appendInline(text, colors, onUrl) }
 
-// `code` | **bold** | ~~strike~~ | *italic* | [label](url) | bare https://url
 private val inlineRegex = Regex(
     """(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(\*[^*\s][^*]*\*)|(\[[^\]]+]\([^)]+\))|(https?://[^\s)]+)"""
 )
 
-private fun AnnotatedString.Builder.appendInline(text: String, colors: InlineColors) {
+private fun AnnotatedString.Builder.appendInline(text: String, colors: InlineColors, onUrl: (String) -> Unit) {
     var cursor = 0
     for (match in inlineRegex.findAll(text)) {
         if (match.range.first > cursor) append(text.substring(cursor, match.range.first))
@@ -237,29 +216,28 @@ private fun AnnotatedString.Builder.appendInline(text: String, colors: InlineCol
 
             token.startsWith("**") ->
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    appendInline(token.removeSurrounding("**"), colors)
+                    appendInline(token.removeSurrounding("**"), colors, onUrl)
                 }
 
             token.startsWith("~~") ->
                 withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
-                    appendInline(token.removeSurrounding("~~"), colors)
+                    appendInline(token.removeSurrounding("~~"), colors, onUrl)
                 }
 
             token.startsWith("*") ->
                 withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    appendInline(token.removeSurrounding("*"), colors)
+                    appendInline(token.removeSurrounding("*"), colors, onUrl)
                 }
 
             token.startsWith("[") -> {
                 val label = token.substringBefore("](").removePrefix("[")
                 val url = token.substringAfter("](").removeSuffix(")")
-                appendLink(label, url, colors)
+                appendLink(label, url, colors, onUrl)
             }
 
             else -> {
-                // Bare URL: keep trailing punctuation ("see https://x.y.") out of the link.
                 val url = token.trimEnd('.', ',', ';', ':', '!', '?')
-                appendLink(url, url, colors)
+                appendLink(url, url, colors, onUrl)
                 append(token.substring(url.length))
             }
         }
@@ -268,12 +246,19 @@ private fun AnnotatedString.Builder.appendInline(text: String, colors: InlineCol
     if (cursor < text.length) append(text.substring(cursor))
 }
 
-private fun AnnotatedString.Builder.appendLink(label: String, url: String, colors: InlineColors) {
-    pushStringAnnotation(URL_TAG, url)
-    withStyle(SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline)) {
+private fun AnnotatedString.Builder.appendLink(label: String, url: String, colors: InlineColors, onUrl: (String) -> Unit) {
+    val linkAnnotation = LinkAnnotation.Url(
+        url = url,
+        styles = TextLinkStyles(
+            style = SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline)
+        ),
+        linkInteractionListener = {
+            onUrl(url)
+        }
+    )
+    withLink(linkAnnotation) {
         append(label)
     }
-    pop()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -297,66 +282,79 @@ private val ruleRegex = Regex("""^([-*_])(\s*\1){2,}$""")
 private val lineBreakTagRegex = Regex("""<br\s*/?>""", RegexOption.IGNORE_CASE)
 
 private fun parseMarkdown(source: String): List<MdBlock> {
+    val lines = source.lines()
     val blocks = mutableListOf<MdBlock>()
-    val lines = source
-        .replace("\r\n", "\n")
-        .replace(lineBreakTagRegex, "\n")
-        .lines()
-
     var inCode = false
-    val code = StringBuilder()
+    val codeBuffer = StringBuilder()
+    var quoteBuffer = StringBuilder()
 
-    for (raw in lines) {
-        // Fenced code block (```), kept verbatim until the closing fence.
-        if (raw.trimStart().startsWith("```")) {
+    fun flushQuote() {
+        if (quoteBuffer.isNotEmpty()) {
+            blocks.add(MdBlock.Quote(quoteBuffer.toString().trim()))
+            quoteBuffer = StringBuilder()
+        }
+    }
+
+    for (rawLine in lines) {
+        val line = rawLine.trimEnd()
+
+        if (line.startsWith("```")) {
+            flushQuote()
             if (inCode) {
-                blocks.add(MdBlock.Code(code.toString().trimEnd()))
-                code.clear()
+                blocks.add(MdBlock.Code(codeBuffer.toString().trimEnd()))
+                codeBuffer.clear()
                 inCode = false
             } else {
                 inCode = true
             }
             continue
         }
+
         if (inCode) {
-            code.appendLine(raw)
+            codeBuffer.appendLine(rawLine)
             continue
         }
 
-        val line = raw.trimEnd()
-        val t = line.trim()
-        if (t.isEmpty()) continue
+        if (line.startsWith(">")) {
+            if (quoteBuffer.isNotEmpty()) quoteBuffer.append(" ")
+            quoteBuffer.append(line.removePrefix(">").trim())
+            continue
+        } else {
+            flushQuote()
+        }
 
-        val indent = line.length - line.trimStart().length
-        val level = (indent / 2).coerceIn(0, 3)
+        if (line.isBlank()) continue
 
-        val heading = headingRegex.find(t)
-        val bullet = bulletRegex.find(t)
-        val numbered = numberedRegex.find(t)
+        val cleanLine = line.replace(lineBreakTagRegex, " ")
 
         when {
-            ruleRegex.matches(t) -> blocks.add(MdBlock.Rule)
-            heading != null -> blocks.add(
-                MdBlock.Heading(heading.groupValues[1].length, heading.groupValues[2].trim())
-            )
-            t.startsWith(">") -> blocks.add(MdBlock.Quote(t.removePrefix(">").trim()))
-            bullet != null -> blocks.add(MdBlock.Bullet(level, taskBox(bullet.groupValues[1])))
-            numbered != null -> blocks.add(
-                MdBlock.Numbered(numbered.groupValues[1], level, numbered.groupValues[2])
-            )
-            else -> blocks.add(MdBlock.Paragraph(t))
+            ruleRegex.matches(cleanLine.trim()) -> blocks.add(MdBlock.Rule)
+
+            headingRegex.matches(cleanLine) -> {
+                val match = headingRegex.find(cleanLine)!!
+                val level = match.groupValues[1].length
+                val text = match.groupValues[2]
+                blocks.add(MdBlock.Heading(level, text))
+            }
+
+            bulletRegex.matches(cleanLine) -> {
+                val indent = rawLine.takeWhile { it == ' ' }.length
+                val text = bulletRegex.find(cleanLine)!!.groupValues[1]
+                blocks.add(MdBlock.Bullet(level = indent / 2, text = text))
+            }
+
+            numberedRegex.matches(cleanLine) -> {
+                val indent = rawLine.takeWhile { it == ' ' }.length
+                val match = numberedRegex.find(cleanLine)!!
+                val num = match.groupValues[1]
+                val text = match.groupValues[2]
+                blocks.add(MdBlock.Numbered(number = num, level = indent / 2, text = text))
+            }
+
+            else -> blocks.add(MdBlock.Paragraph(cleanLine))
         }
     }
 
-    // A code fence that was never closed still shows what was written.
-    if (inCode && code.isNotEmpty()) blocks.add(MdBlock.Code(code.toString().trimEnd()))
-
+    flushQuote()
     return blocks
-}
-
-/** "- [ ] item" / "- [x] item" show as ☐ / ☑. */
-private fun taskBox(text: String): String = when {
-    text.startsWith("[ ] ") -> "☐ " + text.drop(4)
-    text.startsWith("[x] ", ignoreCase = true) -> "☑ " + text.drop(4)
-    else -> text
 }
