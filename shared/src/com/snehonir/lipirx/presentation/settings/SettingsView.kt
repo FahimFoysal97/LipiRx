@@ -1,11 +1,15 @@
 package com.snehonir.lipirx.presentation.settings
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -191,7 +196,6 @@ import com.snehonir.lipirx.resources.studio_title
 import com.snehonir.lipirx.resources.theme_dark
 import com.snehonir.lipirx.resources.theme_light
 import com.snehonir.lipirx.resources.theme_system_default
-import com.snehonir.lipirx.resources.update_checking
 import com.snehonir.lipirx.ui.BackHandler
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.ApiKeyVectorIcon
@@ -280,15 +284,11 @@ fun SettingsView(
 
         if (agentProvider.requiresApiKey) {
             val key = keyFor(agentProvider.id)
-            if (key.isBlank()) {
-                true
-            } else if (availableModels.isEmpty()) {
-                true
-            } else if (selectedModel.isNotBlank() && !availableModels.contains(selectedModel)) {
-                true
-            } else {
-                selectedModel.isBlank()
-            }
+            key.isBlank()
+                    || availableModels.isEmpty()
+                    || selectedModel.isNotBlank()
+                    && !availableModels.contains(selectedModel)
+                    || selectedModel.isBlank()
         } else {
             selectedModel.isBlank() && availableModels.isEmpty()
         }
@@ -823,31 +823,62 @@ fun SettingsView(
                 val showInlineStatus = updateState !is UpdateState.Idle && updateState !is UpdateState.Checking
 
                 SettingsCard {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = stringResource(Res.string.app_name),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Lipi.Ink
-                        )
-                        Text(
-                            text = stringResource(Res.string.label_app_version, currentVer),
-                            fontSize = 12.5.sp,
-                            color = Lipi.Muted
-                        )
-                    }
-
-                    SecondaryButton(
-                        text = stringResource(
-                            if (isChecking) Res.string.update_checking else Res.string.btn_check_for_updates
-                        ),
-                        icon = Icons.Default.Refresh,
-                        enabled = !isBusy,
-                        onClick = { updateManager.checkForUpdates(silent = false, fromSettings = true) },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        height = 48.dp,
-                        fontSize = 14
-                    )
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f).padding(end = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.app_name),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Lipi.Ink
+                            )
+                            Text(
+                                text = stringResource(Res.string.label_app_version, currentVer),
+                                fontSize = 12.5.sp,
+                                color = Lipi.Muted
+                            )
+                        }
+
+                        AnimatedContent(
+                            targetState = isChecking,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(250))
+                            },
+                            label = "UpdateCheckAnimation"
+                        ) { checking ->
+                            if (checking) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Lipi.Surface,
+                                    border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.5f)),
+                                    modifier = Modifier.wrapContentSize()
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier
+                                            .padding(8.dp)
+                                            .size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Lipi.Primary
+                                    )
+                                }
+                            } else {
+                                SecondaryButton(
+                                    text = stringResource(Res.string.btn_check_for_updates),
+                                    icon = Icons.Default.Refresh,
+                                    enabled = !isBusy,
+                                    onClick = { updateManager.checkForUpdates(silent = false, fromSettings = true) },
+                                    height = 38.dp,
+                                    fontSize = 12
+                                )
+                            }
+                        }
+                    }
 
                     if (showInlineStatus) {
                         HorizontalDivider(color = Lipi.Outline.copy(alpha = 0.5f), thickness = 1.dp)
