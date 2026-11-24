@@ -6,7 +6,7 @@
 [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
-[![Release v0.5.3](https://img.shields.io/badge/Release_v0.5.3-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![Release v0.6.0](https://img.shields.io/badge/Release_v0.6.0-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![MIT License](https://img.shields.io/badge/License-MIT-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
@@ -41,7 +41,8 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 1. **Supervisor-Driven Multi-Agent Orchestration (JetBrains Koog)**:
     - Configurable **Per-Agent AI Assignments Matrix** allowing developers and pharmacists to assign specific primary providers/models AND dedicated fallback providers/models for every agent (including `📱 On-Device SLM`).
     - Single-expanded **accordion card behavior** in Settings preventing visual clutter.
-    - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`decision.reasoning`), per-agent task completion percentages (`0% → 100%`), active agent name banners, and execution timing logs.
+    - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`decision.reasoning`), per-agent task completion percentages (`0% → 100%`), active agent name banners, animated feed card expansion (`animateContentSize`), and execution timing logs.
+    - **Explicit "View Results" Completion UX**: Replaced automatic completion transitions with an explicit "View Results" primary action on `LoadingView`, allowing pharmacists and developers to inspect the full multi-agent progress and reasoning feed prior to navigating to results.
 
 2. **Self-Healing & 3-Attempt Retry Execution Wrappers**:
     - **Cloud AI 3-Attempt Retry Rule**: `CompositeAiService` attempts primary Cloud AI model requests up to 3 times before triggering the agent's assigned fallback model.
@@ -57,7 +58,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - Grouped raw execution traces into **Per-Scan Session Accordion Cards** (`TelemetryScanSession`), displaying pipeline duration (formatted in hours, minutes, seconds, and milliseconds via localized string resources), total hops, extracted item count, pass/fail status, and AI Engine summary (`Gemini • gemini-2.5-flash` or `Multi-Provider (Gemini, OpenAI)`).
     - **Individual Session Trace Deletion**: Delete single scan trace sessions or clear all telemetry records with confirmation dialogs.
     - Single-card accordion expansion behavior revealing detailed in-card per-turn agent reasoning and diagnostics.
-    - Permanent **"Run Benchmark"** action bar in the telemetry header for instant evaluation triggers.
+    - Permanent **"Run Benchmark"** action bar with updated action icons (`PlayArrow`) in the telemetry header for instant evaluation triggers.
 
 5. **Embedded Model Context Protocol (MCP) & OS Integration**:
     - JSON-RPC 2.0 server (`LipiRxMcpServer`) and local HTTP listener (`McpHttpServer` on port `8080`).
