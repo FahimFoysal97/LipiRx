@@ -12,38 +12,38 @@ set "C_RESET=%ESC%[0m"
 
 set "VERSION="
 for /f "tokens=2 delims=: " %%a in ('findstr /i "versionName" androidApp\module.yaml') do set "VERSION=%%a"
-if defined VERSION (set "VERSION=%VERSION:"=%") else (set "VERSION=0.5.2")
+if defined VERSION (set "VERSION=%VERSION:"=%") else (set "VERSION=0.6.1")
 
 set KEYSTORE=lipirx-release-key.jks
 set ALIAS=lipirx-key
 
 if not defined JAVA_HOME (
-    if exist "C:\Program Files\Android\Android Studio\jbr" (
-        set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
-        set "PATH=C:\Program Files\Android\Android Studio\jbr\bin;%PATH%"
-    )
+if exist "C:\Program Files\Android\Android Studio\jbr" (
+set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+set "PATH=C:\Program Files\Android\Android Studio\jbr\bin;%PATH%"
+)
 )
 
 set "KEYTOOL_BIN="
 if exist "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" (
-    set "KEYTOOL_BIN=C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe"
+set "KEYTOOL_BIN=C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe"
 ) else if defined JAVA_HOME if exist "%JAVA_HOME%\bin\keytool.exe" (
-    set "KEYTOOL_BIN=%JAVA_HOME%\bin\keytool.exe"
+set "KEYTOOL_BIN=%JAVA_HOME%\bin\keytool.exe"
 ) else (
-    set "KEYTOOL_BIN=keytool"
+set "KEYTOOL_BIN=keytool"
 )
 
 if not exist "%KEYSTORE%" (
-    echo %C_YELLOW%ℹ Creating new release keystore: %KEYSTORE% ...%C_RESET%
-    "%KEYTOOL_BIN%" -genkey -v -keystore "%KEYSTORE%" -keyalg RSA -keysize 2048 -validity 10000 -alias "%ALIAS%"
-    if errorlevel 1 (
-        if not exist "%KEYSTORE%" (
-            echo %C_RED%%C_BOLD%✖ ERROR: Keystore creation failed.%C_RESET%
-            exit /b 1
-        )
-    )
+echo %C_YELLOW%ℹ Creating new release keystore: %KEYSTORE% ...%C_RESET%
+"%KEYTOOL_BIN%" -genkey -v -keystore "%KEYSTORE%" -keyalg RSA -keysize 2048 -validity 10000 -alias "%ALIAS%"
+if errorlevel 1 (
+if not exist "%KEYSTORE%" (
+echo %C_RED%%C_BOLD%✖ ERROR: Keystore creation failed.%C_RESET%
+exit /b 1
+)
+)
 ) else (
-    echo %C_GREEN%✔ Using existing release keystore: %KEYSTORE%%C_RESET%
+echo %C_GREEN%✔ Using existing release keystore: %KEYSTORE%%C_RESET%
 )
 
 echo.
@@ -57,21 +57,25 @@ echo %C_CYAN%ℹ Signing Release APK with %KEYSTORE% ...%C_RESET%
 
 set "APKSIGNER="
 if defined ANDROID_HOME if exist "%ANDROID_HOME%\build-tools" (
-    for /f "delims=" %%i in ('where /r "%ANDROID_HOME%\build-tools" apksigner.bat 2^>nul') do set "APKSIGNER=%%i"
+for /f "delims=" %%i in ('where /r "%ANDROID_HOME%\build-tools" apksigner.bat 2^>nul') do set "APKSIGNER=%%i"
 )
 if "%APKSIGNER%"=="" if exist "%LOCALAPPDATA%\Android\Sdk\build-tools" (
-    for /f "delims=" %%i in ('where /r "%LOCALAPPDATA%\Android\Sdk\build-tools" apksigner.bat 2^>nul') do set "APKSIGNER=%%i"
+for /f "delims=" %%i in ('where /r "%LOCALAPPDATA%\Android\Sdk\build-tools" apksigner.bat 2^>nul') do set "APKSIGNER=%%i"
 )
 
 if "%APKSIGNER%"=="" (
-    echo %C_RED%%C_BOLD%✖ ERROR: Could not locate apksigner.bat in Android SDK.%C_RESET%
-    exit /b 1
+echo %C_RED%%C_BOLD%✖ ERROR: Could not locate apksigner.bat in Android SDK.%C_RESET%
+exit /b 1
 )
 
 call "%APKSIGNER%" sign --ks "%KEYSTORE%" --ks-key-alias "%ALIAS%" --out "apks\LipiRx-v%VERSION%-release-signed.apk" "apks\LipiRx-v%VERSION%-release.apk"
-
-if errorlevel 0 (
-    echo.
-    echo %C_GREEN%%C_BOLD%✔ SUCCESS: Signed Release APK created at: apks\LipiRx-v%VERSION%-release-signed.apk%C_RESET%
-    echo.
+if errorlevel 1 (
+echo.
+echo %C_RED%%C_BOLD%✖ ERROR: APK signing failed (incorrect keystore password or invalid signature configuration).%C_RESET%
+echo.
+exit /b 1
 )
+
+echo.
+echo %C_GREEN%%C_BOLD%✔ SUCCESS: Signed Release APK created at: apks\LipiRx-v%VERSION%-release-signed.apk%C_RESET%
+echo.

@@ -50,5 +50,9 @@ if [ -z "$APKSIGNER" ]; then
 fi
 
 "$APKSIGNER" sign --ks $KEYSTORE --ks-key-alias $ALIAS --out "apks/LipiRx-v${VERSION}-release-signed.apk" "apks/LipiRx-v${VERSION}-release.apk"
+if [ $? -ne 0 ]; then
+    echo -e "\n${RED}${BOLD}✖ ERROR: APK signing failed (incorrect keystore password or invalid signature configuration).${NC}\n"
+    exit 1
+fi
 
 echo -e "\n${GREEN}${BOLD}✔ SUCCESS: Signed Release APK created at: apks/LipiRx-v${VERSION}-release-signed.apk${NC}\n"
