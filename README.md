@@ -42,6 +42,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - Configurable **Per-Agent AI Assignments Matrix** allowing developers and pharmacists to assign specific primary providers/models AND dedicated fallback providers/models for every agent (including `📱 On-Device SLM`).
     - Single-expanded **accordion card behavior** in Settings preventing visual clutter.
     - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`decision.reasoning`), per-agent task completion percentages (`0% → 100%`), active agent name banners, animated feed card expansion (`animateContentSize`), and execution timing logs.
+    - **Parallel Multi-Agent Tool Dispatch**: `KoogRxSupervisorEngine` supports dispatching independent worker agents (such as `GENERIC_SUBSTITUTE` and `SAFETY_AUDITOR`) concurrently using Kotlin coroutines, significantly accelerating overall scan execution time.
     - **Explicit "View Results" Completion UX**: Replaced automatic completion transitions with an explicit "View Results" primary action on `LoadingView`, allowing pharmacists and developers to inspect the full multi-agent progress and reasoning feed prior to navigating to results.
 
 2. **Self-Healing & 3-Attempt Retry Execution Wrappers**:
@@ -52,6 +53,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Navigation 3 Destination Architecture**: Type-safe destination state management via `AppNavKey` and `AppNavigator`. Back-stack state survives Android screen rotations and configuration changes using Compose `rememberSaveable` with a custom `Saver`.
     - **Dedicated Feature ViewModels & Koin DI**: Testable, feature-aligned ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`), bound in Koin dependency injection modules and isolated within modular package hierarchies (`presentation/home`, `preview`, `loading`, `results`, `history`, `settings`, `common`).
     - **60/120 FPS Smooth Theme Transition Engine**: Single-driver linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme`, animating all 22 custom design tokens and Material 3 color schemes seamlessly without recomposition lag.
+    - **System Bar Sync & Emerald Green Palette**: Refactored theme engine with a vibrant Emerald Green palette (`Color(0xFF0B7A6E)`), paper illustration tokens, launcher graphics, and system status/navigation bar appearance synchronization across platforms.
     - **3-Way Animated Theme Switcher**: 3-segment theme control in Settings featuring a spring-physics sliding highlight pill (`animateDpAsState` + `spring`) and smooth text/icon color transitions.
 
 4. **Per-Scan Accordion AgentOps Telemetry Dashboard**:
@@ -98,10 +100,14 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 11. **Safety, UX Controls & Interactive Medicine Editing**:
     - **Interactive Medicine Item Editing**: Edit scanned brand names, generic compositions, strength values/units, dosage schedules, duration, quantities, instructions, and review flags via modal `EditMedicineDialog`. Edits automatically persist to SQLite history and update POS copy summaries (read-only in audit history mode).
     - **API Key Visibility Toggle & Tap-Outside Focus Dismissal**: Mask/unmask API keys using inline eye toggle buttons (`EyeShowVectorIcon` / `EyeHideVectorIcon`), and tap anywhere outside input fields to clear keyboard focus.
+    - **Compose LinkAnnotation Markdown Parser**: Migrated markdown link rendering across description views to Compose `LinkAnnotation` with refined link parsing logic.
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
     - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
     - **100% Resource Localization**: Zero hardcoded UI strings; all texts externalized into `composeResources/values/strings.xml`.
     - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
+
+12. **Android AppFunctions, App Actions & Launcher Shortcuts**:
+    - **App Actions & Deep Linking**: Integrated `androidx.appfunctions` with system shortcuts (`shortcuts.xml`) and App Actions, enabling users to launch prescription scans directly from launcher icons or system assistant commands.
 
 ---
 
@@ -196,8 +202,9 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 ## 🛠️ Tech Stack & Architecture
 
 - **Platforms**: Android & iOS
-- **UI Framework**: Compose Multiplatform with Material 3 (adaptive layouts, high-contrast custom themes & 3-way mode toggle)
-- **Multi-Agent Pipeline**: `KoogRxSupervisorEngine` + `RxSupervisorAgent` dispatching to type-safe `RxAgentTools`
+- **UI Framework**: Compose Multiplatform with Material 3 (Emerald Green theme palette, adaptive layouts, 3-way mode toggle, and platform system bar sync)
+- **Multi-Agent Pipeline**: `KoogRxSupervisorEngine` + `RxSupervisorAgent` supporting parallel worker tool dispatching to type-safe `RxAgentTools`
+- **Android Integration**: Android AppFunctions (`androidx.appfunctions`), launcher shortcuts (`shortcuts.xml`), and App Actions deep linking
 - **Navigation**: Jetpack Navigation 3 destination state management (`AppNavKey`, `AppNavigator`) with `rememberSaveable` back-stack state persistence across orientation changes
 - **Architecture**: MVVM + Feature-based ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`)
 - **Session State Management**: Centralized `PrescriptionSessionState` managing active scan sessions, isolating history record inspection (`activeScanMedicines`)

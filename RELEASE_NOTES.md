@@ -1,28 +1,27 @@
-# LipiRx v0.6.0 - Room 3 KMP Database Migration, Modular Koin DI & Explicit Completion UX
+# LipiRx v0.6.0 - Parallel Multi-Agent Execution, Redesigned Loading UX, AppFunctions & Emerald Theme
 
-LipiRx v0.6.0 migrates the local persistence layer to Room 3 KMP (`androidx.room3`), modularizes the Koin dependency injection graph, fixes Room main-thread database access guards, introduces explicit manual completion stepping for prescription scanning, and updates AgentOps telemetry controls.
+LipiRx v0.6.0 introduces parallel multi-agent tool execution in the Koog Supervisor Engine, a completely redesigned 5-stage analysis loading screen with explicit "View Results" manual completion, Android AppFunctions & App Actions deep link shortcuts, an upgraded Emerald Green design palette with system bar synchronization, and refactored AI fallback resilience.
 
 ### ✨ New
-- **Explicit Manual Completion Step**: Replaced automatic completion navigation to results with an explicit "View Results" primary action button on `LoadingView` and `AnalysisLoadingScreen`, giving pharmacists and developers full visibility over the completed multi-agent execution feed before advancing.
-- **Room 3 KMP Migration**: Migrated local database persistence from SQLDelight to Room 3 (`androidx.room3:room3-runtime:3.0.3`) with `androidx.sqlite:sqlite-bundled:2.7.1` across Android and iOS targets.
-- **Koin DI Modularization**: Reorganized the Koin dependency injection graph into 6 sub-modules (`networkModule`, `databaseModule`, `aiAgentModule`, `mcpModule`, `domainModule`, and `presentationModule`).
-- **Real-Time MCP Controller Toggle**: Connected `ManageProviderConfigUseCase.saveMcpServerEnabled()` to `McpServerController.setEnabled()`, allowing the MCP HTTP server on port 8080 to start/stop immediately when toggled in Settings.
+- **Parallel Multi-Agent Execution**: `KoogRxSupervisorEngine` now supports dispatching independent worker agents (e.g., `GENERIC_SUBSTITUTE` and `SAFETY_AUDITOR`) concurrently using Kotlin coroutines, significantly reducing overall prescription analysis latency.
+- **Explicit Manual Completion Step**: Replaced automatic completion transitions with an explicit "View Results" primary action on `LoadingView` and `AnalysisLoadingScreen`, allowing pharmacists and developers to inspect live Supervisor reasoning and the full multi-agent feed prior to navigating to results.
+- **Android AppFunctions & Launcher Shortcuts**: Integrated `androidx.appfunctions` with App Actions deep links and launcher shortcuts (`shortcuts.xml`) for instant prescription scan triggers.
+- **System Bar Sync & Emerald Green Palette**: Refactored the design system with a new Emerald Green palette (`Color(0xFF0B7A6E)`), updated launcher icon graphics, paper illustration tokens, and system status/navigation bar theme synchronization across platforms.
 
 ### 🚀 Improved
-- **Loading View UI & Live Feed Animations**: Added smooth `animateContentSize` expansion animations to `FeedCard` in `LoadingView.kt` and added a dedicated completed state Compose `@Preview` (`LoadingViewCompletePreview`).
+- **5-Stage Analysis Loading UI (`LoadingView`)**: Redesigned loading view featuring segmented prescription scanner card animations, expandable Supervisor reasoning card, worker status indicators (`0% → 100%`), and an animated live progress feed (`FeedCard` with `animateContentSize`).
+- **AI Service Retry & Fallback Architecture**: Refactored `CompositeAiService` fallback routing, improved 3-attempt retry rules, and sanitized prompt building in `RxAgentTools`.
+- **Settings Update UI & Accessibility**: Redesigned inline update check UI in Settings, enhanced accessibility screen semantics, and improved provider setup feedback.
+- **Markdown Link Rendering**: Migrated UI markdown text rendering to Compose `LinkAnnotation` with refined link parsing logic.
 - **Telemetry Benchmark Actions**: Updated sample benchmark action icons from `Refresh` to `PlayArrow` across `AgentTelemetryScreen.kt` for clearer execution semantics.
-- **Dynamic Model Refresh in Image Preview**: `ImagePreviewViewModel` now re-fetches the latest `agentConfigs` dynamically before processing prescription images, ensuring model switches made in Settings immediately apply to analysis pipeline execution.
-- **Room 3 Coroutine Safety**: Offloaded synchronous database calls in `LipiRxRoomRepository` to `Dispatchers.IO` via `runBlocking(Dispatchers.IO)`, satisfying Room 3 thread safety guards.
 
 ### 🐞 Fixed
 - **Premature Loading Completion Guard**: Fixed `isComplete` evaluation in `LoadingView.kt` so `!isLoading` only flags completion when the pipeline has progressed past `PipelinePhase.PLANNING`, preventing premature navigation triggers on initial composition.
 - **Redundant Back Handler Cleanup**: Removed shadowed and unreachable `AppNavKey.AnalysisLoading` back handling logic from `App.kt`.
-- **Room Main-Thread Guard Crash**: Resolved `IllegalStateException: Cannot access database on the main thread` triggered during UI touch callbacks and app initialization.
-- **Configuration & API Key Persistence**: Fixed API keys, custom URLs, theme modes, and model selections persisting reliably across app restarts.
+- **Cancellation & Back Navigation in Loading Screen**: Streamlined `BackHandler` logic during analysis loading to properly cancel active supervisor jobs and return to preview cleanly.
 
 ### 🛠 Under the hood
+- Refactored KMP unit test suite into modular architecture and automated MCP server toggle in tests (`test_mcp.py`, `build_and_install.py`).
 - Externalized `btn_view_results` ("View Results") string resource into `composeResources/values/strings.xml`.
-- Reorganized remote AI service implementations into `com.snehonir.lipirx.data.remote.service` and prompt constants into `com.snehonir.lipirx.data.remote.prompt`.
-- Updated ProGuard keep rules for Room 3 database components and SQLite drivers.
 
 **Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.5.3...v0.6.0
