@@ -46,7 +46,7 @@ def get_app_version() -> str:
         match = re.search(r'versionName:\s*["\']?([^"\']+)["\']?', text)
         if match:
             return match.group(1).strip()
-    return "0.6.0"
+    return "0.6.1"
 
 def run_cmd(cmd: list, check: bool = True) -> int:
     log_info(f"Running: {' '.join(cmd)}")
