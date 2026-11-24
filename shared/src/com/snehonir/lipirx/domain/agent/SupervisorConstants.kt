@@ -34,8 +34,4 @@ object SupervisorConstants {
     const val PROMPT_PROVIDE_SUBSTITUTES = "Provide 3 to 5 Bangladeshi brand substitutes per item."
     const val PROMPT_PARALLEL_ENRICHMENT = "Provide Bangladeshi brand substitutes and audit clinical dosage safety in parallel."
     const val PROMPT_AUDIT_RISKS = "Audit safety risks and unreadable spellings."
-
-    // Engine & Progress Messages
-    const val PROGRESS_EVALUATING_WORKSPACE = "Manager Agent evaluating workspace state & initiating orchestration..."
-    const val PROGRESS_FINALIZING_AUDIT = "Finalizing clinical safety audit & pharmacist review gate..."
 }

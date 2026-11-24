@@ -109,6 +109,11 @@
     <string name="step_substitute_finder">Generic &amp; Substitute Finder</string>
     <string name="step_safety_auditor">Patient Safety Auditor</string>
     <string name="btn_stop_analysis">Stop Analysis</string>
+    <string name="dialog_stop_title">Stop analysis?</string>
+    <string name="dialog_stop_message">Your progress will be lost and you\'ll need to start again.</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_keep_waiting">Keep waiting</string>
+    <string name="hint_taking_longer">Taking a bit longer than usual. Hang tight.</string>
 
     <!-- Status & Progress Messages -->
     <string name="status_encoding_payload">Encoding image &amp; payload...</string>
@@ -117,6 +122,43 @@
     <string name="status_finding_substitutes">Finding DGDA generic brand substitutes...</string>
     <string name="status_auditing_safety">Auditing clinical dosage safety...</string>
     <string name="status_retrying_vision">Retrying Vision AI request...</string>
+    <string name="status_evaluating_workspace">Manager Agent evaluating workspace state &amp; initiating orchestration...</string>
+    <string name="status_finalizing_audit">Finalizing clinical safety audit &amp; pharmacist review gate...</string>
+    <string name="status_initiating_analysis">Initiating Vision AI Analysis...</string>
+    <string name="status_agent_active">Agent active...</string>
+    <string name="error_analysis_failed">Analysis failed.</string>
+    <string name="error_please_select_image">Please select an image first.</string>
+    <string name="error_api_key_required">%1$s API key is required. Please set your API key in Model Settings.</string>
+    <string name="manager_title">Coordinating the checks</string>
+    <string name="phase_planning">Deciding the next step</string>
+    <string name="phase_running">Working on: %1$s</string>
+    <string name="phase_finalizing">Finishing up</string>
+    <string name="phase_waiting_pharmacist">Waiting for pharmacist review</string>
+    <string name="label_required_checks">Required checks</string>
+    <string name="label_checks_count">%1$d / %2$d</string>
+    <string name="label_running_together">Running together</string>
+    <string name="row_transcription">Reading the prescription</string>
+    <string name="row_entity">Identifying medicines</string>
+    <string name="row_generic">Finding alternatives</string>
+    <string name="row_safety">Safety review</string>
+    <string name="chip_flagged">Needs a look</string>
+    <string name="feed_preparing">Getting ready</string>
+    <string name="feed_start_transcription">Reading the prescription</string>
+    <string name="feed_start_entity">Checking names, strengths and schedules</string>
+    <string name="feed_start_generic">Finding generic names and alternatives</string>
+    <string name="feed_start_safety">Reviewing safety</string>
+    <string name="feed_double_check">Double-checking: %1$s</string>
+    <string name="feed_found_medicines">Medicines found: %1$d</string>
+    <string name="feed_entity_done">Names, strengths and schedules checked</string>
+    <string name="feed_generic_done">Generic names and alternatives found</string>
+    <string name="feed_safety_done">Safety review finished</string>
+    <string name="feed_safety_flagged">Needs a closer look: %1$s</string>
+    <string name="feed_safety_failed">Safety review could not finish. Please check carefully.</string>
+    <string name="feed_step_failed">Could not complete: %1$s</string>
+    <string name="feed_finalizing">Ready for your review</string>
+    <string name="feed_waiting_pharmacist">Paused for pharmacist review</string>
+    <string name="cd_show_details">Show details</string>
+    <string name="cd_hide_details">Hide details</string>
 
     <!-- Error & Success Messages -->
     <string name="error_api_key_missing">API key is missing for %1$s. Please enter your API key in AI Studio.</string>
@@ -258,10 +300,10 @@
 
     <!-- Telemetry Confirmation Dialogs & Status Strings -->
     <string name="progress_running_benchmark">Running benchmark...</string>
-    <string name="confirm_delete_scan_traces_title">Delete this scan\'s traces?</string>
-    <string name="confirm_delete_scan_traces_msg">This removes the %1$d recorded steps from %2$s. This can\'t be undone.</string>
+    <string name="confirm_delete_scan_traces_title">Delete this scan's traces?</string>
+    <string name="confirm_delete_scan_traces_msg">This removes the %1$d recorded steps from %2$s. This can't be undone.</string>
     <string name="confirm_clear_all_traces_title">Clear all traces?</string>
-    <string name="confirm_clear_all_traces_msg">This permanently deletes every recorded agent trace. This can\'t be undone.</string>
+    <string name="confirm_clear_all_traces_msg">This permanently deletes every recorded agent trace. This can't be undone.</string>
 
     <!-- Clinical Warnings & Pharmacist Gate -->
     <string name="gate_title">Pharmacist Review Required</string>
@@ -294,6 +336,7 @@
     <string name="hint_flat_light_tip">Tip: Lay the page flat in good light for the best read.</string>
     <string name="label_ai_pipeline">AI Pipeline</string>
     <string name="label_analysis_progress">Analysis progress</string>
+    <string name="label_parallel_ai">Parallel AI</string>
     <string name="label_step_of">Step %1$d of %2$d</string>
     <string name="label_one_medicine_found">1 medicine found</string>
     <string name="label_medicines_found">%1$d medicines found</string>

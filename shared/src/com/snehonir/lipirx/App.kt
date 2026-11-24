@@ -22,6 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.snehonir.lipirx.domain.agent.PipelinePhase
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
 import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.navigation.AppNavKey
@@ -94,11 +95,11 @@ fun LipiRxAppContent(
         }
     }
 
-    LaunchedEffect(sessionData.isLoading, sessionData.errorMessage) {
-        if (navigator.currentKey == AppNavKey.AnalysisLoading && !sessionData.isLoading) {
+    LaunchedEffect(sessionData.isLoading, sessionData.medicines.size, sessionData.errorMessage, navigator.currentKey) {
+        if (navigator.currentKey == AppNavKey.AnalysisLoading) {
             if (sessionData.errorMessage != null) {
                 navigator.replaceTop(AppNavKey.ImagePreview)
-            } else {
+            } else if (!sessionData.isLoading && sessionData.progress.phase != PipelinePhase.PLANNING) {
                 navigator.replaceTop(AppNavKey.Results)
             }
         }

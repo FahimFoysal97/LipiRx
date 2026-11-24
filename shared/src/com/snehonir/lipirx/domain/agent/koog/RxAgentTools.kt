@@ -108,7 +108,8 @@ class RxAgentTools(
                     units = agentItem.units.takeIf { it > 0 } ?: baseItem.units,
                     needsReview = baseItem.needsReview || agentItem.needsReview,
                     possibleMisreading = agentItem.possibleMisreading.ifBlank { baseItem.possibleMisreading },
-                    confidence = agentItem.confidence.ifBlank { baseItem.confidence }
+                    confidence = agentItem.confidence.ifBlank { baseItem.confidence },
+                    enrichmentConfidence = agentItem.enrichmentConfidence.ifBlank { baseItem.enrichmentConfidence }
                 )
             }
         }

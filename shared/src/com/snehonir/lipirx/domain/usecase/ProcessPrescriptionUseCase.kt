@@ -3,6 +3,7 @@ package com.snehonir.lipirx.domain.usecase
 import com.snehonir.lipirx.data.remote.service.CompositeAiService
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.OrchestrationResult
+import com.snehonir.lipirx.domain.agent.PipelineEvent
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.agent.koog.KoogRxSupervisorEngine
@@ -15,12 +16,12 @@ class ProcessPrescriptionUseCase(
     suspend fun executePipeline(
         input: TranscriptionInput,
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-        onProgress: (agentType: RxAgentType, reasoning: String) -> Unit = { _, _ -> }
+        onEvent: (PipelineEvent) -> Unit = {}
     ): Result<OrchestrationResult> {
         return koogSupervisorEngine.runOrchestration(
             input = input,
             agentConfigs = agentConfigs,
-            onProgress = onProgress
+            onEvent = onEvent
         )
     }
 

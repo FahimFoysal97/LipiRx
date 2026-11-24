@@ -2,6 +2,8 @@ package com.snehonir.lipirx.domain.session
 
 import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.RxAgentType
+import com.snehonir.lipirx.domain.agent.PipelineEvent
+import com.snehonir.lipirx.domain.agent.PipelineProgress
 import com.snehonir.lipirx.domain.model.MedicineItem
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -23,6 +25,7 @@ data class SessionData(
     val loadingStatusText: String = "",
     val activeAgentProgressPercent: Int = 0,
     val currentAgent: RxAgentType = RxAgentType.SUPERVISOR,
+    val progress: PipelineProgress = PipelineProgress(),
     val medicines: ImmutableList<MedicineItem> = persistentListOf(),
     val activeScanMedicines: ImmutableList<MedicineItem> = persistentListOf(),
     val isSuspendedForApproval: Boolean = false,
@@ -39,6 +42,7 @@ data class SessionData(
         if (loadingStatusText != other.loadingStatusText) return false
         if (activeAgentProgressPercent != other.activeAgentProgressPercent) return false
         if (currentAgent != other.currentAgent) return false
+        if (progress != other.progress) return false
         if (imageByteArray != null) {
             if (other.imageByteArray == null) return false
             if (!imageByteArray.contentEquals(other.imageByteArray)) return false
@@ -59,6 +63,7 @@ data class SessionData(
         result = 31 * result + loadingStatusText.hashCode()
         result = 31 * result + activeAgentProgressPercent.hashCode()
         result = 31 * result + currentAgent.hashCode()
+        result = 31 * result + progress.hashCode()
         result = 31 * result + (imageByteArray?.contentHashCode() ?: 0)
         result = 31 * result + medicines.hashCode()
         result = 31 * result + activeScanMedicines.hashCode()
@@ -79,6 +84,7 @@ class PrescriptionSessionState {
 
     fun startPipelineAnalysis(block: suspend () -> Unit) {
         cancelActiveAnalysis()
+        _session.update { it.copy(isLoading = true) }
         activeAnalysisJob = scope.launch {
             block()
         }
@@ -92,9 +98,15 @@ class PrescriptionSessionState {
                 isLoading = false,
                 loadingStep = 0,
                 loadingStatusText = "",
-                activeAgentProgressPercent = 0
+                activeAgentProgressPercent = 0,
+                progress = PipelineProgress()
             )
         }
+    }
+
+    /** Entry point for the engine's onEvent callback. */
+    fun applyProgress(event: PipelineEvent) {
+        _session.update { it.copy(progress = it.progress.reduce(event)) }
     }
 
     fun setImageBytes(bytes: ByteArray?) {

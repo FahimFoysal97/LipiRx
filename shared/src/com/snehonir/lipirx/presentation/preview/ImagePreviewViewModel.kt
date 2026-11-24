@@ -11,18 +11,24 @@ import com.snehonir.lipirx.domain.session.PrescriptionSessionState
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
 import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.error_api_key_required
+import com.snehonir.lipirx.resources.error_connection_failed
+import com.snehonir.lipirx.resources.error_enter_valid_gemini_key
+import com.snehonir.lipirx.resources.error_please_select_image
+import com.snehonir.lipirx.resources.loading_default_subtitle
+import io.github.aakira.napier.Napier
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlin.time.Duration.Companion.milliseconds
+import org.jetbrains.compose.resources.getString
 
 data class ImagePreviewUiState(
     val imageByteArray: ByteArray? = null,
@@ -46,7 +52,7 @@ data class ImagePreviewUiState(
     override fun hashCode(): Int {
         var result = imageByteArray?.contentHashCode() ?: 0
         result = 31 * result + agentConfigs.hashCode()
-        result = 31 * result + (errorMessage?.hashCode() ?: 0)
+        result = 31 * result + errorMessage.hashCode()
         return result
     }
 }
@@ -101,13 +107,16 @@ class ImagePreviewViewModel(
     }
 
     fun processSelectedImage(
-        flow: String = "App -> ImagePreviewViewModel.processSelectedImage",
+        flow: String = "App -> $TAG.processSelectedImage",
         onStarted: (Boolean) -> Unit = {}
     ) {
         val bytes = sessionState.session.value.imageByteArray
         if (bytes == null || bytes.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "Please select an image first.") }
-            onStarted(false)
+            viewModelScope.launch {
+                val err = getString(Res.string.error_please_select_image)
+                _uiState.update { it.copy(errorMessage = err) }
+                onStarted(false)
+            }
             return
         }
 
@@ -124,7 +133,7 @@ class ImagePreviewViewModel(
             val visionApiKey = manageProviderConfigUseCase.getApiKeyForProvider(visionProvider.id)
 
             if (visionProvider.requiresApiKey && visionApiKey.isBlank()) {
-                val errorMsg = "${visionProvider.displayName} API key is required. Please set your API key in Model Settings."
+                val errorMsg = getString(Res.string.error_api_key_required, visionProvider.displayName)
                 _uiState.update { it.copy(errorMessage = errorMsg) }
                 sessionState.setResults(medicines = emptyList(), error = errorMsg)
                 onStarted(false)
@@ -155,60 +164,65 @@ class ImagePreviewViewModel(
                 fallbackApiKey = fallbackApiKey
             )
 
+            val initialStatus = getString(Res.string.loading_default_subtitle)
+
             sessionState.setLoadingState(
                 isLoading = true,
                 step = 0,
-                statusText = "Initiating Vision AI Analysis...",
-                progressPercent = 10,
-                agent = RxAgentType.SUPERVISOR
+                statusText = initialStatus,
+                progressPercent = 10
             )
             onStarted(true)
 
             sessionState.startPipelineAnalysis {
-                val result = processPrescriptionUseCase.executePipeline(
-                    input = input,
-                    agentConfigs = currentAgentConfigs,
-                    onProgress = { agentType, reasoning ->
-                        sessionState.setLoadingState(
-                            isLoading = true,
-                            step = agentType.ordinal,
-                            statusText = reasoning.ifBlank { "Agent active..." },
-                            progressPercent = 100,
-                            agent = agentType
-                        )
-                    }
-                )
+                try {
+                    val result = processPrescriptionUseCase.executePipeline(
+                        input = input,
+                        agentConfigs = currentAgentConfigs,
+                        onEvent = sessionState::applyProgress
+                    )
 
-                result.fold(
-                    onSuccess = { orchResult ->
-                        delay(800.milliseconds)
-                        sessionState.setResults(
-                            medicines = orchResult.items,
-                            isSuspended = orchResult.isSuspendedForApproval,
-                            approvalReason = orchResult.approvalReason.ifBlank { null }
-                        )
+                    result.fold(
+                        onSuccess = { orchResult ->
+                            sessionState.setResults(
+                                medicines = orchResult.items,
+                                isSuspended = orchResult.isSuspendedForApproval,
+                                approvalReason = orchResult.approvalReason.ifBlank { null }
+                            )
 
-                        runCatching {
-                            val dbFlow = "$flow -> saveSummary"
-                            val summaryJson = runCatching { jsonParser.encodeToString(orchResult.items) }.getOrDefault("")
-                            val summaryToSave = summaryJson.ifBlank {
-                                orchResult.items.joinToString("; ") { "${it.formattedFullName} (${it.genericName}) [${it.schedule}] Qty: ${it.formattedQuantity}" }
+                            runCatching {
+                                val dbFlow = "$flow -> saveSummary"
+                                val summaryJson = runCatching { jsonParser.encodeToString(orchResult.items) }.getOrDefault("")
+                                val summaryToSave = summaryJson.ifBlank {
+                                    orchResult.items.joinToString("; ") { "${it.formattedFullName} (${it.genericName}) [${it.schedule}] Qty: ${it.formattedQuantity}" }
+                                }
+                                if (summaryToSave.isNotBlank() && orchResult.items.isNotEmpty()) {
+                                    getScanHistoryUseCase.saveSummary(summaryToSave, timestampMillis = analyzeStartTime, flow = dbFlow)
+                                    getScanHistoryUseCase.saveDispensedHistory(orchResult.items, flow = dbFlow)
+                                }
+                            }.onFailure { ex ->
+                                Napier.w("[$flow -> History Save Exception] ${ex.message}", throwable = ex, tag = TAG)
                             }
-                            if (summaryToSave.isNotBlank() && orchResult.items.isNotEmpty()) {
-                                getScanHistoryUseCase.saveSummary(summaryToSave, timestampMillis = analyzeStartTime, flow = dbFlow)
-                                getScanHistoryUseCase.saveDispensedHistory(orchResult.items, flow = dbFlow)
-                            }
+                        },
+                        onFailure = { error ->
+                            if (error is CancellationException) throw error
+                            val fallbackFail = getString(Res.string.error_connection_failed)
+                            val errorMsg = error.message ?: fallbackFail
+                            sessionState.setResults(
+                                medicines = emptyList(),
+                                error = errorMsg
+                            )
                         }
-                    },
-                    onFailure = { error ->
-                        if (error is CancellationException) throw error
-                        val errorMsg = error.message ?: "Analysis failed."
-                        sessionState.setResults(
-                            medicines = emptyList(),
-                            error = errorMsg
-                        )
-                    }
-                )
+                    )
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Napier.e("[$flow -> Pipeline Execution Exception] ${e.message}", throwable = e, tag = TAG)
+                    val fallbackFail = getString(Res.string.error_connection_failed)
+                    sessionState.setResults(
+                        medicines = emptyList(),
+                        error = e.message ?: fallbackFail
+                    )
+                }
             }
         }
     }

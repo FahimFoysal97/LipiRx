@@ -1,26 +1,31 @@
 package com.snehonir.lipirx.domain.agent.koog
 
 import com.snehonir.lipirx.common.AppConstants.MAX_SUPERVISOR_TURNS
+import com.snehonir.lipirx.data.local.getPlatformEpochMillis
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.AgentExecutionRecord
 import com.snehonir.lipirx.domain.agent.OrchestrationResult
 import com.snehonir.lipirx.domain.agent.PipelineFailureReason
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
-import com.snehonir.lipirx.domain.agent.SupervisorConstants
+import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
 import com.snehonir.lipirx.domain.agent.SupervisorState
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
+import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
+import com.snehonir.lipirx.domain.agent.PipelineEvent
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.model.ClinicalApprovalReasons
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
-import com.snehonir.lipirx.data.local.getPlatformEpochMillis
-import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
-import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.status_evaluating_workspace
+import com.snehonir.lipirx.resources.status_finalizing_audit
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import org.jetbrains.compose.resources.getString
 
 class KoogRxSupervisorEngine(
     private val rxSupervisorAgent: RxSupervisorAgent,
@@ -32,10 +37,11 @@ class KoogRxSupervisorEngine(
         input: TranscriptionInput,
         initialItems: List<MedicineItem> = emptyList(),
         agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
-        onProgress: (agentType: RxAgentType, reasoning: String) -> Unit = { _, _ -> }
+        onProgress: (agentType: RxAgentType, reasoning: String) -> Unit = { _, _ -> },
+        onEvent: (PipelineEvent) -> Unit = {}
     ): Result<OrchestrationResult> {
         Napier.d("[$TAG] Starting JetBrains Koog Multi-Agent Supervisor Engine...", tag = TAG)
-        onProgress(RxAgentType.SUPERVISOR, SupervisorConstants.PROGRESS_EVALUATING_WORKSPACE)
+        onProgress(RxAgentType.SUPERVISOR, getString(Res.string.status_evaluating_workspace))
 
         val supervisorRuntime = resolveRuntimeConfig(
             agentType = RxAgentType.SUPERVISOR,
@@ -48,6 +54,8 @@ class KoogRxSupervisorEngine(
         val maxTurns = MAX_SUPERVISOR_TURNS
 
         while (!state.isFinished && state.turnCount < maxTurns) {
+            onEvent(PipelineEvent.Planning)
+
             val supervisorStartTime = getPlatformEpochMillis()
             val decision = rxSupervisorAgent.decideNextStep(
                 state = state,
@@ -73,11 +81,12 @@ class KoogRxSupervisorEngine(
                 break
             }
 
-            // Handle Explicit Multi-Agent Parallel Execution (e.g. Generic Substitute Search + Safety Audit)
+            // Explicit multi-agent parallel execution (e.g. Generic Substitute Search + Safety Audit)
             if (decision.parallelAgents.size > 1) {
                 val parallelWorkers = decision.parallelAgents
                 Napier.d("[$TAG -> Parallel Dispatch Turn ${state.turnCount + 1}] Concurrently executing worker agents: ${parallelWorkers.map { it.id }}...", tag = TAG)
                 onProgress(parallelWorkers.first(), decision.reasoning)
+                onEvent(PipelineEvent.Dispatched(parallelWorkers, decision.reasoning))
 
                 val supervisorRecord = AgentExecutionRecord(
                     agentType = RxAgentType.SUPERVISOR,
@@ -131,7 +140,6 @@ class KoogRxSupervisorEngine(
                 }
                 val agentTimeMs = getPlatformEpochMillis() - agentStartTime
 
-                // Record individual AgentOps trace logs for each parallel worker agent
                 parallelResults.forEach { (agentType, runtime, res) ->
                     repository.saveAgentTrace(
                         turnNumber = state.turnCount + 1,
@@ -146,31 +154,47 @@ class KoogRxSupervisorEngine(
                         errorMessage = res.exceptionOrNull()?.message ?: "",
                         flow = "KoogEngine -> ParallelToolTrace"
                     )
+                    onEvent(finishedEvent(agentType, res))
                 }
 
                 val mergedItems = rxAgentTools.mergeParallelResults(state.items, parallelResults.map { it.third })
-                val workerRecords = parallelResults.map { (agentType, _, _) ->
+                val workerRecords = parallelResults.map { (agentType, _, res) ->
                     AgentExecutionRecord(
                         agentType = agentType,
                         reasoning = decision.reasoning,
                         feedbackPrompt = decision.feedbackPrompt,
                         itemCount = mergedItems.size,
-                        executionTimeMs = agentTimeMs
+                        executionTimeMs = agentTimeMs,
+                        failureReason = res.exceptionOrNull()?.let { PipelineFailureReason.fromThrowable(it) }
                     )
                 }
 
+                // A safety audit only counts as done if it actually succeeded.
+                val safetyResult = parallelResults.firstOrNull { it.first == RxAgentType.SAFETY_AUDITOR }?.third
+                val safetyError = safetyResult?.exceptionOrNull()
+
                 state = state.copy(
                     items = mergedItems,
-                    safetyAudited = parallelWorkers.contains(RxAgentType.SAFETY_AUDITOR),
+                    safetyAudited = safetyResult?.isSuccess ?: state.safetyAudited,
                     history = state.history + supervisorRecord + workerRecords,
                     turnCount = state.turnCount + 1
                 )
+
+                if (safetyError != null) {
+                    val reason = PipelineFailureReason.fromThrowable(safetyError)
+                    state = state.copy(
+                        isSuspendedForApproval = true,
+                        approvalReason = ClinicalApprovalReasons.auditAgentFailed(reason.displayName)
+                    )
+                    break
+                }
                 continue
             }
 
             val targetAgentType = decision.nextAgent ?: break
             Napier.d("[$TAG -> Turn ${state.turnCount + 1}] Dispatching agent '${targetAgentType.id}' with reasoning: '${decision.reasoning}'", tag = TAG)
             onProgress(targetAgentType, decision.reasoning)
+            onEvent(PipelineEvent.Dispatched(listOf(targetAgentType), decision.reasoning))
 
             val supervisorRecord = AgentExecutionRecord(
                 agentType = RxAgentType.SUPERVISOR,
@@ -246,6 +270,7 @@ class KoogRxSupervisorEngine(
                 errorMessage = newItemsResult.exceptionOrNull()?.message ?: "",
                 flow = "KoogEngine -> ToolTrace"
             )
+            onEvent(finishedEvent(targetAgentType, newItemsResult))
 
             if (newItemsResult.isFailure) {
                 val ex = newItemsResult.exceptionOrNull() ?: IllegalStateException("Tool execution failed.")
@@ -267,7 +292,7 @@ class KoogRxSupervisorEngine(
                             history = state.history + supervisorRecord + failedRecord,
                             safetyAudited = false,
                             isSuspendedForApproval = true,
-                            approvalReason = com.snehonir.lipirx.domain.model.ClinicalApprovalReasons.auditAgentFailed(failureReason.displayName),
+                            approvalReason = ClinicalApprovalReasons.auditAgentFailed(failureReason.displayName),
                             turnCount = state.turnCount + 1
                         )
                         break
@@ -304,7 +329,8 @@ class KoogRxSupervisorEngine(
             )
         }
 
-        onProgress(RxAgentType.SAFETY_AUDITOR, SupervisorConstants.PROGRESS_FINALIZING_AUDIT)
+        onProgress(RxAgentType.SAFETY_AUDITOR, getString(Res.string.status_finalizing_audit))
+        onEvent(if (state.isSuspendedForApproval) PipelineEvent.Suspended else PipelineEvent.Finalizing)
 
         return Result.success(
             OrchestrationResult(
@@ -315,6 +341,24 @@ class KoogRxSupervisorEngine(
                 approvalReason = state.approvalReason,
                 executionHistory = state.history
             )
+        )
+    }
+
+    private fun finishedEvent(
+        agent: RxAgentType,
+        result: Result<List<MedicineItem>>
+    ): PipelineEvent.WorkerFinished {
+        val items = result.getOrNull().orEmpty()
+        val flagged = if (agent == RxAgentType.SAFETY_AUDITOR) {
+            items.filter { it.needsReview }.map { it.medicineName }.filter { it.isNotBlank() }
+        } else {
+            emptyList()
+        }
+        return PipelineEvent.WorkerFinished(
+            agent = agent,
+            success = result.isSuccess,
+            itemCount = items.size,
+            flaggedNames = flagged
         )
     }
 
