@@ -12,7 +12,7 @@ set "C_RESET=%ESC%[0m"
 
 set "VERSION="
 for /f "tokens=2 delims=: " %%a in ('findstr /i "versionName" androidApp\module.yaml') do set "VERSION=%%a"
-if defined VERSION (set "VERSION=%VERSION:"=%") else (set "VERSION=0.6.1")
+if defined VERSION (set "VERSION=%VERSION:"=%") else (set "VERSION=0.6.0")
 
 set KEYSTORE=lipirx-release-key.jks
 set ALIAS=lipirx-key
@@ -69,13 +69,17 @@ exit /b 1
 )
 
 java --enable-native-access=ALL-UNNAMED -jar "%APKSIGNER_JAR%" sign --ks "%KEYSTORE%" --ks-key-alias "%ALIAS%" --out "apks\LipiRx-v%VERSION%-release-signed.apk" "apks\LipiRx-v%VERSION%-release.apk"
-if errorlevel 1 (
+
+if %errorlevel% neq 0 goto sign_error
+goto sign_success
+
+:sign_error
 echo.
 echo %C_RED%%C_BOLD%✖ ERROR: APK signing failed (incorrect keystore password or invalid signature configuration).%C_RESET%
 echo.
 exit /b 1
-)
 
+:sign_success
 echo.
 echo %C_GREEN%%C_BOLD%✔ SUCCESS: Signed Release APK created at: apks\LipiRx-v%VERSION%-release-signed.apk%C_RESET%
 echo.
