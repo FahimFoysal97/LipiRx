@@ -1,15 +1,11 @@
 package com.snehonir.lipirx.presentation.settings
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,7 +27,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -872,8 +867,7 @@ fun SettingsView(
                     val isChecking = updateState is UpdateState.Checking
                     val isBusy = isChecking || updateState is UpdateState.Downloading
 
-                    val showInlineStatus =
-                        updateState !is UpdateState.Idle && updateState !is UpdateState.Checking
+                    val showInlineStatus = updateState !is UpdateState.Idle
 
                     SettingsCard {
                         Row(
@@ -900,49 +894,19 @@ fun SettingsView(
                                 )
                             }
 
-                            AnimatedContent(
-                                targetState = isChecking,
-                                transitionSpec = {
-                                    fadeIn(animationSpec = tween(250)) togetherWith fadeOut(
-                                        animationSpec = tween(250)
+                            SecondaryButton(
+                                text = stringResource(Res.string.btn_check_for_updates),
+                                icon = Icons.Default.Refresh,
+                                enabled = !isBusy,
+                                onClick = {
+                                    updateManager.checkForUpdates(
+                                        silent = false,
+                                        fromSettings = true
                                     )
                                 },
-                                label = "UpdateCheckAnimation"
-                            ) { checking ->
-                                if (checking) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Lipi.Surface,
-                                        border = BorderStroke(
-                                            1.dp,
-                                            Lipi.Primary.copy(alpha = 0.5f)
-                                        ),
-                                        modifier = Modifier.wrapContentSize()
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier
-                                                .padding(8.dp)
-                                                .size(20.dp),
-                                            strokeWidth = 2.dp,
-                                            color = Lipi.Primary
-                                        )
-                                    }
-                                } else {
-                                    SecondaryButton(
-                                        text = stringResource(Res.string.btn_check_for_updates),
-                                        icon = Icons.Default.Refresh,
-                                        enabled = !isBusy,
-                                        onClick = {
-                                            updateManager.checkForUpdates(
-                                                silent = false,
-                                                fromSettings = true
-                                            )
-                                        },
-                                        height = 38.dp,
-                                        fontSize = 12
-                                    )
-                                }
-                            }
+                                height = 38.dp,
+                                fontSize = 12
+                            )
                         }
 
                         if (showInlineStatus) {

@@ -6,7 +6,7 @@
 [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
-[![Release v0.6.1](https://img.shields.io/badge/Release_v0.6.1-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![Release v0.6.2](https://img.shields.io/badge/Release_v0.6.2-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![MIT License](https://img.shields.io/badge/License-MIT-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
@@ -88,12 +88,13 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - Room 3 KMP SQLite storage saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
     - Interactive `HistoryScreen` displaying medicine count & review requirement chips, supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
 
-10. **In-App Self-Update Engine (`UpdateManager` & `PlatformUpdater`)**:
+10. **In-App Self-Update Engine (`UpdateManager`, `PlatformUpdater` & `UpdateHeroIcon`)**:
+    - **`UpdateHeroIcon` Animation Suite**: Custom Compose Canvas-based vector illustrations featuring spinning loading rings, floating clouds, pulsing download arrows, checkmark reveals, and error shakes for all update lifecycle states.
     - **Silent Startup Check & Single Popup Dismissal**: Queries GitHub Releases API (`https://api.github.com/repos/FahimFoysal97/LipiRx/releases/latest`) on launch. Dismissing a release popup saves the dismissed version string to SQLite (`DISMISSED_UPDATE_VERSION`), suppressing repetitive popups on subsequent launches while keeping update notices active in Settings.
     - **Semantic Versioning (`SemVer`)**: Compares `Major.Minor.Patch` semver numbers against the installed app version.
     - **Live Disk Cache Detection**: `getCachedApkPath` verifies downloaded APK files on disk, instantly restoring `ReadyToInstall` ("Install Now") without redundant downloads.
     - **Automatic Cache Cleanup**: Automatically purges stale `.apk` and `.sha256` files from `cacheDir/updates/` on app startup and before streaming new downloads.
-    - **100% Inline Settings Update Flow**: Manual checks and update flows initiated from the Settings **About LipiRx** section render completely inline (progress bar, permission warning, install button) without opening modal dialog overlays.
+    - **100% Inline Settings Update Flow**: Manual checks and update flows initiated from the Settings **About LipiRx** section render completely inline (with custom hero icons, progress indicators, permission warnings, and install actions) without opening modal dialog overlays.
     - **Download Progress & SHA-256 Checksum**: Streams APK downloads with live MB counters, percentage progress, and optional SHA-256 checksum verification.
     - **Automatic Android Installer**: Integrates `FileProvider` (`${applicationId}.fileprovider`) and `REQUEST_INSTALL_PACKAGES` permission, smoothly launching the system package installer.
 

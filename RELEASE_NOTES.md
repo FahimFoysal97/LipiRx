@@ -1,21 +1,20 @@
-# LipiRx v0.6.1 - Architectural Modularization, UseCases, Standardized Scaffold & ViewModel
+# LipiRx v0.6.2 - Advanced Update Engine, Hero Animations & Inline Settings UX
 
-LipiRx v0.6.1 introduces a comprehensive architectural refactoring across the Kotlin Multiplatform (KMP) shared and Android application modules. This release modularizes business logic into explicit domain UseCases, standardizes presentation layers with `LipiRxViewModel` and `LipiRxScaffold`, and enhances database error propagation safety in repositories.
+LipiRx v0.6.2 introduces a polished in-app update experience with custom animated vector hero icons, robust download staging, and seamless inline update management directly within the Settings view.
 
 ### ✨ New
-- **Domain UseCases Architecture**: Standardized business logic into explicit single-responsibility `LipiRxUseCase` and `LipiRxSuspendUseCase` implementations (`GetScanHistoryUseCase`, `SaveScanSummaryUseCase`, `DeleteScanHistoryUseCase`, etc.).
-- **Standardized `LipiRxScaffold`**: Reusable screen scaffolding handling window insets, top bars, and consistent navigation actions across feature views.
+- **`UpdateHeroIcon` Animation Suite**: Custom Compose Canvas-based vector illustrations featuring spinning loading rings, floating clouds, pulsing download arrows, checkmark reveals, and error shakes for all update lifecycle states.
+- **Inline Settings Update Management**: Enhanced manual update checking and inline status presentation in the Settings About section with automatic scroll-into-view behavior via `BringIntoViewRequester`.
 
 ### 🚀 Improved
-- **Base `LipiRxViewModel` & Safe Coroutine Launching**: Introduced `LipiRxViewModel` featuring built-in state management and `launchSafe` coroutine exception handling across all feature ViewModels.
-- **Repository Error Handling & Propagation**: Refactored database query methods in `LipiRxRoomRepository` to propagate database exceptions correctly instead of swallowing them via empty defaults.
-- **Agent Tool Modularity**: Streamlined agent tools behind the `LipiRxAgentTool` interface for improved testability and compile-time exhaustiveness.
+- **Staged Update Confirmation**: Refactored `UpdateManager` to transition completed downloads to `ReadyToInstall` without immediately launching the package installer, allowing users to initiate installation at their convenience.
+- **Optimized Dialog & Window Transitions**: Streamlined `UpdateDialog` and `UpdateContent` layout transitions to prevent window jumping and visual jitter.
 
 ### 🐞 Fixed
-- **Database Query Error Masking**: Prevented silent failure masking in room repositories by ensuring query failures propagate up to domain UseCases for proper handling.
+- **Frame-Synchronized Layout Scrolling**: Fixed frame-timing synchronization for auto-scrolling update check results into view in the Settings screen.
 
 ### 🛠 Under the hood
-- Standardized AI services under `LipiRxAiService` and `safeApiCall` / `safeDbCall` execution wrappers.
-- Updated UI automation script (`test_full_app_ui.py`) with improved scrolling logic and robust back navigation helpers.
+- Refactored `UpdateManager` coroutine lifecycle handling and download state flows.
+- Enhanced semantic descriptions and accessibility live regions for update progress announcements.
 
-**Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.6.0...v0.6.1
+**Full Changelog**: https://github.com/FahimFoysal97/LipiRx/compare/v0.6.1...v0.6.2

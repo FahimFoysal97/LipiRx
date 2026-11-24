@@ -12,11 +12,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlin.time.Duration.Companion.milliseconds
 
 class UpdateManager(
     private val httpClient: HttpClient,
@@ -51,7 +53,10 @@ class UpdateManager(
         }
 
         scope.launch {
+            // Keep the Checking animation visible for at least 1.2 s on fast networks
+            val minShow = if (!silent) launch { delay(1200.milliseconds) } else null
             val result = fetchLatestReleaseFromGitHub()
+            minShow?.join()
 
             if (_updateState.value is UpdateState.Downloading) return@launch
 
@@ -169,10 +174,8 @@ class UpdateManager(
 
                     // Check installation permission
                     if (platformUpdater.canRequestPackageInstalls()) {
-                        // Set the state first, so anything that reacts to the installer opening
-                        // (app pause / resume) already sees "ready to install".
+                        // Wait here. The installer opens only when the user taps "Install now".
                         _updateState.value = UpdateState.ReadyToInstall(updateInfo, apkPath)
-                        platformUpdater.installApk(apkPath)
                     } else {
                         _updateState.value = UpdateState.NeedsInstallPermission(updateInfo, apkPath)
                     }
@@ -211,8 +214,8 @@ class UpdateManager(
         val current = _updateState.value as? UpdateState.NeedsInstallPermission ?: return
 
         if (platformUpdater.canRequestPackageInstalls()) {
+            // Go to "Ready to install" and let the user press the button.
             _updateState.value = UpdateState.ReadyToInstall(current.updateInfo, current.apkPath)
-            platformUpdater.installApk(current.apkPath)
         }
     }
 
