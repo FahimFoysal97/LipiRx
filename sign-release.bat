@@ -55,20 +55,20 @@ if errorlevel 1 exit /b 1
 echo.
 echo %C_CYAN%ℹ Signing Release APK with %KEYSTORE% ...%C_RESET%
 
-set "APKSIGNER="
+set "APKSIGNER_JAR="
 if defined ANDROID_HOME if exist "%ANDROID_HOME%\build-tools" (
-for /f "delims=" %%i in ('where /r "%ANDROID_HOME%\build-tools" apksigner.bat 2^>nul') do set "APKSIGNER=%%i"
+for /f "delims=" %%i in ('where /r "%ANDROID_HOME%\build-tools" apksigner.jar 2^>nul') do set "APKSIGNER_JAR=%%i"
 )
-if "%APKSIGNER%"=="" if exist "%LOCALAPPDATA%\Android\Sdk\build-tools" (
-for /f "delims=" %%i in ('where /r "%LOCALAPPDATA%\Android\Sdk\build-tools" apksigner.bat 2^>nul') do set "APKSIGNER=%%i"
+if "%APKSIGNER_JAR%"=="" if exist "%LOCALAPPDATA%\Android\Sdk\build-tools" (
+for /f "delims=" %%i in ('where /r "%LOCALAPPDATA%\Android\Sdk\build-tools" apksigner.jar 2^>nul') do set "APKSIGNER_JAR=%%i"
 )
 
-if "%APKSIGNER%"=="" (
-echo %C_RED%%C_BOLD%✖ ERROR: Could not locate apksigner.bat in Android SDK.%C_RESET%
+if "%APKSIGNER_JAR%"=="" (
+echo %C_RED%%C_BOLD%✖ ERROR: Could not locate apksigner.jar in Android SDK.%C_RESET%
 exit /b 1
 )
 
-call "%APKSIGNER%" sign --ks "%KEYSTORE%" --ks-key-alias "%ALIAS%" --out "apks\LipiRx-v%VERSION%-release-signed.apk" "apks\LipiRx-v%VERSION%-release.apk"
+java --enable-native-access=ALL-UNNAMED -jar "%APKSIGNER_JAR%" sign --ks "%KEYSTORE%" --ks-key-alias "%ALIAS%" --out "apks\LipiRx-v%VERSION%-release-signed.apk" "apks\LipiRx-v%VERSION%-release.apk"
 if errorlevel 1 (
 echo.
 echo %C_RED%%C_BOLD%✖ ERROR: APK signing failed (incorrect keystore password or invalid signature configuration).%C_RESET%

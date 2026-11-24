@@ -31,25 +31,21 @@ fi
 echo -e "\n${CYAN}ℹ Building Release APK...${NC}"
 ./build-apk.sh release || exit 1
 
-APKSIGNER=""
+APKSIGNER_JAR=""
 if [ -n "$ANDROID_HOME" ] && [ -d "$ANDROID_HOME/build-tools" ]; then
-    APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name "apksigner" 2>/dev/null | head -n 1)
+    APKSIGNER_JAR=$(find "$ANDROID_HOME/build-tools" -name "apksigner.jar" 2>/dev/null | head -n 1)
 fi
 
-if [ -z "$APKSIGNER" ] && [ -d "$HOME/Library/Android/sdk/build-tools" ]; then
-    APKSIGNER=$(find "$HOME/Library/Android/sdk/build-tools" -name "apksigner" 2>/dev/null | head -n 1)
+if [ -z "$APKSIGNER_JAR" ] && [ -d "$HOME/Library/Android/sdk/build-tools" ]; then
+    APKSIGNER_JAR=$(find "$HOME/Library/Android/sdk/build-tools" -name "apksigner.jar" 2>/dev/null | head -n 1)
 fi
 
-if [ -z "$APKSIGNER" ]; then
-    APKSIGNER=$(command -v apksigner)
-fi
-
-if [ -z "$APKSIGNER" ]; then
-    echo -e "${RED}${BOLD}✖ ERROR: Could not locate apksigner.${NC}"
+if [ -z "$APKSIGNER_JAR" ]; then
+    echo -e "${RED}${BOLD}✖ ERROR: Could not locate apksigner.jar in Android SDK.${NC}"
     exit 1
 fi
 
-"$APKSIGNER" sign --ks $KEYSTORE --ks-key-alias $ALIAS --out "apks/LipiRx-v${VERSION}-release-signed.apk" "apks/LipiRx-v${VERSION}-release.apk"
+java --enable-native-access=ALL-UNNAMED -jar "$APKSIGNER_JAR" sign --ks $KEYSTORE --ks-key-alias $ALIAS --out "apks/LipiRx-v${VERSION}-release-signed.apk" "apks/LipiRx-v${VERSION}-release.apk"
 if [ $? -ne 0 ]; then
     echo -e "\n${RED}${BOLD}✖ ERROR: APK signing failed (incorrect keystore password or invalid signature configuration).${NC}\n"
     exit 1
