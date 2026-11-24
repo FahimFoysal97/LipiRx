@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -96,11 +97,13 @@ import com.snehonir.lipirx.domain.agent.PipelinePhase
 import com.snehonir.lipirx.domain.agent.PipelineProgress
 import com.snehonir.lipirx.domain.agent.WorkerProgress
 import com.snehonir.lipirx.presentation.common.PaperIllustration
+import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_keep_waiting
 import com.snehonir.lipirx.resources.btn_stop
 import com.snehonir.lipirx.resources.btn_stop_analysis
+import com.snehonir.lipirx.resources.btn_view_results
 import com.snehonir.lipirx.resources.cd_hide_details
 import com.snehonir.lipirx.resources.cd_show_details
 import com.snehonir.lipirx.resources.chip_flagged
@@ -153,10 +156,14 @@ private const val MAX_NAMES_SHOWN = 3
 fun LoadingView(
     imageByteArray: ByteArray? = null,
     progress: PipelineProgress = PipelineProgress(),
+    isLoading: Boolean = true,
     onStopAnalysis: () -> Unit = {},
+    onViewResults: () -> Unit = {},
 ) {
     val primaryColor = Lipi.Primary
     val haptic = LocalHapticFeedback.current
+
+    val isComplete = !isLoading && (progress.phase == PipelinePhase.FINALIZING || progress.phase == PipelinePhase.WAITING_FOR_PHARMACIST)
 
     val animatedOverall by animateFloatAsState(
         targetValue = progress.overallPercent / 100f,
@@ -185,15 +192,23 @@ fun LoadingView(
 
     // Reassurance if nothing new has happened for a while
     var slow by remember { mutableStateOf(false) }
-    LaunchedEffect(progress.feed.size) {
+    LaunchedEffect(progress.feed.size, isLoading) {
         slow = false
-        delay(25_000.milliseconds)
-        slow = true
+        if (isLoading) {
+            delay(25_000.milliseconds)
+            slow = true
+        }
     }
 
     // Stop confirmation (button + system Back)
     var confirmStop by remember { mutableStateOf(false) }
-    BackHandler { confirmStop = true }
+    BackHandler {
+        if (isComplete) {
+            onViewResults()
+        } else {
+            confirmStop = true
+        }
+    }
     if (confirmStop) {
         AlertDialog(
             onDismissRequest = { confirmStop = false },
@@ -245,7 +260,7 @@ fun LoadingView(
                 WorkersCard(progress)
                 FeedCard(progress.feed.takeLast(FEED_VISIBLE))
 
-                AnimatedVisibility(visible = slow) {
+                AnimatedVisibility(visible = slow && isLoading) {
                     Text(
                         text = stringResource(Res.string.hint_taking_longer),
                         fontSize = 12.sp,
@@ -256,17 +271,28 @@ fun LoadingView(
             }
         }
 
-        SecondaryButton(
-            text = stringResource(Res.string.btn_stop_analysis),
-            icon = Icons.Default.Close,
-            onClick = { confirmStop = true },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            height = 52.dp,
-            contentColor = Lipi.Error,
-            fontSize = 15,
-        )
+        if (isComplete) {
+            PrimaryButton(
+                text = stringResource(Res.string.btn_view_results),
+                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                onClick = onViewResults,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+            )
+        } else {
+            SecondaryButton(
+                text = stringResource(Res.string.btn_stop_analysis),
+                icon = Icons.Default.Close,
+                onClick = { confirmStop = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                height = 52.dp,
+                contentColor = Lipi.Error,
+                fontSize = 15,
+            )
+        }
     }
 }
 
@@ -586,7 +612,9 @@ private fun FeedCard(entries: List<FeedEntry>) {
         border = BorderStroke(1.dp, Lipi.CardBorder),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier
+                .animateContentSize(tween(350, easing = FastOutSlowInEasing))
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             entries.forEachIndexed { index, entry ->
@@ -798,6 +826,17 @@ fun LoadingViewReworkPreview() {
                 PipelineEvent.WorkerFinished(RxAgentType.SAFETY_AUDITOR, true, 6, listOf("Napa Extra")),
                 PipelineEvent.Dispatched(listOf(RxAgentType.ENTITY_PARSER), "One item looks wrong. Sending it back."),
             )
+        )
+    }
+}
+
+@Preview(name = "Complete")
+@Composable
+fun LoadingViewCompletePreview() {
+    LipiRxTheme {
+        LoadingView(
+            isLoading = false,
+            progress = previewProgress(PipelineEvent.Finalizing)
         )
     }
 }

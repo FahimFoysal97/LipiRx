@@ -176,6 +176,7 @@
     <!-- Prescription Results -->
     <string name="saved_prescription_record">Saved Prescription Record</string>
     <string name="results_title">Prescription Results</string>
+    <string name="btn_view_results">View Results</string>
     <string name="no_medicines_title">No medicines recorded in this scan.</string>
     <string name="no_medicines_subtitle">This prescription analysis record did not contain active medicine items.</string>
     <string name="disclaimer_text">AI-read from handwriting. Verify with a pharmacist before use.</string>

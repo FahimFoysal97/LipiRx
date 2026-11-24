@@ -30,7 +30,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -229,7 +229,7 @@ fun AgentTelemetryScreen(
                     } else {
                         SecondaryButton(
                             text = stringResource(Res.string.btn_run_sample_benchmark),
-                            icon = Icons.Default.Refresh,
+                            icon = Icons.Default.PlayArrow,
                             onClick = { viewModel.runSampleBenchmarkTest() },
                             modifier = Modifier.fillMaxWidth(),
                             height = 48.dp,
@@ -359,7 +359,7 @@ private fun TelemetryEmptyState(
             } else {
                 PrimaryButton(
                     text = stringResource(Res.string.btn_run_sample_benchmark),
-                    icon = Icons.Default.Refresh,
+                    icon = Icons.Default.PlayArrow,
                     onClick = onRunBenchmark,
                     modifier = Modifier.fillMaxWidth(0.85f)
                 )

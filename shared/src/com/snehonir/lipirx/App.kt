@@ -22,7 +22,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.snehonir.lipirx.domain.agent.PipelinePhase
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
 import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.navigation.AppNavKey
@@ -95,13 +94,9 @@ fun LipiRxAppContent(
         }
     }
 
-    LaunchedEffect(sessionData.isLoading, sessionData.medicines.size, sessionData.errorMessage, navigator.currentKey) {
-        if (navigator.currentKey == AppNavKey.AnalysisLoading) {
-            if (sessionData.errorMessage != null) {
-                navigator.replaceTop(AppNavKey.ImagePreview)
-            } else if (!sessionData.isLoading && sessionData.progress.phase != PipelinePhase.PLANNING) {
-                navigator.replaceTop(AppNavKey.Results)
-            }
+    LaunchedEffect(sessionData.errorMessage, navigator.currentKey) {
+        if (navigator.currentKey == AppNavKey.AnalysisLoading && sessionData.errorMessage != null) {
+            navigator.replaceTop(AppNavKey.ImagePreview)
         }
     }
 
@@ -109,11 +104,6 @@ fun LipiRxAppContent(
 
     // Navigation 3 Back Stack Handler
     BackHandler(enabled = navigator.backStack.size > 1) {
-        if (navigator.currentKey == AppNavKey.AnalysisLoading) {
-            sessionState.cancelActiveAnalysis()
-            navigator.replaceTop(AppNavKey.ImagePreview)
-            return@BackHandler
-        }
         if (navigator.backStack.size == 2 && navigator.currentKey != AppNavKey.History && navigator.currentKey != AppNavKey.Settings) {
             sessionState.resetSession()
         }
@@ -156,6 +146,9 @@ fun LipiRxAppContent(
                         onCancel = {
                             sessionState.cancelActiveAnalysis()
                             navigator.replaceTop(AppNavKey.ImagePreview)
+                        },
+                        onViewResults = {
+                            navigator.replaceTop(AppNavKey.Results)
                         }
                     )
                 }
