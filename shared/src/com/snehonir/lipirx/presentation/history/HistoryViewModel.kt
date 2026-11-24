@@ -1,21 +1,18 @@
 package com.snehonir.lipirx.presentation.history
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
+import com.snehonir.lipirx.domain.usecase.DeleteHistoryParams
+import com.snehonir.lipirx.domain.usecase.DeleteScanHistoryUseCase
+import com.snehonir.lipirx.domain.usecase.GetHistoryParams
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
+import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import io.github.aakira.napier.Napier
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 data class HistoryUiState(
@@ -25,12 +22,10 @@ data class HistoryUiState(
 
 class HistoryViewModel(
     private val getScanHistoryUseCase: GetScanHistoryUseCase,
+    private val deleteScanHistoryUseCase: DeleteScanHistoryUseCase,
     private val sessionState: PrescriptionSessionState,
     private val jsonParser: Json
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(HistoryUiState())
-    val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
+) : LipiRxViewModel<HistoryUiState>(HistoryUiState()) {
 
     init {
         loadHistoryList()
@@ -38,14 +33,14 @@ class HistoryViewModel(
 
     fun loadHistoryList(flow: String = "App -> HistoryViewModel.loadHistoryList") {
         Napier.d("[$flow] Querying scan history list from SQLite database", tag = TAG)
-        viewModelScope.launch(Dispatchers.Default) {
-            _uiState.update { it.copy(isLoading = true) }
-            val records = runCatching {
-                getScanHistoryUseCase.getHistory(flow = flow)
-            }.getOrDefault(emptyList()).toImmutableList()
+        launchSafe(Dispatchers.Default) {
+            updateState { copy(isLoading = true) }
+            val records = getScanHistoryUseCase(GetHistoryParams(flow = flow))
+                .getOrDefault(emptyList())
+                .toImmutableList()
 
-            _uiState.update {
-                it.copy(historyList = records, isLoading = false)
+            updateState {
+                copy(historyList = records, isLoading = false)
             }
         }
     }
@@ -58,16 +53,16 @@ class HistoryViewModel(
 
     fun deleteRecord(id: Long, flow: String = "App -> HistoryViewModel.deleteRecord") {
         Napier.d("[$flow] Deleting history record ID=$id", tag = TAG)
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching { getScanHistoryUseCase.deleteHistoryRecord(id, flow = flow) }
+        launchSafe(Dispatchers.Default) {
+            deleteScanHistoryUseCase(DeleteHistoryParams(recordId = id, flow = flow))
             loadHistoryList(flow = "$flow -> refreshHistory")
         }
     }
 
     fun clearAllHistory(flow: String = "App -> HistoryViewModel.clearAllHistory") {
         Napier.d("[$flow] Clearing all history records from SQLite database", tag = TAG)
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching { getScanHistoryUseCase.clearAllHistory(flow = flow) }
+        launchSafe(Dispatchers.Default) {
+            deleteScanHistoryUseCase(DeleteHistoryParams(clearAll = true, flow = flow))
             loadHistoryList(flow = "$flow -> refreshHistory")
         }
     }
@@ -103,6 +98,6 @@ class HistoryViewModel(
     }
 
     companion object {
-        private const val TAG = "HistoryViewModel"
+        private val TAG = HistoryViewModel::class.simpleName
     }
 }

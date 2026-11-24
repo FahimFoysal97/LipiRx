@@ -27,11 +27,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -116,7 +114,7 @@ import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.model.ThemeMode
 import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.domain.update.UpdateState
-import com.snehonir.lipirx.presentation.common.AppHeader
+import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.presentation.common.rememberFolderPickerLauncher
 import com.snehonir.lipirx.presentation.update.UpdateContent
@@ -295,7 +293,11 @@ fun SettingsView(
     }
     val agentsNeedingModel = RxAgentType.ALL.count(agentNeedsModel)
 
-    var inputKey by remember(selectedTabProvider, keyForSelectedProvider) { mutableStateOf(keyForSelectedProvider) }
+    var inputKey by remember(selectedTabProvider, keyForSelectedProvider) {
+        mutableStateOf(
+            keyForSelectedProvider
+        )
+    }
     var inputUrl by remember(customUrl) { mutableStateOf(customUrl) }
 
     val isKeyBasedProvider = selectedTabProvider != AiProvider.OnDevice.id
@@ -323,223 +325,356 @@ fun SettingsView(
     val agentsSectionRequester = remember { BringIntoViewRequester() }
     var expandedAgentType by remember { mutableStateOf<RxAgentType?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Lipi.Background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding()
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = {
-                    focusManager.clearFocus()
-                })
-            }
-    ) {
-        AppHeader(
-            onBack = requestClose,
-            backContentDescription = stringResource(Res.string.btn_cancel),
-            title = stringResource(Res.string.studio_title),
-            subtitle = stringResource(Res.string.studio_subtitle)
-        )
-
+    LipiRxScaffold(
+        title = stringResource(Res.string.studio_title),
+        subtitle = stringResource(Res.string.studio_subtitle),
+        onBack = requestClose,
+        backContentDescription = stringResource(Res.string.btn_cancel)
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(innerPadding)
+                .imePadding()
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {
+                        focusManager.clearFocus()
+                    })
+                }
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
 
-            SetupStatusCard(
-                providerName = activeProvider.displayName,
-                needsApiKey = needsApiKey,
-                agentsNeedingModel = agentsNeedingModel,
-                totalAgents = RxAgentType.ALL.size,
-                onFix = {
-                    scope.launch {
-                        if (needsApiKey) {
-                            selectedTabProvider = providerType
-                            providerSectionRequester.bringIntoView()
-                        } else {
-                            expandedAgentType = RxAgentType.ALL.firstOrNull(agentNeedsModel)
-                            agentsSectionRequester.bringIntoView()
+                SetupStatusCard(
+                    providerName = activeProvider.displayName,
+                    needsApiKey = needsApiKey,
+                    agentsNeedingModel = agentsNeedingModel,
+                    totalAgents = RxAgentType.ALL.size,
+                    onFix = {
+                        scope.launch {
+                            if (needsApiKey) {
+                                selectedTabProvider = providerType
+                                providerSectionRequester.bringIntoView()
+                            } else {
+                                expandedAgentType = RxAgentType.ALL.firstOrNull(agentNeedsModel)
+                                agentsSectionRequester.bringIntoView()
+                            }
                         }
                     }
-                }
-            )
+                )
 
-            SettingsSection(
-                icon = SystemThemeVectorIcon,
-                title = stringResource(Res.string.section_appearance_theme)
-            ) {
-                SettingsCard(contentPadding = 4.dp) {
-                    ThemeModeSelector(themeMode = themeMode, onSelect = onSelectThemeMode)
-                }
-            }
-
-            SettingsSection(
-                icon = OnDeviceStrategyVectorIcon,
-                title = stringResource(Res.string.section_on_device)
-            ) {
-                SettingsCard {
-                    PickerField(
-                        valueText = stringResource(onDeviceStrategy.displayNameRes),
-                        accent = Lipi.Primary,
-                        leadingIcon = onDeviceStrategy.icon,
-                        contentDescription = stringResource(Res.string.content_desc_select_strategy),
-                        options = OnDeviceStrategy.ALL.map { strat ->
-                            MenuOption(
-                                title = stringResource(strat.displayNameRes),
-                                subtitle = stringResource(strat.descriptionRes),
-                                icon = strat.icon,
-                                tint = Lipi.Primary,
-                                selected = onDeviceStrategy == strat,
-                                onClick = { onSelectOnDeviceStrategy(strat) }
-                            )
-                        }
-                    )
-                    InfoNote(text = stringResource(onDeviceStrategy.explanationRes))
-                }
-            }
-
-            SettingsSection(
-                icon = ProviderSettingsVectorIcon,
-                title = stringResource(Res.string.section_provider_settings),
-                modifier = Modifier.bringIntoViewRequester(providerSectionRequester)
-            ) {
-                val activeCardProvider = AiProvider.fromId(selectedTabProvider)
-                val activeCardModelsCount = providerModelsMap[activeCardProvider.id]?.size ?: 0
-                val activeCardProviderValue = if (activeCardModelsCount > 0) {
-                    stringResource(Res.string.label_provider_models_count, activeCardProvider.displayName, activeCardModelsCount)
-                } else {
-                    activeCardProvider.displayName
+                SettingsSection(
+                    icon = SystemThemeVectorIcon,
+                    title = stringResource(Res.string.section_appearance_theme)
+                ) {
+                    SettingsCard(contentPadding = 4.dp) {
+                        ThemeModeSelector(themeMode = themeMode, onSelect = onSelectThemeMode)
+                    }
                 }
 
-                SettingsCard {
-                    PickerField(
-                        label = stringResource(Res.string.label_select_provider),
-                        valueText = activeCardProviderValue,
-                        accent = activeCardProvider.brandColor,
-                        leadingIcon = activeCardProvider.icon,
-                        contentDescription = stringResource(Res.string.label_select_provider),
-                        options = providerOptions(
-                            selectedId = selectedTabProvider,
-                            providerModelsMap = providerModelsMap,
-                            onPick = { prov ->
-                                selectedTabProvider = prov.id
-                                onProviderTabSelected(prov.id)
+                SettingsSection(
+                    icon = OnDeviceStrategyVectorIcon,
+                    title = stringResource(Res.string.section_on_device)
+                ) {
+                    SettingsCard {
+                        PickerField(
+                            valueText = stringResource(onDeviceStrategy.displayNameRes),
+                            accent = Lipi.Primary,
+                            leadingIcon = onDeviceStrategy.icon,
+                            contentDescription = stringResource(Res.string.content_desc_select_strategy),
+                            options = OnDeviceStrategy.ALL.map { strat ->
+                                MenuOption(
+                                    title = stringResource(strat.displayNameRes),
+                                    subtitle = stringResource(strat.descriptionRes),
+                                    icon = strat.icon,
+                                    tint = Lipi.Primary,
+                                    selected = onDeviceStrategy == strat,
+                                    onClick = { onSelectOnDeviceStrategy(strat) }
+                                )
                             }
                         )
-                    )
+                        InfoNote(text = stringResource(onDeviceStrategy.explanationRes))
+                    }
+                }
 
-                    if (selectedTabProvider == AiProvider.Custom.id) {
-                        OutlinedTextField(
-                            value = inputUrl,
-                            onValueChange = { inputUrl = it.trim() },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text(stringResource(Res.string.label_custom_url)) },
-                            placeholder = { Text(stringResource(Res.string.placeholder_custom_url_example), fontSize = 12.sp) },
-                            leadingIcon = {
-                                Icon(CustomUrlVectorIcon, null, Modifier.size(20.dp), tint = Lipi.Primary)
-                            },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = {
-                                focusManager.clearFocus()
-                                if (hasUnsavedChanges && !isTestingApiKey) saveConfig()
-                            }),
-                            shape = RoundedCornerShape(12.dp)
+                SettingsSection(
+                    icon = ProviderSettingsVectorIcon,
+                    title = stringResource(Res.string.section_provider_settings),
+                    modifier = Modifier.bringIntoViewRequester(providerSectionRequester)
+                ) {
+                    val activeCardProvider = AiProvider.fromId(selectedTabProvider)
+                    val activeCardModelsCount = providerModelsMap[activeCardProvider.id]?.size ?: 0
+                    val activeCardProviderValue = if (activeCardModelsCount > 0) {
+                        stringResource(
+                            Res.string.label_provider_models_count,
+                            activeCardProvider.displayName,
+                            activeCardModelsCount
                         )
+                    } else {
+                        activeCardProvider.displayName
                     }
 
-                    if (selectedTabProvider == AiProvider.OnDevice.id) {
-                        InfoNote(
-                            text = stringResource(Res.string.on_device_info_banner),
-                            icon = Icons.Default.Info
+                    SettingsCard {
+                        PickerField(
+                            label = stringResource(Res.string.label_select_provider),
+                            valueText = activeCardProviderValue,
+                            accent = activeCardProvider.brandColor,
+                            leadingIcon = activeCardProvider.icon,
+                            contentDescription = stringResource(Res.string.label_select_provider),
+                            options = providerOptions(
+                                selectedId = selectedTabProvider,
+                                providerModelsMap = providerModelsMap,
+                                onPick = { prov ->
+                                    selectedTabProvider = prov.id
+                                    onProviderTabSelected(prov.id)
+                                }
+                            )
                         )
 
-                        val onDeviceModelsList = providerModelsMap[AiProvider.OnDevice.id] ?: emptyList()
-
-                        val launchFolderPicker = rememberFolderPickerLauncher { selectedPath ->
-                            onSaveSlmDirectoryPath(selectedPath)
-                        }
-
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Surface(
+                        if (selectedTabProvider == AiProvider.Custom.id) {
+                            OutlinedTextField(
+                                value = inputUrl,
+                                onValueChange = { inputUrl = it.trim() },
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = Lipi.ImageWell,
-                                border = BorderStroke(1.dp, Lipi.Outline.copy(alpha = 0.4f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    // The on-device icon says "local models"; a magnifier read as "search".
+                                label = { Text(stringResource(Res.string.label_custom_url)) },
+                                placeholder = {
+                                    Text(
+                                        stringResource(Res.string.placeholder_custom_url_example),
+                                        fontSize = 12.sp
+                                    )
+                                },
+                                leadingIcon = {
                                     Icon(
-                                        imageVector = OnDeviceVectorIcon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
+                                        CustomUrlVectorIcon,
+                                        null,
+                                        Modifier.size(20.dp),
                                         tint = Lipi.Primary
                                     )
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = stringResource(Res.string.label_slm_directory),
-                                            fontSize = 11.5.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Lipi.Muted
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Uri,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    focusManager.clearFocus()
+                                    if (hasUnsavedChanges && !isTestingApiKey) saveConfig()
+                                }),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+
+                        if (selectedTabProvider == AiProvider.OnDevice.id) {
+                            InfoNote(
+                                text = stringResource(Res.string.on_device_info_banner),
+                                icon = Icons.Default.Info
+                            )
+
+                            val onDeviceModelsList =
+                                providerModelsMap[AiProvider.OnDevice.id] ?: emptyList()
+
+                            val launchFolderPicker = rememberFolderPickerLauncher { selectedPath ->
+                                onSaveSlmDirectoryPath(selectedPath)
+                            }
+
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Lipi.ImageWell,
+                                    border = BorderStroke(1.dp, Lipi.Outline.copy(alpha = 0.4f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(
+                                            start = 14.dp,
+                                            top = 8.dp,
+                                            bottom = 8.dp,
+                                            end = 6.dp
+                                        ),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // The on-device icon says "local models"; a magnifier read as "search".
+                                        Icon(
+                                            imageVector = OnDeviceVectorIcon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = Lipi.Primary
                                         )
-                                        Text(
-                                            text = if (slmModelDirectory.isBlank()) {
-                                                stringResource(Res.string.default_slm_directory_name)
-                                            } else {
-                                                formatDirectoryForDisplay(slmModelDirectory)
-                                            },
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Lipi.Ink,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = stringResource(Res.string.label_slm_directory),
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Lipi.Muted
+                                            )
+                                            Text(
+                                                text = if (slmModelDirectory.isBlank()) {
+                                                    stringResource(Res.string.default_slm_directory_name)
+                                                } else {
+                                                    formatDirectoryForDisplay(slmModelDirectory)
+                                                },
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Lipi.Ink,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        if (slmModelDirectory.isNotBlank()) {
+                                            IconButton(
+                                                onClick = { onSaveSlmDirectoryPath("") },
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Clear,
+                                                    contentDescription = stringResource(Res.string.btn_clear),
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = Lipi.Muted
+                                                )
+                                            }
+                                        }
                                     }
-                                    if (slmModelDirectory.isNotBlank()) {
-                                        IconButton(
-                                            onClick = { onSaveSlmDirectoryPath("") },
-                                            modifier = Modifier.size(40.dp)
+                                }
+
+                                SecondaryButton(
+                                    text = stringResource(Res.string.btn_browse_folder),
+                                    icon = Icons.Default.Search,
+                                    onClick = launchFolderPicker,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 44.dp,
+                                    fontSize = 13
+                                )
+
+                                if (onDeviceModelsList.isNotEmpty()) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Lipi.PrimaryContainer.copy(alpha = 0.5f)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(
+                                                horizontal = 12.dp,
+                                                vertical = 8.dp
+                                            ),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Clear,
-                                                contentDescription = stringResource(Res.string.btn_clear),
-                                                modifier = Modifier.size(18.dp),
-                                                tint = Lipi.Muted
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Lipi.Primary
+                                            )
+                                            Text(
+                                                text = stringResource(
+                                                    Res.string.slm_models_found_count,
+                                                    onDeviceModelsList.size
+                                                ),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Lipi.OnPrimaryContainer
+                                            )
+                                        }
+                                    }
+                                } else if (slmModelDirectory.isNotBlank()) {
+                                    // A folder was chosen but nothing usable is in it: say so instead of staying silent.
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Lipi.AmberContainer
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(
+                                                horizontal = 12.dp,
+                                                vertical = 8.dp
+                                            ),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Lipi.OnAmber
+                                            )
+                                            Text(
+                                                text = stringResource(Res.string.no_local_models_found),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Lipi.OnAmber
                                             )
                                         }
                                     }
                                 }
                             }
+                        } else {
+                            var keyEdited by remember(selectedTabProvider) { mutableStateOf(false) }
 
-                            SecondaryButton(
-                                text = stringResource(Res.string.btn_browse_folder),
-                                icon = Icons.Default.Search,
-                                onClick = launchFolderPicker,
-                                modifier = Modifier.fillMaxWidth(),
-                                height = 44.dp,
-                                fontSize = 13
+                            val resolvedError = if (!keyEdited) {
+                                null
+                            } else {
+                                when (apiKeyError) {
+                                    AppConstants.ERROR_ENTER_VALID_GEMINI_KEY -> stringResource(Res.string.error_enter_valid_gemini_key)
+                                    AppConstants.ERROR_ENTER_VALID_URL -> stringResource(Res.string.error_enter_valid_url)
+                                    AppConstants.ERROR_NO_MODELS_FOUND -> stringResource(Res.string.error_no_models_found)
+                                    else -> apiKeyError
+                                }
+                            }
+
+                            ApiKeyField(
+                                value = inputKey,
+                                onValueChange = {
+                                    inputKey = it.trim()
+                                    keyEdited = true
+                                },
+                                errorText = resolvedError,
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    if (hasUnsavedChanges && !isTestingApiKey) saveConfig()
+                                }
                             )
 
-                            if (onDeviceModelsList.isNotEmpty()) {
+                            StatusLine(
+                                ok = keyForSelectedProvider.isNotBlank(),
+                                text = if (keyForSelectedProvider.isNotBlank()) {
+                                    stringResource(Res.string.label_api_key_saved)
+                                } else {
+                                    stringResource(Res.string.label_no_api_key_saved)
+                                }
+                            )
+
+                            if (hasUnsavedChanges) {
+                                UnsavedNote()
+                            }
+
+                            var successDismissed by remember(apiKeySuccess) { mutableStateOf(false) }
+                            LaunchedEffect(apiKeySuccess) {
+                                if (!apiKeySuccess.isNullOrBlank()) {
+                                    delay(SUCCESS_BANNER_MS.milliseconds)
+                                    successDismissed = true
+                                }
+                            }
+
+                            if (!apiKeySuccess.isNullOrBlank() && !successDismissed) {
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Lipi.PrimaryContainer.copy(alpha = 0.5f)
+                                    color = Lipi.PrimaryContainer
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        modifier = Modifier.padding(
+                                            horizontal = 12.dp,
+                                            vertical = 10.dp
+                                        ),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
@@ -550,372 +685,306 @@ fun SettingsView(
                                             tint = Lipi.Primary
                                         )
                                         Text(
-                                            text = stringResource(Res.string.slm_models_found_count, onDeviceModelsList.size),
+                                            text = apiKeySuccess,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = Lipi.OnPrimaryContainer
                                         )
                                     }
                                 }
-                            } else if (slmModelDirectory.isNotBlank()) {
-                                // A folder was chosen but nothing usable is in it: say so instead of staying silent.
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = Lipi.AmberContainer
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Warning,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = Lipi.OnAmber
-                                        )
-                                        Text(
-                                            text = stringResource(Res.string.no_local_models_found),
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Lipi.OnAmber
-                                        )
-                                    }
-                                }
                             }
-                        }
-                    } else {
-                        var keyEdited by remember(selectedTabProvider) { mutableStateOf(false) }
 
-                        val resolvedError = if (!keyEdited) {
-                            null
-                        } else {
-                            when (apiKeyError) {
-                                AppConstants.ERROR_ENTER_VALID_GEMINI_KEY -> stringResource(Res.string.error_enter_valid_gemini_key)
-                                AppConstants.ERROR_ENTER_VALID_URL -> stringResource(Res.string.error_enter_valid_url)
-                                AppConstants.ERROR_NO_MODELS_FOUND -> stringResource(Res.string.error_no_models_found)
-                                else -> apiKeyError
-                            }
-                        }
-
-                        ApiKeyField(
-                            value = inputKey,
-                            onValueChange = {
-                                inputKey = it.trim()
-                                keyEdited = true
-                            },
-                            errorText = resolvedError,
-                            onDone = {
-                                focusManager.clearFocus()
-                                if (hasUnsavedChanges && !isTestingApiKey) saveConfig()
-                            }
-                        )
-
-                        StatusLine(
-                            ok = keyForSelectedProvider.isNotBlank(),
-                            text = if (keyForSelectedProvider.isNotBlank()) {
-                                stringResource(Res.string.label_api_key_saved)
-                            } else {
-                                stringResource(Res.string.label_no_api_key_saved)
-                            }
-                        )
-
-                        if (hasUnsavedChanges) {
-                            UnsavedNote()
-                        }
-
-                        var successDismissed by remember(apiKeySuccess) { mutableStateOf(false) }
-                        LaunchedEffect(apiKeySuccess) {
-                            if (!apiKeySuccess.isNullOrBlank()) {
-                                delay(SUCCESS_BANNER_MS.milliseconds)
-                                successDismissed = true
-                            }
-                        }
-
-                        if (!apiKeySuccess.isNullOrBlank() && !successDismissed) {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                color = Lipi.PrimaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = Lipi.Primary
-                                    )
-                                    Text(
-                                        text = apiKeySuccess,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Lipi.OnPrimaryContainer
-                                    )
-                                }
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyEdited = true
-                                saveConfig()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            enabled = !isTestingApiKey,
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Lipi.Primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
-                        ) {
-                            if (isTestingApiKey) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(stringResource(Res.string.btn_connecting_saving), fontSize = 14.sp)
-                            } else {
-                                Text(
-                                    stringResource(Res.string.btn_save_config),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            SettingsSection(
-                icon = PipelineMatrixVectorIcon,
-                title = stringResource(Res.string.section_per_agent_assignments),
-                modifier = Modifier.bringIntoViewRequester(agentsSectionRequester)
-            ) {
-                RxAgentType.ALL.forEach { agentType ->
-                    AgentAssignmentCard(
-                        agentType = agentType,
-                        config = agentConfigs[agentType],
-                        providerModelsMap = providerModelsMap,
-                        onDeviceStrategy = onDeviceStrategy,
-                        isExpanded = expandedAgentType == agentType,
-                        onToggleExpand = {
-                            expandedAgentType = if (expandedAgentType == agentType) null else agentType
-                        },
-                        onProviderSelected = { onAgentProviderSelected(agentType, it) },
-                        onModelSelected = { onAgentModelSelected(agentType, it) },
-                        onFallbackProviderSelected = { onAgentFallbackProviderSelected(agentType, it) },
-                        onFallbackModelSelected = { onAgentFallbackModelSelected(agentType, it) }
-                    )
-                }
-            }
-
-            SettingsSection(
-                icon = McpServerVectorIcon,
-                title = stringResource(Res.string.section_mcp)
-            ) {
-                var localMcpState by remember(isMcpServerEnabled) { mutableStateOf(isMcpServerEnabled) }
-
-                SettingsCard(contentPadding = 0.dp, spacing = 0.dp) {
-                    // The whole row is the switch (before: only the small thumb was tappable).
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(
-                                value = localMcpState,
-                                role = Role.Switch,
-                                onValueChange = { enabled ->
-                                    localMcpState = enabled
-                                    onToggleMcpServer(enabled)
-                                }
-                            )
-                            .padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconBadge(icon = McpEndpointVectorIcon)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(Res.string.section_mcp_endpoint),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Lipi.Ink
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (localMcpState) stringResource(Res.string.mcp_server_running)
-                                else stringResource(Res.string.mcp_server_description),
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                fontWeight = if (localMcpState) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (localMcpState) Lipi.StatusActiveGreen else Lipi.Muted
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Switch(
-                            checked = localMcpState,
-                            onCheckedChange = null, // the Row handles the toggle
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = Lipi.Primary,
-                                uncheckedThumbColor = Lipi.SwitchOffThumb,
-                                uncheckedTrackColor = Lipi.SwitchOffTrack,
-                                uncheckedBorderColor = Lipi.SwitchOffBorder
-                            )
-                        )
-                    }
-
-                    if (onViewTelemetry != null) {
-                        Divider()
-                        Surface(
-                            onClick = onViewTelemetry,
-                            color = Color.Transparent,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
+                            Button(
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    keyEdited = true
+                                    saveConfig()
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .heightIn(min = 56.dp)
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .height(50.dp),
+                                enabled = !isTestingApiKey,
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Lipi.Primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
                             ) {
-                                IconBadge(icon = PipelineMatrixVectorIcon)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = stringResource(Res.string.btn_view_telemetry),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Lipi.Ink,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp),
-                                    tint = Lipi.Muted
-                                )
+                                if (isTestingApiKey) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        stringResource(Res.string.btn_connecting_saving),
+                                        fontSize = 14.sp
+                                    )
+                                } else {
+                                    Text(
+                                        stringResource(Res.string.btn_save_config),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            SettingsSection(
-                icon = Icons.Default.Info,
-                title = stringResource(Res.string.section_about)
-            ) {
-                val updateState by updateManager.updateState.collectAsState()
-                val currentVer = updateManager.currentVersionName
-
-                val isChecking = updateState is UpdateState.Checking
-                val isBusy = isChecking || updateState is UpdateState.Downloading
-
-                val showInlineStatus = updateState !is UpdateState.Idle && updateState !is UpdateState.Checking
-
-                SettingsCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f).padding(end = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Text(
-                                text = stringResource(Res.string.app_name),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Lipi.Ink
-                            )
-                            Text(
-                                text = stringResource(Res.string.label_app_version, currentVer),
-                                fontSize = 12.5.sp,
-                                color = Lipi.Muted
-                            )
-                        }
-
-                        AnimatedContent(
-                            targetState = isChecking,
-                            transitionSpec = {
-                                fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(250))
+                SettingsSection(
+                    icon = PipelineMatrixVectorIcon,
+                    title = stringResource(Res.string.section_per_agent_assignments),
+                    modifier = Modifier.bringIntoViewRequester(agentsSectionRequester)
+                ) {
+                    RxAgentType.ALL.forEach { agentType ->
+                        AgentAssignmentCard(
+                            agentType = agentType,
+                            config = agentConfigs[agentType],
+                            providerModelsMap = providerModelsMap,
+                            onDeviceStrategy = onDeviceStrategy,
+                            isExpanded = expandedAgentType == agentType,
+                            onToggleExpand = {
+                                expandedAgentType =
+                                    if (expandedAgentType == agentType) null else agentType
                             },
-                            label = "UpdateCheckAnimation"
-                        ) { checking ->
-                            if (checking) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Lipi.Surface,
-                                    border = BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.5f)),
-                                    modifier = Modifier.wrapContentSize()
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier
-                                            .padding(8.dp)
-                                            .size(20.dp),
-                                        strokeWidth = 2.dp,
-                                        color = Lipi.Primary
-                                    )
-                                }
-                            } else {
-                                SecondaryButton(
-                                    text = stringResource(Res.string.btn_check_for_updates),
-                                    icon = Icons.Default.Refresh,
-                                    enabled = !isBusy,
-                                    onClick = { updateManager.checkForUpdates(silent = false, fromSettings = true) },
-                                    height = 38.dp,
-                                    fontSize = 12
+                            onProviderSelected = { onAgentProviderSelected(agentType, it) },
+                            onModelSelected = { onAgentModelSelected(agentType, it) },
+                            onFallbackProviderSelected = {
+                                onAgentFallbackProviderSelected(
+                                    agentType,
+                                    it
+                                )
+                            },
+                            onFallbackModelSelected = {
+                                onAgentFallbackModelSelected(
+                                    agentType,
+                                    it
                                 )
                             }
-                        }
-                    }
-
-                    if (showInlineStatus) {
-                        HorizontalDivider(color = Lipi.Outline.copy(alpha = 0.5f), thickness = 1.dp)
-                        UpdateContent(
-                            state = updateState,
-                            updateManager = updateManager
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-
-    if (showDiscardDialog) {
-        AlertDialog(
-            onDismissRequest = { showDiscardDialog = false },
-            title = { Text(stringResource(Res.string.dialog_discard_title)) },
-            text = { Text(stringResource(Res.string.dialog_discard_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDiscardDialog = false
-                        onClose()
-                    }
+                SettingsSection(
+                    icon = McpServerVectorIcon,
+                    title = stringResource(Res.string.section_mcp)
                 ) {
-                    Text(stringResource(Res.string.btn_discard), color = Lipi.Danger)
+                    var localMcpState by remember(isMcpServerEnabled) {
+                        mutableStateOf(
+                            isMcpServerEnabled
+                        )
+                    }
+
+                    SettingsCard(contentPadding = 0.dp, spacing = 0.dp) {
+                        // The whole row is the switch (before: only the small thumb was tappable).
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .toggleable(
+                                    value = localMcpState,
+                                    role = Role.Switch,
+                                    onValueChange = { enabled ->
+                                        localMcpState = enabled
+                                        onToggleMcpServer(enabled)
+                                    }
+                                )
+                                .padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconBadge(icon = McpEndpointVectorIcon)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(Res.string.section_mcp_endpoint),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Lipi.Ink
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (localMcpState) stringResource(Res.string.mcp_server_running)
+                                    else stringResource(Res.string.mcp_server_description),
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
+                                    fontWeight = if (localMcpState) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (localMcpState) Lipi.StatusActiveGreen else Lipi.Muted
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = localMcpState,
+                                onCheckedChange = null, // the Row handles the toggle
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Lipi.Primary,
+                                    uncheckedThumbColor = Lipi.SwitchOffThumb,
+                                    uncheckedTrackColor = Lipi.SwitchOffTrack,
+                                    uncheckedBorderColor = Lipi.SwitchOffBorder
+                                )
+                            )
+                        }
+
+                        if (onViewTelemetry != null) {
+                            Divider()
+                            Surface(
+                                onClick = onViewTelemetry,
+                                color = Color.Transparent,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 56.dp)
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconBadge(icon = PipelineMatrixVectorIcon)
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = stringResource(Res.string.btn_view_telemetry),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Lipi.Ink,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(22.dp),
+                                        tint = Lipi.Muted
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDiscardDialog = false }) {
-                    Text(stringResource(Res.string.btn_keep_editing))
+
+                SettingsSection(
+                    icon = Icons.Default.Info,
+                    title = stringResource(Res.string.section_about)
+                ) {
+                    val updateState by updateManager.updateState.collectAsState()
+                    val currentVer = updateManager.currentVersionName
+
+                    val isChecking = updateState is UpdateState.Checking
+                    val isBusy = isChecking || updateState is UpdateState.Downloading
+
+                    val showInlineStatus =
+                        updateState !is UpdateState.Idle && updateState !is UpdateState.Checking
+
+                    SettingsCard {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.app_name),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Lipi.Ink
+                                )
+                                Text(
+                                    text = stringResource(Res.string.label_app_version, currentVer),
+                                    fontSize = 12.5.sp,
+                                    color = Lipi.Muted
+                                )
+                            }
+
+                            AnimatedContent(
+                                targetState = isChecking,
+                                transitionSpec = {
+                                    fadeIn(animationSpec = tween(250)) togetherWith fadeOut(
+                                        animationSpec = tween(250)
+                                    )
+                                },
+                                label = "UpdateCheckAnimation"
+                            ) { checking ->
+                                if (checking) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Lipi.Surface,
+                                        border = BorderStroke(
+                                            1.dp,
+                                            Lipi.Primary.copy(alpha = 0.5f)
+                                        ),
+                                        modifier = Modifier.wrapContentSize()
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier
+                                                .padding(8.dp)
+                                                .size(20.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Lipi.Primary
+                                        )
+                                    }
+                                } else {
+                                    SecondaryButton(
+                                        text = stringResource(Res.string.btn_check_for_updates),
+                                        icon = Icons.Default.Refresh,
+                                        enabled = !isBusy,
+                                        onClick = {
+                                            updateManager.checkForUpdates(
+                                                silent = false,
+                                                fromSettings = true
+                                            )
+                                        },
+                                        height = 38.dp,
+                                        fontSize = 12
+                                    )
+                                }
+                            }
+                        }
+
+                        if (showInlineStatus) {
+                            HorizontalDivider(
+                                color = Lipi.Outline.copy(alpha = 0.5f),
+                                thickness = 1.dp
+                            )
+                            UpdateContent(
+                                state = updateState,
+                                updateManager = updateManager
+                            )
+                        }
+                    }
                 }
-            },
-            containerColor = Lipi.Surface
-        )
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+
+        if (showDiscardDialog) {
+            AlertDialog(
+                onDismissRequest = { showDiscardDialog = false },
+                title = { Text(stringResource(Res.string.dialog_discard_title)) },
+                text = { Text(stringResource(Res.string.dialog_discard_body)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDiscardDialog = false
+                            onClose()
+                        }
+                    ) {
+                        Text(stringResource(Res.string.btn_discard), color = Lipi.Danger)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDiscardDialog = false }) {
+                        Text(stringResource(Res.string.btn_keep_editing))
+                    }
+                },
+                containerColor = Lipi.Surface
+            )
+        }
     }
 }
 
@@ -937,7 +1006,8 @@ private fun AgentAssignmentCard(
     val provider = config?.provider ?: agentType.defaultProvider
     val assignedModel = config?.selectedModel?.ifBlank { "" } ?: ""
     val liveModels = providerModelsMap[provider.id] ?: emptyList()
-    val hasProblem = liveModels.isEmpty() || (assignedModel.isNotBlank() && !liveModels.contains(assignedModel))
+    val hasProblem =
+        liveModels.isEmpty() || (assignedModel.isNotBlank() && !liveModels.contains(assignedModel))
 
     val rawModelText = when {
         assignedModel.isNotBlank() && liveModels.contains(assignedModel) -> assignedModel
@@ -945,13 +1015,17 @@ private fun AgentAssignmentCard(
         provider == AiProvider.OnDevice -> stringResource(Res.string.no_local_models_found)
         else -> stringResource(Res.string.configure_key_to_load_models)
     }
-    val modelText = if (provider == AiProvider.OnDevice) formatModelDisplayName(rawModelText) else rawModelText
+    val modelText =
+        if (provider == AiProvider.OnDevice) formatModelDisplayName(rawModelText) else rawModelText
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = Lipi.Surface,
-        border = BorderStroke(1.dp, if (isExpanded) Lipi.Primary.copy(alpha = 0.4f) else Lipi.CardBorder)
+        border = BorderStroke(
+            1.dp,
+            if (isExpanded) Lipi.Primary.copy(alpha = 0.4f) else Lipi.CardBorder
+        )
     ) {
         Column(modifier = Modifier.animateContentSize()) {
             Surface(
@@ -1023,7 +1097,11 @@ private fun AgentAssignmentCard(
                     )
 
                     val primaryProviderValue = if (liveModels.isNotEmpty()) {
-                        stringResource(Res.string.label_provider_models_count, provider.displayName, liveModels.size)
+                        stringResource(
+                            Res.string.label_provider_models_count,
+                            provider.displayName,
+                            liveModels.size
+                        )
                     } else {
                         provider.displayName
                     }
@@ -1054,14 +1132,22 @@ private fun AgentAssignmentCard(
                         isError = hasProblem,
                         contentDescription = stringResource(Res.string.content_desc_select_model),
                         options = if (liveModels.isNotEmpty()) {
-                            modelOptions(liveModels, assignedModel, provider.brandColor, onModelSelected)
+                            modelOptions(
+                                liveModels,
+                                assignedModel,
+                                provider.brandColor,
+                                onModelSelected
+                            )
                         } else {
                             listOf(
                                 MenuOption(
                                     title = if (provider == AiProvider.OnDevice) {
                                         stringResource(Res.string.no_local_models_found)
                                     } else {
-                                        stringResource(Res.string.no_live_models_found, provider.displayName)
+                                        stringResource(
+                                            Res.string.no_live_models_found,
+                                            provider.displayName
+                                        )
                                     },
                                     tint = Lipi.Error,
                                     selected = false,
@@ -1078,7 +1164,10 @@ private fun AgentAssignmentCard(
                             ?: if (provider != AiProvider.OnDevice) AiProvider.OnDevice else AiProvider.Gemini
                         val fallbackModel = config?.fallbackModel?.ifBlank { "" } ?: ""
                         val fallbackModels = providerModelsMap[fallbackProvider.id] ?: emptyList()
-                        val hasFallbackProblem = fallbackModels.isEmpty() || (fallbackModel.isNotBlank() && !fallbackModels.contains(fallbackModel))
+                        val hasFallbackProblem =
+                            fallbackModels.isEmpty() || (fallbackModel.isNotBlank() && !fallbackModels.contains(
+                                fallbackModel
+                            ))
 
                         val rawFallbackModelText = when {
                             fallbackModel.isNotBlank() && fallbackModels.contains(fallbackModel) -> fallbackModel
@@ -1086,10 +1175,17 @@ private fun AgentAssignmentCard(
                             fallbackProvider == AiProvider.OnDevice -> stringResource(Res.string.no_local_models_found)
                             else -> stringResource(Res.string.configure_key_to_load_models)
                         }
-                        val fallbackModelText = if (fallbackProvider == AiProvider.OnDevice) formatModelDisplayName(rawFallbackModelText) else rawFallbackModelText
+                        val fallbackModelText =
+                            if (fallbackProvider == AiProvider.OnDevice) formatModelDisplayName(
+                                rawFallbackModelText
+                            ) else rawFallbackModelText
 
                         val fallbackProviderValue = if (fallbackModels.isNotEmpty()) {
-                            stringResource(Res.string.label_provider_models_count, fallbackProvider.displayName, fallbackModels.size)
+                            stringResource(
+                                Res.string.label_provider_models_count,
+                                fallbackProvider.displayName,
+                                fallbackModels.size
+                            )
                         } else {
                             fallbackProvider.displayName
                         }
@@ -1130,14 +1226,22 @@ private fun AgentAssignmentCard(
                             isError = hasFallbackProblem,
                             contentDescription = stringResource(Res.string.content_desc_select_fallback_model),
                             options = if (fallbackModels.isNotEmpty()) {
-                                modelOptions(fallbackModels, fallbackModel, fallbackProvider.brandColor, onFallbackModelSelected)
+                                modelOptions(
+                                    fallbackModels,
+                                    fallbackModel,
+                                    fallbackProvider.brandColor,
+                                    onFallbackModelSelected
+                                )
                             } else {
                                 listOf(
                                     MenuOption(
                                         title = if (fallbackProvider == AiProvider.OnDevice) {
                                             stringResource(Res.string.no_local_models_found)
                                         } else {
-                                            stringResource(Res.string.no_live_models_found, fallbackProvider.displayName)
+                                            stringResource(
+                                                Res.string.no_live_models_found,
+                                                fallbackProvider.displayName
+                                            )
                                         },
                                         tint = Lipi.Error,
                                         selected = false,
@@ -1179,7 +1283,13 @@ private fun SetupStatusCard(
     } else {
         buildList {
             if (needsApiKey) add(stringResource(Res.string.status_add_api_key_detail, providerName))
-            if (agentsNeedingModel > 0) add(stringResource(Res.string.status_agents_no_model_detail, agentsNeedingModel, totalAgents))
+            if (agentsNeedingModel > 0) add(
+                stringResource(
+                    Res.string.status_agents_no_model_detail,
+                    agentsNeedingModel,
+                    totalAgents
+                )
+            )
         }.joinToString(" ")
     }
 
@@ -1257,9 +1367,16 @@ private fun providerOptions(
     return AiProvider.ALL.map { prov ->
         val locked = isLocked(prov)
         val count = providerModelsMap[prov.id]?.size ?: 0
-        val countSubtitle = if (count > 0) stringResource(Res.string.label_models_available_count, count) else noModelsText
+        val countSubtitle = if (count > 0) stringResource(
+            Res.string.label_models_available_count,
+            count
+        ) else noModelsText
         MenuOption(
-            title = if (count > 0) stringResource(Res.string.label_provider_models_count, prov.displayName, count) else prov.displayName,
+            title = if (count > 0) stringResource(
+                Res.string.label_provider_models_count,
+                prov.displayName,
+                count
+            ) else prov.displayName,
             subtitle = if (locked) lockedText else countSubtitle,
             icon = prov.icon,
             tint = prov.brandColor,
@@ -1417,7 +1534,8 @@ private fun PickerField(
                         DropdownMenuItem(
                             modifier = if (option.selected) {
                                 Modifier.onGloballyPositioned { coordinates ->
-                                    if (selectedY == null) selectedY = coordinates.positionInParent().y.toInt()
+                                    if (selectedY == null) selectedY =
+                                        coordinates.positionInParent().y.toInt()
                                 }
                             } else Modifier,
                             enabled = option.enabled,
@@ -1427,7 +1545,9 @@ private fun PickerField(
                                         imageVector = option.icon,
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp),
-                                        tint = if (option.enabled) option.tint else option.tint.copy(alpha = 0.4f)
+                                        tint = if (option.enabled) option.tint else option.tint.copy(
+                                            alpha = 0.4f
+                                        )
                                     )
                                 }
                             } else null,
@@ -1447,7 +1567,9 @@ private fun PickerField(
                                         text = option.title,
                                         fontSize = 13.5.sp,
                                         fontWeight = if (option.selected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (option.enabled) Lipi.Ink else Lipi.Muted.copy(alpha = 0.5f)
+                                        color = if (option.enabled) Lipi.Ink else Lipi.Muted.copy(
+                                            alpha = 0.5f
+                                        )
                                     )
                                     if (option.subtitle != null) {
                                         Text(
@@ -1545,14 +1667,24 @@ private fun SearchablePickerDialog(
                     value = query,
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(Res.string.placeholder_search), fontSize = 13.sp) },
+                    placeholder = {
+                        Text(
+                            stringResource(Res.string.placeholder_search),
+                            fontSize = 13.sp
+                        )
+                    },
                     leadingIcon = {
                         Icon(Icons.Default.Search, null, Modifier.size(18.dp), tint = Lipi.Primary)
                     },
                     trailingIcon = if (query.isNotBlank()) {
                         {
                             IconButton(onClick = { query = "" }) {
-                                Icon(Icons.Default.Clear, null, Modifier.size(18.dp), tint = Lipi.Muted)
+                                Icon(
+                                    Icons.Default.Clear,
+                                    null,
+                                    Modifier.size(18.dp),
+                                    tint = Lipi.Muted
+                                )
                             }
                         }
                     } else null,
@@ -1597,7 +1729,10 @@ private fun SearchablePickerDialog(
                                     .heightIn(min = 48.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 color = if (option.selected) option.tint.copy(alpha = 0.12f) else Color.Transparent,
-                                border = if (option.selected) BorderStroke(1.dp, option.tint.copy(alpha = 0.4f)) else null
+                                border = if (option.selected) BorderStroke(
+                                    1.dp,
+                                    option.tint.copy(alpha = 0.4f)
+                                ) else null
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -1610,7 +1745,9 @@ private fun SearchablePickerDialog(
                                             imageVector = option.icon,
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp),
-                                            tint = if (option.enabled) option.tint else option.tint.copy(alpha = 0.4f)
+                                            tint = if (option.enabled) option.tint else option.tint.copy(
+                                                alpha = 0.4f
+                                            )
                                         )
                                         Spacer(modifier = Modifier.width(10.dp))
                                     }
@@ -1619,7 +1756,9 @@ private fun SearchablePickerDialog(
                                             text = option.title,
                                             fontSize = 13.5.sp,
                                             fontWeight = if (option.selected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (option.enabled) Lipi.Ink else Lipi.Muted.copy(alpha = 0.5f)
+                                            color = if (option.enabled) Lipi.Ink else Lipi.Muted.copy(
+                                                alpha = 0.5f
+                                            )
                                         )
                                         if (option.subtitle != null) {
                                             Text(
@@ -1695,7 +1834,10 @@ private fun ThemeModeSelector(
                 .width(segmentWidth)
                 .fillMaxHeight()
                 .background(Lipi.PrimaryContainer, RoundedCornerShape(12.dp))
-                .border(BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.5f)), RoundedCornerShape(12.dp))
+                .border(
+                    BorderStroke(1.dp, Lipi.Primary.copy(alpha = 0.5f)),
+                    RoundedCornerShape(12.dp)
+                )
         )
 
         Row(
@@ -1965,8 +2107,13 @@ private fun ApiKeyField(
                 }
             }
         },
-        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation('•'),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(
+            '•'
+        ),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            imeAction = ImeAction.Done
+        ),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         isError = errorText != null,
         supportingText = errorText?.let { { Text(it) } },

@@ -1,7 +1,5 @@
 package com.snehonir.lipirx.data.remote.service
 
-import com.snehonir.lipirx.data.remote.prompt.SINGLE_CALL_PROMPT
-
 import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
@@ -86,7 +84,7 @@ class ClaudeAiService(
     private val httpClient: HttpClient,
     private val defaultApiKey: String = "",
     private val jsonParser: Json
-) : PrescriptionAiService {
+) : LipiRxAiService {
 
     override val provider: AiProvider = AiProvider.Claude
     private val endpoint: String = AppConstants.CLAUDE_DEFAULT_ENDPOINT
@@ -234,40 +232,38 @@ class ClaudeAiService(
         providedApiKey: String,
         customUrl: String,
         flow: String
-    ): Result<List<ModelInfoDto>> {
+    ): Result<List<ModelInfoDto>> = safeApiCall("Claude") {
         val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
         if (targetApiKey.isBlank()) {
-            return Result.failure(IllegalStateException("Claude API key is required."))
+            throw IllegalStateException("Claude API key is required.")
         }
 
         val targetUrl = customUrl.ifBlank { AppConstants.CLAUDE_MODELS_ENDPOINT }.trim()
 
-        return runCatching {
-            val response = httpClient.get(targetUrl) {
-                headers {
-                    append(AppConstants.CLAUDE_HEADER_API_KEY, targetApiKey)
-                    append(AppConstants.CLAUDE_HEADER_VERSION, AppConstants.CLAUDE_API_VERSION)
-                }
+        val response = httpClient.get(targetUrl) {
+            headers {
+                append(AppConstants.CLAUDE_HEADER_API_KEY, targetApiKey)
+                append(AppConstants.CLAUDE_HEADER_VERSION, AppConstants.CLAUDE_API_VERSION)
             }
-
-            val rawBody = response.bodyAsText()
-            if (!response.status.isSuccess()) {
-                val errorMsg = runCatching { jsonParser.decodeFromString<ClaudeResponsePayload>(rawBody).error?.message }.getOrNull()
-                throw IllegalStateException(errorMsg ?: "Failed to fetch Claude models (${response.status})")
-            }
-
-            val parsedResponse = jsonParser.decodeFromString<ClaudeModelsResponse>(rawBody)
-            val modelItems = parsedResponse.data?.map { item ->
-                ModelInfoDto(name = item.id, displayName = item.displayName ?: item.id)
-            } ?: emptyList()
-
-            if (modelItems.isEmpty()) {
-                throw IllegalStateException("No models returned from Claude endpoint.")
-            }
-
-            Napier.d("[$flow -> Success] Retrieved ${modelItems.size} Claude models directly from API: ${modelItems.map { it.name }}", tag = TAG)
-            modelItems
         }
+
+        val rawBody = response.bodyAsText()
+        if (!response.status.isSuccess()) {
+            val errorMsg = runCatching { jsonParser.decodeFromString<ClaudeResponsePayload>(rawBody).error?.message }.getOrNull()
+            throw IllegalStateException(errorMsg ?: "Failed to fetch Claude models (${response.status})")
+        }
+
+        val parsedResponse = jsonParser.decodeFromString<ClaudeModelsResponse>(rawBody)
+        val modelItems = parsedResponse.data?.map { item ->
+            ModelInfoDto(name = item.id, displayName = item.displayName ?: item.id)
+        } ?: emptyList()
+
+        if (modelItems.isEmpty()) {
+            throw IllegalStateException("No models returned from Claude endpoint.")
+        }
+
+        Napier.d("[$flow -> Success] Retrieved ${modelItems.size} Claude models directly from API: ${modelItems.map { it.name }}", tag = TAG)
+        modelItems
     }
 
     private fun parseMedicinesFromJson(jsonText: String): List<MedicineItem> {

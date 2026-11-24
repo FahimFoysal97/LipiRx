@@ -1,15 +1,27 @@
 package com.snehonir.lipirx.presentation.settings
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.snehonir.lipirx.common.AppConstants
+import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
+import com.snehonir.lipirx.domain.common.LipiRxNoParams
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.model.ThemeMode
-import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
-import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
+import com.snehonir.lipirx.domain.usecase.FetchAvailableModelsUseCase
+import com.snehonir.lipirx.domain.usecase.FetchModelsParams
+import com.snehonir.lipirx.domain.usecase.GetAgentConfigsUseCase
+import com.snehonir.lipirx.domain.usecase.GetProviderConfigUseCase
+import com.snehonir.lipirx.domain.usecase.ManageMcpServerUseCase
+import com.snehonir.lipirx.domain.usecase.ManageOnDeviceStrategyUseCase
+import com.snehonir.lipirx.domain.usecase.McpServerParams
+import com.snehonir.lipirx.domain.usecase.SaveAgentConfigParams
+import com.snehonir.lipirx.domain.usecase.SaveAgentConfigUseCase
+import com.snehonir.lipirx.domain.usecase.SaveProviderConfigParams
+import com.snehonir.lipirx.domain.usecase.SaveProviderConfigUseCase
+import com.snehonir.lipirx.domain.usecase.StrategyParams
+import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.error_connection_failed
 import com.snehonir.lipirx.resources.error_no_models_found
@@ -23,11 +35,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 
 data class SettingsUiState(
@@ -63,42 +70,42 @@ data class SettingsUiState(
 }
 
 class SettingsViewModel(
-    private val manageProviderConfigUseCase: ManageProviderConfigUseCase,
-    private val processPrescriptionUseCase: ProcessPrescriptionUseCase
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(SettingsUiState())
-    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    private val getProviderConfigUseCase: GetProviderConfigUseCase,
+    private val saveProviderConfigUseCase: SaveProviderConfigUseCase,
+    private val getAgentConfigsUseCase: GetAgentConfigsUseCase,
+    private val saveAgentConfigUseCase: SaveAgentConfigUseCase,
+    private val manageOnDeviceStrategyUseCase: ManageOnDeviceStrategyUseCase,
+    private val manageMcpServerUseCase: ManageMcpServerUseCase,
+    private val fetchAvailableModelsUseCase: FetchAvailableModelsUseCase,
+    private val repository: PrescriptionRepository
+) : LipiRxViewModel<SettingsUiState>(SettingsUiState()) {
 
     init {
         loadSettingsState()
     }
 
-    fun loadSettingsState(flow: String = "App -> SettingsViewModel.loadSettingsState") {
+    fun loadSettingsState(flow: String = "App -> $TAG.loadSettingsState") {
         Napier.d("[$flow] Loading settings state from SQLite DB", tag = TAG)
-        viewModelScope.launch(Dispatchers.Default) {
-            val config = manageProviderConfigUseCase.getProviderConfig(flow = flow)
+        launchSafe(Dispatchers.Default) {
+            val config = getProviderConfigUseCase(LipiRxNoParams).getOrDefault(ProviderConfigEntity())
             val providerObj = AiProvider.fromId(config.providerType)
 
-            val geminiKey = manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Gemini.id)
-            val groqKey = manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Groq.id)
-            val openaiKey = manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.OpenAi.id)
-            val claudeKey = manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Claude.id)
-            val customKey = manageProviderConfigUseCase.getApiKeyForProvider(AiProvider.Custom.id)
+            val geminiKey = repository.getApiKeyForProvider(AiProvider.Gemini.id)
+            val groqKey = repository.getApiKeyForProvider(AiProvider.Groq.id)
+            val openaiKey = repository.getApiKeyForProvider(AiProvider.OpenAi.id)
+            val claudeKey = repository.getApiKeyForProvider(AiProvider.Claude.id)
+            val customKey = repository.getApiKeyForProvider(AiProvider.Custom.id)
 
-            val savedStrategy = manageProviderConfigUseCase.getOnDeviceStrategy()
-            val slmDir = runCatching { manageProviderConfigUseCase.getSlmModelDirectory() }.getOrDefault("")
-            val mcpEnabled = runCatching { manageProviderConfigUseCase.isMcpServerEnabled() }.getOrDefault(false)
+            val savedStrategy = repository.getOnDeviceStrategy()
+            val slmDir = runCatching { repository.getSlmModelDirectory() }.getOrDefault("")
+            val mcpEnabled = runCatching { repository.isMcpServerEnabled() }.getOrDefault(false)
             val themeMode = ThemeMode.fromId(config.themeMode)
 
-            val loadedAgentConfigs = runCatching {
-                manageProviderConfigUseCase.getAllAgentConfigs()
-            }.getOrDefault(emptyMap()).toImmutableMap()
-
+            val loadedAgentConfigs = getAgentConfigsUseCase(LipiRxNoParams).getOrDefault(emptyMap()).toImmutableMap()
             val loadedProviderModelsMap = loadProviderModelsMap()
 
-            _uiState.update {
-                it.copy(
+            updateState {
+                copy(
                     provider = providerObj,
                     customUrl = config.customUrl,
                     onDeviceStrategy = savedStrategy,
@@ -117,8 +124,8 @@ class SettingsViewModel(
             }
 
             AiProvider.ALL.forEach { prov ->
-                val key = manageProviderConfigUseCase.getApiKeyForProvider(prov.id)
-                val customUrl = if (prov == AiProvider.Custom) manageProviderConfigUseCase.getProviderConfig().customUrl else ""
+                val key = repository.getApiKeyForProvider(prov.id)
+                val customUrl = if (prov == AiProvider.Custom) getProviderConfigUseCase(LipiRxNoParams).getOrDefault(ProviderConfigEntity()).customUrl else ""
                 val canFetch = key.isNotBlank() || prov == AiProvider.OnDevice || (prov == AiProvider.Custom && customUrl.isNotBlank())
 
                 if (canFetch) {
@@ -129,7 +136,7 @@ class SettingsViewModel(
     }
 
     private suspend fun loadProviderModelsMap(): ImmutableMap<String, ImmutableList<String>> {
-        val rawMap = runCatching { manageProviderConfigUseCase.getAllProviderModelsMap() }.getOrDefault(emptyMap())
+        val rawMap = runCatching { repository.getAllProviderModelsMap() }.getOrDefault(emptyMap())
         val resultMap = mutableMapOf<String, ImmutableList<String>>()
 
         AiProvider.ALL.forEach { prov ->
@@ -141,24 +148,24 @@ class SettingsViewModel(
 
     fun onProviderTabSelected(
         providerType: String,
-        flow: String = "App -> SettingsViewModel.onProviderTabSelected"
+        flow: String = "App -> $TAG.onProviderTabSelected"
     ) {
         val providerObj = AiProvider.fromId(providerType)
-        _uiState.update {
-            it.copy(
+        updateState {
+            copy(
                 provider = providerObj,
                 apiKeyError = null,
                 apiKeySuccess = null
             )
         }
 
-        viewModelScope.launch(Dispatchers.Default) {
+        launchSafe(Dispatchers.Default) {
             val savedModel = runCatching {
-                manageProviderConfigUseCase.getLastSelectedModel(providerObj, flow = flow)
+                repository.getLastSelectedModel(providerObj, flow = flow)
             }.getOrDefault("").ifBlank { providerObj.defaultModel }
 
-            _uiState.update {
-                it.copy(selectedModel = savedModel)
+            updateState {
+                copy(selectedModel = savedModel)
             }
             fetchModelsForProvider(providerObj, flow = flow)
         }
@@ -166,39 +173,41 @@ class SettingsViewModel(
 
     fun fetchModelsForProvider(
         targetProvider: AiProvider,
-        flow: String = "App -> SettingsViewModel.fetchModelsForProvider"
+        flow: String = "App -> $TAG.fetchModelsForProvider"
     ) {
-        viewModelScope.launch(Dispatchers.Default) {
-            val apiKey = manageProviderConfigUseCase.getApiKeyForProvider(targetProvider.id)
-            val customUrl = if (targetProvider == AiProvider.Custom) manageProviderConfigUseCase.getProviderConfig().customUrl else ""
+        launchSafe(Dispatchers.Default) {
+            val apiKey = repository.getApiKeyForProvider(targetProvider.id)
+            val customUrl = if (targetProvider == AiProvider.Custom) getProviderConfigUseCase(LipiRxNoParams).getOrDefault(ProviderConfigEntity()).customUrl else ""
 
             if (apiKey.isBlank() && targetProvider != AiProvider.OnDevice && targetProvider != AiProvider.Custom) {
-                runCatching { manageProviderConfigUseCase.saveProviderModels(targetProvider.id, emptyList(), flow = flow) }
-                _uiState.update { currentState ->
-                    val updatedMap = currentState.providerModelsMap.toMutableMap()
+                runCatching { repository.saveProviderModels(targetProvider.id, emptyList(), flow = flow) }
+                updateState {
+                    val updatedMap = providerModelsMap.toMutableMap()
                     updatedMap[targetProvider.id] = persistentListOf()
-                    currentState.copy(providerModelsMap = updatedMap.toImmutableMap())
+                    copy(providerModelsMap = updatedMap.toImmutableMap())
                 }
-                return@launch
+                return@launchSafe
             }
 
-            val result = processPrescriptionUseCase.fetchAvailableModels(
-                providedApiKey = apiKey,
-                provider = targetProvider,
-                customUrl = customUrl,
-                flow = "$flow -> processPrescriptionUseCase.fetchAvailableModels"
+            val result = fetchAvailableModelsUseCase(
+                FetchModelsParams(
+                    provider = targetProvider,
+                    providedApiKey = apiKey,
+                    customUrl = customUrl,
+                    flow = "$flow -> fetchAvailableModelsUseCase"
+                )
             )
 
             result.fold(
                 onSuccess = { modelList ->
                     val names = modelList.map { it.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim() }.filter { it.isNotBlank() }.toImmutableList()
                     runCatching {
-                        manageProviderConfigUseCase.saveProviderModels(targetProvider.id, names, flow = flow)
+                        repository.saveProviderModels(targetProvider.id, names, flow = flow)
                     }
-                    _uiState.update { currentState ->
-                        val updatedMap = currentState.providerModelsMap.toMutableMap()
+                    updateState {
+                        val updatedMap = providerModelsMap.toMutableMap()
                         updatedMap[targetProvider.id] = names
-                        currentState.copy(providerModelsMap = updatedMap.toImmutableMap())
+                        copy(providerModelsMap = updatedMap.toImmutableMap())
                     }
                 },
                 onFailure = { ex ->
@@ -213,39 +222,41 @@ class SettingsViewModel(
         customUrl: String,
         apiKey: String,
         selectedModel: String,
-        flow: String = "App -> SettingsViewModel.saveAndTestProviderConfig"
+        flow: String = "App -> $TAG.saveAndTestProviderConfig"
     ) {
         val prov = AiProvider.fromId(providerType)
-        _uiState.update { it.copy(isTestingApiKey = true, apiKeyError = null, apiKeySuccess = null) }
+        updateState { copy(isTestingApiKey = true, apiKeyError = null, apiKeySuccess = null) }
 
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching {
-                manageProviderConfigUseCase.saveProviderConfig(
+        launchSafe(Dispatchers.Default) {
+            saveProviderConfigUseCase(
+                SaveProviderConfigParams(
                     providerType = providerType,
                     customUrl = customUrl,
                     apiKey = apiKey,
                     modelName = selectedModel,
-                    themeMode = _uiState.value.themeMode.id,
+                    themeMode = currentState.themeMode.id,
                     flow = flow
                 )
-            }
+            )
 
-            val testResult = processPrescriptionUseCase.fetchAvailableModels(
-                providedApiKey = apiKey,
-                provider = prov,
-                customUrl = customUrl,
-                flow = "$flow -> testApiKey"
+            val testResult = fetchAvailableModelsUseCase(
+                FetchModelsParams(
+                    provider = prov,
+                    providedApiKey = apiKey,
+                    customUrl = customUrl,
+                    flow = "$flow -> testApiKey"
+                )
             )
 
             testResult.fold(
                 onSuccess = { models ->
                     val modelNames = models.map { it.removePrefix(AppConstants.MODEL_PREFIX_GEMINI).trim() }.filter { it.isNotBlank() }.toImmutableList()
-                    runCatching { manageProviderConfigUseCase.saveProviderModels(prov.id, modelNames, flow = flow) }
+                    runCatching { repository.saveProviderModels(prov.id, modelNames, flow = flow) }
 
                     if (modelNames.isEmpty() && prov.requiresApiKey) {
                         val noModelsMsg = getString(Res.string.error_no_models_found)
-                        _uiState.update { state ->
-                            state.copy(
+                        updateState {
+                            copy(
                                 isTestingApiKey = false,
                                 apiKeySuccess = null,
                                 apiKeyError = noModelsMsg
@@ -257,17 +268,17 @@ class SettingsViewModel(
                         } else {
                             getString(Res.string.success_provider_verified, prov.displayName, modelNames.size)
                         }
-                        _uiState.update { state ->
-                            val updatedModelsMap = state.providerModelsMap.toMutableMap()
+                        updateState {
+                            val updatedModelsMap = providerModelsMap.toMutableMap()
                             updatedModelsMap[prov.id] = modelNames
 
                             when (prov) {
-                                AiProvider.Gemini -> state.copy(geminiApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
-                                AiProvider.Groq -> state.copy(groqApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
-                                AiProvider.OpenAi -> state.copy(openaiApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
-                                AiProvider.Claude -> state.copy(claudeApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
-                                AiProvider.Custom -> state.copy(customApiKey = apiKey, customUrl = customUrl, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
-                                AiProvider.OnDevice -> state.copy(isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.Gemini -> copy(geminiApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.Groq -> copy(groqApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.OpenAi -> copy(openaiApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.Claude -> copy(claudeApiKey = apiKey, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.Custom -> copy(customApiKey = apiKey, customUrl = customUrl, isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
+                                AiProvider.OnDevice -> copy(isTestingApiKey = false, apiKeySuccess = verifiedMsg, apiKeyError = null, providerModelsMap = updatedModelsMap.toImmutableMap())
                             }
                         }
                     }
@@ -276,8 +287,8 @@ class SettingsViewModel(
                     val connFailedMsg = getString(Res.string.error_connection_failed)
                     val errorDetail = ex.message?.ifBlank { null }
                     val finalMsg = if (errorDetail != null) "$connFailedMsg ($errorDetail)" else connFailedMsg
-                    _uiState.update {
-                        it.copy(
+                    updateState {
+                        copy(
                             isTestingApiKey = false,
                             apiKeySuccess = null,
                             apiKeyError = finalMsg
@@ -288,33 +299,33 @@ class SettingsViewModel(
         }
     }
 
-    fun onSelectOnDeviceStrategy(strategy: OnDeviceStrategy, flow: String = "App -> SettingsViewModel.onSelectOnDeviceStrategy") {
-        _uiState.update { it.copy(onDeviceStrategy = strategy) }
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching { manageProviderConfigUseCase.saveOnDeviceStrategy(strategy, flow = flow) }
+    fun onSelectOnDeviceStrategy(strategy: OnDeviceStrategy, flow: String = "App -> $TAG.onSelectOnDeviceStrategy") {
+        updateState { copy(onDeviceStrategy = strategy) }
+        launchSafe(Dispatchers.Default) {
+            manageOnDeviceStrategyUseCase(StrategyParams(strategy = strategy, flow = flow))
         }
         fetchModelsForProvider(AiProvider.OnDevice, flow = "$flow -> fetchModelsForProvider.OnDevice")
     }
 
-    fun onSaveSlmDirectoryPath(path: String, flow: String = "App -> SettingsViewModel.onSaveSlmDirectoryPath") {
+    fun onSaveSlmDirectoryPath(path: String, flow: String = "App -> $TAG.onSaveSlmDirectoryPath") {
         val trimmed = path.trim()
-        _uiState.update { it.copy(slmModelDirectory = trimmed) }
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching { manageProviderConfigUseCase.saveSlmModelDirectory(trimmed, flow = flow) }
+        updateState { copy(slmModelDirectory = trimmed) }
+        launchSafe(Dispatchers.Default) {
+            manageOnDeviceStrategyUseCase(StrategyParams(slmDirectoryPath = trimmed, flow = flow))
         }
         fetchModelsForProvider(AiProvider.OnDevice, flow = "$flow -> fetchModelsForProvider.OnDevice")
     }
 
-    fun updateThemeMode(themeMode: ThemeMode, flow: String = "App -> SettingsViewModel.updateThemeMode") {
-        _uiState.update { it.copy(themeMode = themeMode) }
-        val currentProviderType = _uiState.value.providerType
-        val customUrl = _uiState.value.customUrl
-        val apiKey = _uiState.value.apiKey
-        val selectedModel = _uiState.value.selectedModel
+    fun updateThemeMode(themeMode: ThemeMode, flow: String = "App -> $TAG.updateThemeMode") {
+        updateState { copy(themeMode = themeMode) }
+        val currentProviderType = currentState.providerType
+        val customUrl = currentState.customUrl
+        val apiKey = currentState.apiKey
+        val selectedModel = currentState.selectedModel
 
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching {
-                manageProviderConfigUseCase.saveProviderConfig(
+        launchSafe(Dispatchers.Default) {
+            saveProviderConfigUseCase(
+                SaveProviderConfigParams(
                     providerType = currentProviderType,
                     customUrl = customUrl,
                     apiKey = apiKey,
@@ -322,20 +333,20 @@ class SettingsViewModel(
                     themeMode = themeMode.id,
                     flow = flow
                 )
-            }
+            )
         }
     }
 
-    fun onMcpServerToggled(enabled: Boolean, flow: String = "App -> SettingsViewModel.onMcpServerToggled") {
-        _uiState.update { it.copy(isMcpServerEnabled = enabled) }
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching { manageProviderConfigUseCase.saveMcpServerEnabled(enabled, flow = flow) }
+    fun onMcpServerToggled(enabled: Boolean, flow: String = "App -> $TAG.onMcpServerToggled") {
+        updateState { copy(isMcpServerEnabled = enabled) }
+        launchSafe(Dispatchers.Default) {
+            manageMcpServerUseCase(McpServerParams(enabled = enabled, flow = flow))
         }
     }
 
     fun onAgentProviderSelected(agentType: RxAgentType, newProvider: AiProvider) {
-        val currentConfig = _uiState.value.agentConfigs[agentType]
-        val models = _uiState.value.providerModelsMap[newProvider.id] ?: emptyList()
+        val currentConfig = currentState.agentConfigs[agentType]
+        val models = currentState.providerModelsMap[newProvider.id] ?: emptyList()
         val chosenModel = models.firstOrNull() ?: ""
 
         val updatedConfig = AgentConfig(
@@ -346,22 +357,23 @@ class SettingsViewModel(
             fallbackModel = currentConfig?.fallbackModel ?: ""
         )
 
-        _uiState.update { currentState ->
-            val updatedMap = currentState.agentConfigs.toMutableMap()
+        updateState {
+            val updatedMap = agentConfigs.toMutableMap()
             updatedMap[agentType] = updatedConfig
-            currentState.copy(agentConfigs = updatedMap.toImmutableMap())
+            copy(agentConfigs = updatedMap.toImmutableMap())
         }
 
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching {
-                manageProviderConfigUseCase.saveAgentConfig(
+        launchSafe(Dispatchers.Default) {
+            saveAgentConfigUseCase(
+                SaveAgentConfigParams(
                     agentType = agentType,
                     provider = newProvider,
                     modelName = chosenModel,
                     fallbackProvider = currentConfig?.fallbackProvider,
-                    fallbackModel = currentConfig?.fallbackModel ?: ""
+                    fallbackModel = currentConfig?.fallbackModel ?: "",
+                    flow = "$TAG.onAgentProviderSelected"
                 )
-            }
+            )
         }
 
         if (models.isEmpty()) {
@@ -370,52 +382,54 @@ class SettingsViewModel(
     }
 
     fun onAgentModelSelected(agentType: RxAgentType, modelName: String) {
-        val currentConfig = _uiState.value.agentConfigs[agentType] ?: AgentConfig(agentType, AiProvider.Gemini)
+        val currentConfig = currentState.agentConfigs[agentType] ?: AgentConfig(agentType, AiProvider.Gemini)
         val updated = currentConfig.copy(selectedModel = modelName)
 
-        _uiState.update { currentState ->
-            val updatedMap = currentState.agentConfigs.toMutableMap()
+        updateState {
+            val updatedMap = agentConfigs.toMutableMap()
             updatedMap[agentType] = updated
-            currentState.copy(agentConfigs = updatedMap.toImmutableMap())
+            copy(agentConfigs = updatedMap.toImmutableMap())
         }
 
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching {
-                manageProviderConfigUseCase.saveAgentConfig(
+        launchSafe(Dispatchers.Default) {
+            saveAgentConfigUseCase(
+                SaveAgentConfigParams(
                     agentType = agentType,
                     provider = updated.provider,
                     modelName = updated.selectedModel,
                     fallbackProvider = updated.fallbackProvider,
-                    fallbackModel = updated.fallbackModel
+                    fallbackModel = updated.fallbackModel,
+                    flow = "$TAG.onAgentModelSelected"
                 )
-            }
+            )
         }
     }
 
     fun onAgentFallbackProviderSelected(agentType: RxAgentType, fallbackProvider: AiProvider) {
-        val currentConfig = _uiState.value.agentConfigs[agentType]
-        val models = _uiState.value.providerModelsMap[fallbackProvider.id] ?: emptyList()
+        val currentConfig = currentState.agentConfigs[agentType]
+        val models = currentState.providerModelsMap[fallbackProvider.id] ?: emptyList()
         val chosenModel = models.firstOrNull() ?: ""
 
         val existing = currentConfig ?: AgentConfig(agentType, AiProvider.Gemini)
         val updated = existing.copy(fallbackProvider = fallbackProvider, fallbackModel = chosenModel)
 
-        _uiState.update { currentState ->
-            val updatedMap = currentState.agentConfigs.toMutableMap()
+        updateState {
+            val updatedMap = agentConfigs.toMutableMap()
             updatedMap[agentType] = updated
-            currentState.copy(agentConfigs = updatedMap.toImmutableMap())
+            copy(agentConfigs = updatedMap.toImmutableMap())
         }
 
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching {
-                manageProviderConfigUseCase.saveAgentConfig(
+        launchSafe(Dispatchers.Default) {
+            saveAgentConfigUseCase(
+                SaveAgentConfigParams(
                     agentType = agentType,
                     provider = existing.provider,
                     modelName = existing.selectedModel,
                     fallbackProvider = fallbackProvider,
-                    fallbackModel = chosenModel
+                    fallbackModel = chosenModel,
+                    flow = "$TAG.onAgentFallbackProviderSelected"
                 )
-            }
+            )
         }
 
         if (models.isEmpty()) {
@@ -424,29 +438,30 @@ class SettingsViewModel(
     }
 
     fun onAgentFallbackModelSelected(agentType: RxAgentType, fallbackModel: String) {
-        val existing = _uiState.value.agentConfigs[agentType] ?: AgentConfig(agentType, AiProvider.Gemini)
+        val existing = currentState.agentConfigs[agentType] ?: AgentConfig(agentType, AiProvider.Gemini)
         val updated = existing.copy(fallbackModel = fallbackModel)
 
-        _uiState.update { currentState ->
-            val updatedMap = currentState.agentConfigs.toMutableMap()
+        updateState {
+            val updatedMap = agentConfigs.toMutableMap()
             updatedMap[agentType] = updated
-            currentState.copy(agentConfigs = updatedMap.toImmutableMap())
+            copy(agentConfigs = updatedMap.toImmutableMap())
         }
 
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching {
-                manageProviderConfigUseCase.saveAgentConfig(
+        launchSafe(Dispatchers.Default) {
+            saveAgentConfigUseCase(
+                SaveAgentConfigParams(
                     agentType = agentType,
                     provider = updated.provider,
                     modelName = updated.selectedModel,
                     fallbackProvider = updated.fallbackProvider,
-                    fallbackModel = updated.fallbackModel
+                    fallbackModel = fallbackModel,
+                    flow = "$TAG.onAgentFallbackModelSelected"
                 )
-            }
+            )
         }
     }
 
     companion object {
-        private const val TAG = "SettingsViewModel"
+        private val TAG = SettingsViewModel::class.simpleName
     }
 }

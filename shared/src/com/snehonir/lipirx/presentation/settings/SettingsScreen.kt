@@ -28,22 +28,40 @@ fun SettingsScreen(
         isTestingApiKey = uiState.isTestingApiKey,
         onDeviceStrategy = uiState.onDeviceStrategy,
         isMcpServerEnabled = uiState.isMcpServerEnabled,
-        onToggleMcpServer = { enabled -> viewModel.onMcpServerToggled(enabled) },
+        onToggleMcpServer = { enabled ->
+            viewModel.onMcpServerToggled(enabled)
+        },
         agentConfigs = uiState.agentConfigs,
         providerModelsMap = uiState.providerModelsMap,
-        onAgentProviderSelected = { agent, provider -> viewModel.onAgentProviderSelected(agent, provider) },
-        onAgentModelSelected = { agent, model -> viewModel.onAgentModelSelected(agent, model) },
-        onAgentFallbackProviderSelected = { agent, provider -> viewModel.onAgentFallbackProviderSelected(agent, provider) },
-        onAgentFallbackModelSelected = { agent, model -> viewModel.onAgentFallbackModelSelected(agent, model) },
-        onProviderTabSelected = { providerId -> viewModel.onProviderTabSelected(providerId) },
+        onAgentProviderSelected = { agent, provider ->
+            viewModel.onAgentProviderSelected(agent, provider)
+        },
+        onAgentModelSelected = { agent, model ->
+            viewModel.onAgentModelSelected(agent, model)
+        },
+        onAgentFallbackProviderSelected = { agent, provider ->
+            viewModel.onAgentFallbackProviderSelected(agent, provider)
+        },
+        onAgentFallbackModelSelected = { agent, model ->
+            viewModel.onAgentFallbackModelSelected(agent, model)
+        },
+        onProviderTabSelected = { providerId ->
+            viewModel.onProviderTabSelected(providerId)
+        },
         onSaveProviderConfig = { providerType, customUrl, apiKey, modelName ->
             viewModel.saveAndTestProviderConfig(providerType, customUrl, apiKey, modelName)
         },
-        onSelectOnDeviceStrategy = { strategy -> viewModel.onSelectOnDeviceStrategy(strategy) },
+        onSelectOnDeviceStrategy = { strategy ->
+            viewModel.onSelectOnDeviceStrategy(strategy)
+        },
         slmModelDirectory = uiState.slmModelDirectory,
-        onSaveSlmDirectoryPath = { path -> viewModel.onSaveSlmDirectoryPath(path) },
+        onSaveSlmDirectoryPath = { path ->
+            viewModel.onSaveSlmDirectoryPath(path)
+        },
         themeMode = uiState.themeMode,
-        onSelectThemeMode = { mode -> viewModel.updateThemeMode(mode) },
+        onSelectThemeMode = { mode ->
+            viewModel.updateThemeMode(mode)
+        },
         onViewTelemetry = onViewTelemetry,
         onClose = onClose
     )

@@ -26,39 +26,54 @@ class LipiRxRoomRepository(
     private val dispensedDao get() = database.dispensedHistoryDao()
     private val traceDao get() = database.agentExecutionTraceDao()
 
+    override suspend fun <T> safeDbCall(
+        flow: String,
+        block: suspend () -> T
+    ): Result<T> = withContext(Dispatchers.IO) {
+        runCatching {
+            block()
+        }.onFailure { ex ->
+            Napier.e("[$flow -> DB Exception] ${ex.message}", throwable = ex, tag = TAG)
+        }
+    }
+
     override suspend fun saveSummary(
         summaryText: String,
         timestampMillis: Long,
         flow: String
-    ) = withContext(Dispatchers.IO) {
-        val currentTime = if (timestampMillis > 0) timestampMillis else getPlatformEpochMillis()
-        Napier.d("[$flow] Room DB INSERT into PrescriptionHistory: summaryLength=${summaryText.length}", tag = TAG)
-        historyDao.insertHistory(
-            PrescriptionHistoryEntity(
-                scannedAt = currentTime,
-                medicineSummary = summaryText
+    ) {
+        safeDbCall(flow) {
+            val currentTime = if (timestampMillis > 0) timestampMillis else getPlatformEpochMillis()
+            Napier.d("[$flow] Room DB INSERT into PrescriptionHistory: summaryLength=${summaryText.length}", tag = TAG)
+            historyDao.insertHistory(
+                PrescriptionHistoryEntity(
+                    scannedAt = currentTime,
+                    medicineSummary = summaryText
+                )
             )
-        )
+        }
     }
 
     override suspend fun saveDispensedHistory(
         medicines: List<MedicineItem>,
         flow: String
-    ) = withContext(Dispatchers.IO) {
-        val currentTime = getPlatformEpochMillis()
-        Napier.d("[$flow] Room DB saving ${medicines.size} items to DispensedHistory", tag = TAG)
-        medicines.forEach { item ->
-            val brand = item.formattedFullName
-            val generic = item.genericName
-            if (generic.isNotBlank() && brand.isNotBlank()) {
-                dispensedDao.insertDispensedHistory(
-                    DispensedHistoryEntity(
-                        dispensedAt = currentTime,
-                        medicineName = item.medicineName,
-                        genericName = generic,
-                        dispensedBrand = brand
+    ) {
+        safeDbCall(flow) {
+            val currentTime = getPlatformEpochMillis()
+            Napier.d("[$flow] Room DB saving ${medicines.size} items to DispensedHistory", tag = TAG)
+            medicines.forEach { item ->
+                val brand = item.formattedFullName
+                val generic = item.genericName
+                if (generic.isNotBlank() && brand.isNotBlank()) {
+                    dispensedDao.insertDispensedHistory(
+                        DispensedHistoryEntity(
+                            dispensedAt = currentTime,
+                            medicineName = item.medicineName,
+                            genericName = generic,
+                            dispensedBrand = brand
+                        )
                     )
-                )
+                }
             }
         }
     }
@@ -66,48 +81,53 @@ class LipiRxRoomRepository(
     override suspend fun getEpisodicMemoryContext(
         generics: List<String>,
         flow: String
-    ): String = withContext(Dispatchers.IO) {
-        if (generics.isEmpty()) return@withContext ""
-        val historyList = mutableListOf<String>()
+    ): String {
+        return safeDbCall(flow) {
+            if (generics.isEmpty()) return@safeDbCall ""
+            val historyList = mutableListOf<String>()
 
-        generics.filter { it.isNotBlank() }.distinct().forEach { generic ->
-            val matchedBrands = dispensedDao.getMatchedBrands(generic)
-            if (matchedBrands.isNotEmpty()) {
-                historyList.add("Generic '$generic': Previously dispensed ${matchedBrands.joinToString(", ")}")
+            generics.filter { it.isNotBlank() }.distinct().forEach { generic ->
+                val matchedBrands = dispensedDao.getMatchedBrands(generic)
+                if (matchedBrands.isNotEmpty()) {
+                    historyList.add("Generic '$generic': Previously dispensed ${matchedBrands.joinToString(", ")}")
+                }
             }
-        }
 
-        if (historyList.isEmpty()) return@withContext ""
-        Napier.d("[$flow -> Room Memory] Found ${historyList.size} past episodic memory records for generics", tag = TAG)
-        buildString {
-            appendLine("CROSS-SESSION EPISODIC MEMORY (PAST PATIENT REFILL & DISPENSING HISTORY):")
-            historyList.forEach { appendLine("- $it") }
-        }
+            if (historyList.isEmpty()) return@safeDbCall ""
+            Napier.d("[$flow -> Room Memory] Found ${historyList.size} past episodic memory records for generics", tag = TAG)
+            buildString {
+                appendLine("CROSS-SESSION EPISODIC MEMORY (PAST PATIENT REFILL & DISPENSING HISTORY):")
+                historyList.forEach { appendLine("- $it") }
+            }
+        }.getOrThrow()
     }
 
-    override suspend fun getHistory(flow: String): List<PrescriptionHistoryEntity> =
-        withContext(Dispatchers.IO) {
+    override suspend fun getHistory(flow: String): List<PrescriptionHistoryEntity> {
+        return safeDbCall(flow) {
             Napier.d("[$flow] Room DB querying SELECT PrescriptionHistory...", tag = TAG)
             historyDao.getAllHistory()
-        }
+        }.getOrThrow()
+    }
 
-    override suspend fun deleteHistoryRecord(id: Long, flow: String) =
-        withContext(Dispatchers.IO) {
+    override suspend fun deleteHistoryRecord(id: Long, flow: String) {
+        safeDbCall(flow) {
             Napier.d("[$flow] Room DB deleting history record ID=$id", tag = TAG)
             historyDao.deleteHistoryRecord(id)
         }
+    }
 
-    override suspend fun clearAllHistory(flow: String) =
-        withContext(Dispatchers.IO) {
+    override suspend fun clearAllHistory(flow: String) {
+        safeDbCall(flow) {
             Napier.d("[$flow] Room DB deleting all history records", tag = TAG)
             historyDao.clearAllHistory()
         }
+    }
 
     override suspend fun saveOnDeviceStrategy(
         strategy: OnDeviceStrategy,
         flow: String
     ) {
-        saveConfigValue(AppConfigKey.ON_DEVICE_STRATEGY.key, strategy.id)
+        saveConfigValue(AppConfigKey.ON_DEVICE_STRATEGY.key, strategy.id, flow = flow)
     }
 
     override suspend fun getOnDeviceStrategy(): OnDeviceStrategy {
@@ -116,7 +136,7 @@ class LipiRxRoomRepository(
     }
 
     override suspend fun saveMcpServerEnabled(enabled: Boolean, flow: String) {
-        saveConfigValue(AppConfigKey.MCP_SERVER_ENABLED.key, enabled.toString())
+        saveConfigValue(AppConfigKey.MCP_SERVER_ENABLED.key, enabled.toString(), flow = flow)
     }
 
     override suspend fun isMcpServerEnabled(): Boolean {
@@ -125,7 +145,7 @@ class LipiRxRoomRepository(
     }
 
     override suspend fun saveDismissedUpdateVersion(version: String, flow: String) {
-        saveConfigValue(AppConfigKey.DISMISSED_UPDATE_VERSION.key, version)
+        saveConfigValue(AppConfigKey.DISMISSED_UPDATE_VERSION.key, version, flow = flow)
     }
 
     override suspend fun getDismissedUpdateVersion(): String {
@@ -133,7 +153,7 @@ class LipiRxRoomRepository(
     }
 
     override suspend fun saveSlmModelDirectory(path: String, flow: String) {
-        saveConfigValue(AppConfigKey.SLM_MODEL_DIRECTORY.key, path)
+        saveConfigValue(AppConfigKey.SLM_MODEL_DIRECTORY.key, path, flow = flow)
     }
 
     override suspend fun getSlmModelDirectory(): String {
@@ -146,8 +166,8 @@ class LipiRxRoomRepository(
         flow: String
     ) {
         val modelKey = AppConfigKey.keyForProviderModel(provider)
-        saveConfigValue(modelKey, modelName)
-        saveConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key, modelName)
+        saveConfigValue(modelKey, modelName, flow = flow)
+        saveConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key, modelName, flow = flow)
     }
 
     override suspend fun getLastSelectedModel(
@@ -162,7 +182,7 @@ class LipiRxRoomRepository(
     }
 
     override suspend fun saveApiKey(apiKey: String, flow: String) {
-        saveConfigValue(AppConfigKey.GEMINI_API_KEY.key, apiKey.trim())
+        saveConfigValue(AppConfigKey.GEMINI_API_KEY.key, apiKey.trim(), flow = flow)
     }
 
     override suspend fun getApiKey(flow: String): String {
@@ -181,15 +201,15 @@ class LipiRxRoomRepository(
         val providerObj = AiProvider.fromId(providerType)
         val providerKey = AppConfigKey.keyForProvider(providerObj)
 
-        saveConfigValue(AppConfigKey.PROVIDER_TYPE.key, providerObj.id)
-        saveConfigValue(AppConfigKey.CUSTOM_URL.key, customUrl.trim())
-        saveConfigValue(providerKey.key, cleanKey)
+        saveConfigValue(AppConfigKey.PROVIDER_TYPE.key, providerObj.id, flow = flow)
+        saveConfigValue(AppConfigKey.CUSTOM_URL.key, customUrl.trim(), flow = flow)
+        saveConfigValue(providerKey.key, cleanKey, flow = flow)
 
         if (modelName.isNotBlank()) {
-            saveConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key, modelName.trim())
+            saveConfigValue(AppConfigKey.LAST_SELECTED_MODEL.key, modelName.trim(), flow = flow)
         }
 
-        saveConfigValue(AppConfigKey.THEME_MODE.key, themeMode.trim().lowercase())
+        saveConfigValue(AppConfigKey.THEME_MODE.key, themeMode.trim().lowercase(), flow = flow)
     }
 
     override suspend fun getApiKeyForProvider(providerType: String): String {
@@ -227,10 +247,10 @@ class LipiRxRoomRepository(
         val fallbackProviderKey = AppConfigKey.keyForAgentFallbackProvider(agentType)
         val fallbackModelKey = AppConfigKey.keyForAgentFallbackModel(agentType)
 
-        saveConfigValue(providerKey, provider.id)
-        if (modelName.isNotBlank()) saveConfigValue(modelKey, modelName.trim())
-        if (fallbackProvider != null) saveConfigValue(fallbackProviderKey, fallbackProvider.id)
-        if (fallbackModel.isNotBlank()) saveConfigValue(fallbackModelKey, fallbackModel.trim())
+        saveConfigValue(providerKey, provider.id, flow = flow)
+        if (modelName.isNotBlank()) saveConfigValue(modelKey, modelName.trim(), flow = flow)
+        if (fallbackProvider != null) saveConfigValue(fallbackProviderKey, fallbackProvider.id, flow = flow)
+        if (fallbackModel.isNotBlank()) saveConfigValue(fallbackModelKey, fallbackModel.trim(), flow = flow)
     }
 
     override suspend fun getAgentConfig(agentType: RxAgentType): AgentConfig {
@@ -266,7 +286,7 @@ class LipiRxRoomRepository(
         flow: String
     ) {
         val configKey = "models_list_${providerType.trim().lowercase()}"
-        saveConfigValue(configKey, models.joinToString("||"))
+        saveConfigValue(configKey, models.joinToString("||"), flow = flow)
     }
 
     override suspend fun getProviderModels(providerType: String): List<String> {
@@ -292,49 +312,56 @@ class LipiRxRoomRepository(
         isSuccess: Boolean,
         errorMessage: String,
         flow: String
-    ) = withContext(Dispatchers.IO) {
-        val currentTime = getPlatformEpochMillis()
-        traceDao.insertTrace(
-            AgentExecutionTraceEntity(
-                timestamp = currentTime,
-                turnNumber = turnNumber,
-                agentType = agentType,
-                provider = provider,
-                modelName = modelName,
-                reasoning = reasoning,
-                feedbackPrompt = feedbackPrompt,
-                itemCount = itemCount,
-                executionTimeMs = executionTimeMs,
-                isSuccess = isSuccess,
-                errorMessage = errorMessage
+    ) {
+        safeDbCall(flow) {
+            val currentTime = getPlatformEpochMillis()
+            traceDao.insertTrace(
+                AgentExecutionTraceEntity(
+                    timestamp = currentTime,
+                    turnNumber = turnNumber,
+                    agentType = agentType,
+                    provider = provider,
+                    modelName = modelName,
+                    reasoning = reasoning,
+                    feedbackPrompt = feedbackPrompt,
+                    itemCount = itemCount,
+                    executionTimeMs = executionTimeMs,
+                    isSuccess = isSuccess,
+                    errorMessage = errorMessage
+                )
             )
-        )
+        }
     }
 
-    override suspend fun getAgentTraces(limit: Int, flow: String): List<AgentExecutionTraceEntity> =
-        withContext(Dispatchers.IO) {
+    override suspend fun getAgentTraces(limit: Int, flow: String): List<AgentExecutionTraceEntity> {
+        return safeDbCall(flow) {
             traceDao.getAgentTraces(limit)
-        }
+        }.getOrThrow()
+    }
 
-    override suspend fun deleteAgentTraces(traceIds: List<Long>, flow: String) =
-        withContext(Dispatchers.IO) {
+    override suspend fun deleteAgentTraces(traceIds: List<Long>, flow: String) {
+        safeDbCall(flow) {
             traceDao.deleteAgentTraces(traceIds)
         }
+    }
 
-    override suspend fun clearAgentTraces(flow: String) =
-        withContext(Dispatchers.IO) {
+    override suspend fun clearAgentTraces(flow: String) {
+        safeDbCall(flow) {
             traceDao.clearAgentTraces()
         }
+    }
 
-    private suspend fun saveConfigValue(key: String, value: String) =
-        withContext(Dispatchers.IO) {
+    private suspend fun saveConfigValue(key: String, value: String, flow: String = "") {
+        safeDbCall(flow.ifBlank { "saveConfigValue($key)" }) {
             configDao.saveConfigValue(AppConfigEntity(configKey = key, configValue = value))
         }
+    }
 
-    private suspend fun getConfigValue(key: String): String =
-        withContext(Dispatchers.IO) {
+    private suspend fun getConfigValue(key: String): String {
+        return safeDbCall("getConfigValue($key)") {
             configDao.getConfigValue(key) ?: ""
-        }
+        }.getOrDefault("")
+    }
 
     companion object {
         private const val TAG = "LipiRxRoomRepository"

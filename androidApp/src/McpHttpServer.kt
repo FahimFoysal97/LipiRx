@@ -31,7 +31,7 @@ class McpHttpServer(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 serverSocket = ServerSocket(port)
-                Napier.i("[McpHttpServer] Started LipiRx MCP Server on port $port (http://localhost:$port$endpointPath & ws://localhost:$port$endpointPath)", tag = TAG)
+                Napier.i("[$TAG] Started LipiRx MCP Server on port $port (http://localhost:$port$endpointPath & ws://localhost:$port$endpointPath)", tag = TAG)
 
                 while (isRunning) {
                     val clientSocket = serverSocket?.accept() ?: break
@@ -39,7 +39,7 @@ class McpHttpServer(
                 }
             } catch (ex: Throwable) {
                 if (isRunning) {
-                    Napier.e("[McpHttpServer -> Error] Server error: ${ex.message}", throwable = ex, tag = TAG)
+                    Napier.e("[$TAG -> Error] Server error: ${ex.message}", throwable = ex, tag = TAG)
                 }
             }
         }
@@ -82,7 +82,7 @@ class McpHttpServer(
                 handleHttpPostSession(input, output, headers)
             }
         }.onFailure { ex ->
-            Napier.w("[McpHttpServer -> Warning] Client connection error: ${ex.message}", throwable = ex, tag = TAG)
+            Napier.w("[$TAG -> Warning] Client connection error: ${ex.message}", throwable = ex, tag = TAG)
         }
     }
 
@@ -167,7 +167,7 @@ class McpHttpServer(
             output.flush()
         }
 
-        Napier.i("[McpHttpServer -> WebSocket] Client connected to persistent MCP WebSocket session.", tag = TAG)
+        Napier.i("[$TAG -> WebSocket] Client connected to persistent MCP WebSocket session.", tag = TAG)
 
         val heartbeatJob = CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
@@ -195,7 +195,7 @@ class McpHttpServer(
             }
         } finally {
             heartbeatJob.cancel()
-            Napier.i("[McpHttpServer -> WebSocket] Client disconnected from MCP WebSocket session.", tag = TAG)
+            Napier.i("[$TAG -> WebSocket] Client disconnected from MCP WebSocket session.", tag = TAG)
         }
     }
 
@@ -289,6 +289,6 @@ class McpHttpServer(
     }
 
     companion object {
-        private const val TAG = "McpHttpServer"
+        private val TAG = McpHttpServer::class.simpleName
     }
 }

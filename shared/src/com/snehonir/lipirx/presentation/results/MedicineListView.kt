@@ -18,14 +18,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -64,8 +62,8 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.model.MedicineItem
-import com.snehonir.lipirx.presentation.common.AppHeader
 import com.snehonir.lipirx.presentation.common.HistoryChip
+import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.presentation.results.model.Alternative
@@ -161,7 +159,8 @@ fun MedicineListView(
     // Only guard when leaving a live scan that still needs sign-off.
     val guardedExit: (() -> Unit) -> (() -> Unit) = { action ->
         {
-            if (isSuspendedForApproval && selectedHistoryItem == null) pendingExit = action else action()
+            if (isSuspendedForApproval && selectedHistoryItem == null) pendingExit =
+                action else action()
         }
     }
 
@@ -174,70 +173,36 @@ fun MedicineListView(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Lipi.Background)
-    ) {
-        Column(
+    val backAction: (() -> Unit)? = if (selectedHistoryItem != null) {
+        onBackFromHistory?.let { action -> { action() } }
+    } else {
+        guardedExit(onRescan)
+    }
+
+    LipiRxScaffold(
+        title = selectedHistoryItem?.formattedDateTime ?: stringResource(Res.string.results_title),
+        subtitle = if (selectedHistoryItem != null) stringResource(Res.string.saved_prescription_record) else null,
+        onBack = backAction,
+        backContentDescription = if (selectedHistoryItem != null) stringResource(Res.string.cd_back_to_history) else "",
+        topBarActions = {
+            if (selectedHistoryItem == null && onHistoryClick != null) {
+                HistoryChip(onClick = onHistoryClick)
+            }
+        }
+    ) { paddingValues ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
+                .padding(paddingValues)
         ) {
-            if (selectedHistoryItem != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .clickable(role = Role.Button, onClick = { onBackFromHistory?.invoke() }),
-                        shape = CircleShape,
-                        color = Lipi.Surface,
-                        border = BorderStroke(1.dp, Lipi.CardBorder)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.cd_back_to_history),
-                                modifier = Modifier.size(20.dp),
-                                tint = Lipi.Ink
-                            )
-                        }
-                    }
-
-                    Column {
-                        Text(
-                            text = selectedHistoryItem.formattedDateTime,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Lipi.Ink
-                        )
-                        Text(
-                            text = stringResource(Res.string.saved_prescription_record),
-                            fontSize = 12.sp,
-                            color = Lipi.Muted
-                        )
-                    }
-                }
-            } else {
-                AppHeader(
-                    onBack = guardedExit(onRescan),
-                    title = stringResource(Res.string.results_title)
-                ) {
-                    if (onHistoryClick != null) {
-                        HistoryChip(onClick = onHistoryClick)
-                    }
-                }
-            }
 
             LazyColumn(
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 130.dp),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = 4.dp,
+                    bottom = 130.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 if (isSuspendedForApproval || reviewCount > 0) {
@@ -270,7 +235,10 @@ fun MedicineListView(
                                 onClick = { showOnlyReview = false }
                             )
                             FilterPill(
-                                text = stringResource(Res.string.filter_needs_review_count, reviewCount),
+                                text = stringResource(
+                                    Res.string.filter_needs_review_count,
+                                    reviewCount
+                                ),
                                 selected = filterActive,
                                 accent = Lipi.Error,
                                 icon = Icons.Default.Warning,
@@ -345,50 +313,50 @@ fun MedicineListView(
                     )
                 }
             }
-        }
 
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth(),
-            color = Lipi.Surface,
-            shadowElevation = 16.dp,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            border = BorderStroke(1.dp, Lipi.CardBorder),
-        ) {
-            Row(
+            Surface(
                 modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+                color = Lipi.Surface,
+                shadowElevation = 16.dp,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                border = BorderStroke(1.dp, Lipi.CardBorder),
             ) {
-                // Nothing to copy when there are no medicines.
-                if (medicines.isNotEmpty()) {
-                    SecondaryButton(
-                        text = stringResource(if (copied) Res.string.btn_copied else Res.string.btn_copy_summary),
-                        icon = if (copied) Icons.Default.Check else CopyVectorIcon,
-                        onClick = {
-                            onCopySummary()
-                            copied = true
-                        },
-                        modifier = Modifier.weight(1f),
-                        height = 52.dp
-                    )
-                }
-
-                val handleDoneAction: () -> Unit =
-                    if (selectedHistoryItem != null && onBackFromHistory != null) {
-                        onBackFromHistory
-                    } else {
-                        guardedExit(onRescan)
+                Row(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    // Nothing to copy when there are no medicines.
+                    if (medicines.isNotEmpty()) {
+                        SecondaryButton(
+                            text = stringResource(if (copied) Res.string.btn_copied else Res.string.btn_copy_summary),
+                            icon = if (copied) Icons.Default.Check else CopyVectorIcon,
+                            onClick = {
+                                onCopySummary()
+                                copied = true
+                            },
+                            modifier = Modifier.weight(1f),
+                            height = 52.dp
+                        )
                     }
 
-                PrimaryButton(
-                    text = stringResource(Res.string.btn_done),
-                    icon = Icons.Default.Check,
-                    onClick = handleDoneAction,
-                    modifier = Modifier.weight(1f)
-                )
+                    val handleDoneAction: () -> Unit =
+                        if (selectedHistoryItem != null && onBackFromHistory != null) {
+                            onBackFromHistory
+                        } else {
+                            guardedExit(onRescan)
+                        }
+
+                    PrimaryButton(
+                        text = stringResource(Res.string.btn_done),
+                        icon = Icons.Default.Check,
+                        onClick = handleDoneAction,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
@@ -450,7 +418,10 @@ private fun PharmacistApprovalBanner(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         color = if (isApproved) Lipi.PrimaryContainer else Lipi.AmberContainer,
-        border = BorderStroke(1.dp, if (isApproved) Lipi.Primary else Lipi.OnAmber.copy(alpha = 0.4f))
+        border = BorderStroke(
+            1.dp,
+            if (isApproved) Lipi.Primary else Lipi.OnAmber.copy(alpha = 0.4f)
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -549,9 +520,15 @@ private fun SummaryCard(
                     contentScale = ContentScale.Crop,
                 )
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
                 Text(
-                    text = if (medicineCount == 1) stringResource(Res.string.label_one_medicine_found) else stringResource(Res.string.label_medicines_found, medicineCount),
+                    text = if (medicineCount == 1) stringResource(Res.string.label_one_medicine_found) else stringResource(
+                        Res.string.label_medicines_found,
+                        medicineCount
+                    ),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Lipi.Ink
@@ -604,7 +581,12 @@ private fun FilterPill(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = accent)
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = accent
+                )
             }
             Text(
                 text = text,
@@ -646,7 +628,8 @@ fun MedicineItemCard(
         parseMealLabel(item.schedule, beforeMealText, afterMealText)
     }
     val reviewNote = remember(item) { buildReviewNote(item) }
-    val alternatives = remember(item.similarBrands) { item.similarBrands.map { parseAlternative(it) } }
+    val alternatives =
+        remember(item.similarBrands) { item.similarBrands.map { parseAlternative(it) } }
     val cleanInstructions = remember(item.instructions) { fixInstructionsText(item.instructions) }
     val cardTitle = remember(item.medicineName, item.formattedStrength) {
         formatCleanTitle(item.medicineName, item.formattedStrength)
@@ -689,7 +672,10 @@ fun MedicineItemCard(
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     Text(
                         text = cardTitle,
                         fontSize = 18.sp,
@@ -734,7 +720,12 @@ fun MedicineItemCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp), tint = Lipi.Error)
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Lipi.Error
+                    )
                     Text(
                         text = if (!reviewNote.isNullOrBlank()) {
                             stringResource(Res.string.label_needs_review_prefix, reviewNote)
@@ -760,7 +751,11 @@ fun MedicineItemCard(
                     }
                 }
             } else if (item.schedule.isNotBlank()) {
-                Badge("${stringResource(Res.string.label_dosage_schedule)}: ${item.schedule}", Lipi.AmberContainer, Lipi.OnAmber)
+                Badge(
+                    "${stringResource(Res.string.label_dosage_schedule)}: ${item.schedule}",
+                    Lipi.AmberContainer,
+                    Lipi.OnAmber
+                )
             }
 
             FlowRow(
@@ -769,10 +764,25 @@ fun MedicineItemCard(
             ) {
                 mealLabel?.let { Badge(it, Lipi.AmberContainer, Lipi.OnAmber) }
 
-                Badge("${stringResource(Res.string.label_quantity)}: ${quantityText(item.units, item.unitType)}", Lipi.PrimaryContainer, Lipi.OnPrimaryContainer)
+                Badge(
+                    "${stringResource(Res.string.label_quantity)}: ${
+                        quantityText(
+                            item.units,
+                            item.unitType
+                        )
+                    }", Lipi.PrimaryContainer, Lipi.OnPrimaryContainer
+                )
 
-                if (item.dosageForm.isNotBlank() && !item.dosageForm.equals(item.unitType, ignoreCase = true)) {
-                    Badge("${stringResource(Res.string.label_unit_type)}: ${item.dosageForm}", Lipi.ImageWell, Lipi.Ink)
+                if (item.dosageForm.isNotBlank() && !item.dosageForm.equals(
+                        item.unitType,
+                        ignoreCase = true
+                    )
+                ) {
+                    Badge(
+                        "${stringResource(Res.string.label_unit_type)}: ${item.dosageForm}",
+                        Lipi.ImageWell,
+                        Lipi.Ink
+                    )
                 }
 
                 if (cleanInstructions.isNotBlank() && cleanInstructions.length <= 20) {
@@ -814,9 +824,17 @@ fun MedicineItemCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Lipi.Muted)
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Lipi.Muted
+                        )
                         Text(
-                            text = stringResource(Res.string.label_similar_brands_count, alternatives.size),
+                            text = stringResource(
+                                Res.string.label_similar_brands_count,
+                                alternatives.size
+                            ),
                             modifier = Modifier.weight(1f),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -860,7 +878,12 @@ private fun DoseSlot(label: String, value: String, modifier: Modifier = Modifier
             .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(alpha = 0.9f))
+        Text(
+            label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = textColor.copy(alpha = 0.9f)
+        )
         Text(value, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
     }
 }
@@ -928,11 +951,12 @@ private fun parseAlternative(altString: String): Alternative {
 
 private fun quantityText(units: Int, unitType: String): String {
     val cleanType = unitType.trim().lowercase()
-    val singularType = if (units == 1 && cleanType.endsWith("s") && cleanType != "pcs" && cleanType != "caps") {
-        cleanType.dropLast(1)
-    } else {
-        cleanType
-    }
+    val singularType =
+        if (units == 1 && cleanType.endsWith("s") && cleanType != "pcs" && cleanType != "caps") {
+            cleanType.dropLast(1)
+        } else {
+            cleanType
+        }
     return if (units == 1) "1 $singularType" else "$units $cleanType"
 }
 
@@ -967,13 +991,22 @@ private fun parseDoseSlots(scheduleText: String): List<String>? {
         return match.groupValues.drop(1)
     }
 
-    if (clean.contains("2 times") || clean.contains("twice") || clean.contains("2 বেলা") || clean.contains("2-times")) {
+    if (clean.contains("2 times") || clean.contains("twice") || clean.contains("2 বেলা") || clean.contains(
+            "2-times"
+        )
+    ) {
         return listOf("1", "0", "1")
     }
-    if (clean.contains("3 times") || clean.contains("thrice") || clean.contains("3 বেলা") || clean.contains("3-times")) {
+    if (clean.contains("3 times") || clean.contains("thrice") || clean.contains("3 বেলা") || clean.contains(
+            "3-times"
+        )
+    ) {
         return listOf("1", "1", "1")
     }
-    if (clean.contains("once") || clean.contains("1 time") || clean.contains("1 বেলা") || clean.contains("1-time")) {
+    if (clean.contains("once") || clean.contains("1 time") || clean.contains("1 বেলা") || clean.contains(
+            "1-time"
+        )
+    ) {
         return listOf("0", "0", "1")
     }
 
@@ -987,7 +1020,11 @@ private fun parseDoseSlots(scheduleText: String): List<String>? {
 private fun buildReviewNote(item: MedicineItem): String? {
     return when {
         item.possibleMisreading.isNotBlank() -> "possible misreading (${item.possibleMisreading})"
-        item.strengthSource.equals("assumed", ignoreCase = true) -> "strength assumed ${item.assumedStrength.ifBlank { "1%" }}, confirm before dispensing"
+        item.strengthSource.equals(
+            "assumed",
+            ignoreCase = true
+        ) -> "strength assumed ${item.assumedStrength.ifBlank { "1%" }}, confirm before dispensing"
+
         else -> null
     }
 }
@@ -1025,7 +1062,10 @@ fun MedicineListViewPreview() {
             units = 10,
             unitType = "tablets",
             instructions = "খাবারের পর খাবেন",
-            similarBrands = listOf("Ace Plus (Square Pharmaceuticals)", "Fast Plus (Acme Laboratories)"),
+            similarBrands = listOf(
+                "Ace Plus (Square Pharmaceuticals)",
+                "Fast Plus (Acme Laboratories)"
+            ),
             needsReview = false
         ),
         MedicineItem(
@@ -1038,7 +1078,10 @@ fun MedicineListViewPreview() {
             units = 14,
             unitType = "capsules",
             instructions = "খাবারের ৩০ মিনিট আগে",
-            similarBrands = listOf("Losectil 20 (Eskayef Pharmaceuticals)", "Esonix 20 (Incepta Pharmaceuticals)"),
+            similarBrands = listOf(
+                "Losectil 20 (Eskayef Pharmaceuticals)",
+                "Esonix 20 (Incepta Pharmaceuticals)"
+            ),
             needsReview = true,
             possibleMisreading = "Unclear strength notation"
         )

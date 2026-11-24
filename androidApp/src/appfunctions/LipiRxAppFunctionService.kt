@@ -8,13 +8,14 @@ import androidx.appfunctions.AppFunctionInvalidArgumentException
 import androidx.appfunctions.AppFunctionSerializable
 import androidx.appfunctions.AppFunctionService
 import androidx.appfunctions.AppFunctionServiceEntryPoint
+import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.koog.RxAgentTools
 import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
+import com.snehonir.lipirx.domain.usecase.GetHistoryParams
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
-import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -160,7 +161,6 @@ private fun MedicineItem.toAppFunctionMedicineItem(): AppFunctionMedicineItem {
 abstract class BaseLipiRxAppFunctionService : AppFunctionService(), KoinComponent {
 
     private val getScanHistoryUseCase: GetScanHistoryUseCase by inject()
-    private val manageProviderConfigUseCase: ManageProviderConfigUseCase by inject()
     private val rxAgentTools: RxAgentTools by inject()
     private val repository: PrescriptionRepository by inject()
 
@@ -171,8 +171,8 @@ abstract class BaseLipiRxAppFunctionService : AppFunctionService(), KoinComponen
      */
     @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun getPrescriptionHistory(): PrescriptionHistoryResult = withContext(Dispatchers.IO) {
-        val historyList = getScanHistoryUseCase.getHistory(flow = "AppFunctions -> getPrescriptionHistory")
-        val items = historyList.map { record ->
+        val historyList = getScanHistoryUseCase(GetHistoryParams(flow = "AppFunctions -> getPrescriptionHistory")).getOrDefault(emptyList())
+        val items = historyList.map { record: PrescriptionHistoryEntity ->
             PrescriptionHistoryItem(
                 id = record.id,
                 summaryText = record.medicineSummary,
@@ -196,9 +196,9 @@ abstract class BaseLipiRxAppFunctionService : AppFunctionService(), KoinComponen
             throw AppFunctionInvalidArgumentException("rawText parameter cannot be blank.")
         }
         val initialItem = MedicineItem(medicineName = rawText)
-        val config = manageProviderConfigUseCase.getAgentConfig(RxAgentType.ENTITY_PARSER)
-        val apiKey = manageProviderConfigUseCase.getApiKeyForProvider(config.provider.id)
-        val providerConfig = manageProviderConfigUseCase.getProviderConfig()
+        val config = repository.getAgentConfig(RxAgentType.ENTITY_PARSER)
+        val apiKey = repository.getApiKeyForProvider(config.provider.id)
+        val providerConfig = repository.getProviderConfig()
         val params = ToolExecutionParams(
             provider = config.provider.id,
             model = config.selectedModel,
@@ -227,9 +227,9 @@ abstract class BaseLipiRxAppFunctionService : AppFunctionService(), KoinComponen
             throw AppFunctionInvalidArgumentException("medicineName parameter cannot be blank.")
         }
         val initialItem = MedicineItem(medicineName = medicineName)
-        val config = manageProviderConfigUseCase.getAgentConfig(RxAgentType.GENERIC_SUBSTITUTE)
-        val apiKey = manageProviderConfigUseCase.getApiKeyForProvider(config.provider.id)
-        val providerConfig = manageProviderConfigUseCase.getProviderConfig()
+        val config = repository.getAgentConfig(RxAgentType.GENERIC_SUBSTITUTE)
+        val apiKey = repository.getApiKeyForProvider(config.provider.id)
+        val providerConfig = repository.getProviderConfig()
         val params = ToolExecutionParams(
             provider = config.provider.id,
             model = config.selectedModel,
@@ -269,9 +269,9 @@ abstract class BaseLipiRxAppFunctionService : AppFunctionService(), KoinComponen
             schedule = schedule ?: "",
             units = if (units < 0) 0 else units
         )
-        val config = manageProviderConfigUseCase.getAgentConfig(RxAgentType.SAFETY_AUDITOR)
-        val apiKey = manageProviderConfigUseCase.getApiKeyForProvider(config.provider.id)
-        val providerConfig = manageProviderConfigUseCase.getProviderConfig()
+        val config = repository.getAgentConfig(RxAgentType.SAFETY_AUDITOR)
+        val apiKey = repository.getApiKeyForProvider(config.provider.id)
+        val providerConfig = repository.getProviderConfig()
         val params = ToolExecutionParams(
             provider = config.provider.id,
             model = config.selectedModel,

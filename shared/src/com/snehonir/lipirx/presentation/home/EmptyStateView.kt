@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,7 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.domain.model.ThemeMode
-import com.snehonir.lipirx.presentation.common.AppHeader
+import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.presentation.common.PaperIllustration
 import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
@@ -57,6 +56,7 @@ import com.snehonir.lipirx.resources.empty_description
 import com.snehonir.lipirx.resources.empty_headline
 import com.snehonir.lipirx.resources.header_history
 import com.snehonir.lipirx.resources.header_settings
+import com.snehonir.lipirx.resources.hint_flat_light_tip
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import com.snehonir.lipirx.ui.theme.icons.CameraVectorIcon
@@ -82,125 +82,164 @@ fun EmptyStateView(
         label = "bracketAlpha"
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Lipi.Background)
-            .statusBarsPadding()
-    ) {
-        AppHeader()
-
-        BoxWithConstraints(
+    LipiRxScaffold { innerPadding ->
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .heightIn(min = 220.dp)
-                .padding(start = 24.dp, end = 24.dp, top = 12.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .background(Lipi.PrimaryContainer),
-            contentAlignment = Alignment.Center,
+                .fillMaxSize()
+                .padding(innerPadding)
         ) {
-            Canvas(modifier = Modifier.matchParentSize()) {
-                val arm = 36.dp.toPx()
-                val radius = 18.dp.toPx()
-                val margin = 24.dp.toPx()
-                val stroke = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                val color = primaryColor.copy(alpha = bracketAlpha)
+            BoxWithConstraints(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 220.dp)
+                    .padding(start = 24.dp, end = 24.dp, top = 12.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Lipi.PrimaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(modifier = Modifier.matchParentSize()) {
+                    val arm = 36.dp.toPx()
+                    val radius = 18.dp.toPx()
+                    val margin = 24.dp.toPx()
+                    val stroke = Stroke(
+                        width = 3.5.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round
+                    )
+                    val color = primaryColor.copy(alpha = bracketAlpha)
 
-                drawCorner(margin, margin, 1f, 1f, arm, radius, color, stroke)                             // top-left
-                drawCorner(size.width - margin, margin, -1f, 1f, arm, radius, color, stroke)               // top-right
-                drawCorner(margin, size.height - margin, 1f, -1f, arm, radius, color, stroke)              // bottom-left
-                drawCorner(size.width - margin, size.height - margin, -1f, -1f, arm, radius, color, stroke) // bottom-right
+                    drawCorner(
+                        margin,
+                        margin,
+                        1f,
+                        1f,
+                        arm,
+                        radius,
+                        color,
+                        stroke
+                    )                             // top-left
+                    drawCorner(
+                        size.width - margin,
+                        margin,
+                        -1f,
+                        1f,
+                        arm,
+                        radius,
+                        color,
+                        stroke
+                    )               // top-right
+                    drawCorner(
+                        margin,
+                        size.height - margin,
+                        1f,
+                        -1f,
+                        arm,
+                        radius,
+                        color,
+                        stroke
+                    )              // bottom-left
+                    drawCorner(
+                        size.width - margin,
+                        size.height - margin,
+                        -1f,
+                        -1f,
+                        arm,
+                        radius,
+                        color,
+                        stroke
+                    ) // bottom-right
+                }
+
+                val paperHeight = (maxHeight - 72.dp).coerceIn(120.dp, 250.dp)
+                PaperIllustration(paperHeight * 0.76f, paperHeight)
             }
 
-            val paperHeight = (maxHeight - 72.dp).coerceIn(120.dp, 250.dp)
-            PaperIllustration(paperHeight * 0.76f, paperHeight)
-        }
-
-        Column(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = stringResource(Res.string.empty_headline),
-                fontSize = 30.sp,
-                lineHeight = 36.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Lipi.Ink,
-            )
-            Text(
-                text = stringResource(Res.string.empty_description),
-                fontSize = 15.sp,
-                lineHeight = 22.sp,
-                color = Lipi.Muted,
-            )
-            Row(
-                modifier = Modifier.padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = Lipi.Primary
+                Text(
+                    text = stringResource(Res.string.empty_headline),
+                    fontSize = 30.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Lipi.Ink,
                 )
                 Text(
-                    text = "Tip: lay the page flat in good light for the best read.",
-                    fontSize = 12.sp,
-                    color = Lipi.Muted
+                    text = stringResource(Res.string.empty_description),
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp,
+                    color = Lipi.Muted,
                 )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 24.dp)
-                .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            PrimaryButton(
-                text = stringResource(Res.string.btn_take_photo),
-                icon = CameraVectorIcon,
-                onClick = onTakePhoto,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            SecondaryButton(
-                text = stringResource(Res.string.btn_choose_gallery),
-                icon = GalleryVectorIcon,
-                onClick = onChooseGallery,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            if (onHistoryClick != null || settingsAction != null) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (onHistoryClick != null) {
-                        QuietAction(
-                            text = stringResource(Res.string.header_history),
-                            icon = Icons.Default.DateRange,
-                            tint = Lipi.Primary,
-                            onClick = onHistoryClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    if (settingsAction != null) {
-                        QuietAction(
-                            text = stringResource(Res.string.header_settings),
-                            icon = Icons.Default.Settings,
-                            tint = Lipi.Muted,
-                            onClick = settingsAction,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = Lipi.Primary
+                    )
+                    Text(
+                        text = stringResource(Res.string.hint_flat_light_tip),
+                        fontSize = 12.sp,
+                        color = Lipi.Muted
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 24.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PrimaryButton(
+                    text = stringResource(Res.string.btn_take_photo),
+                    icon = CameraVectorIcon,
+                    onClick = onTakePhoto,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                SecondaryButton(
+                    text = stringResource(Res.string.btn_choose_gallery),
+                    icon = GalleryVectorIcon,
+                    onClick = onChooseGallery,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (onHistoryClick != null || settingsAction != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (onHistoryClick != null) {
+                            QuietAction(
+                                text = stringResource(Res.string.header_history),
+                                icon = Icons.Default.DateRange,
+                                tint = Lipi.Primary,
+                                onClick = onHistoryClick,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (settingsAction != null) {
+                            QuietAction(
+                                text = stringResource(Res.string.header_settings),
+                                icon = Icons.Default.Settings,
+                                tint = Lipi.Muted,
+                                onClick = settingsAction,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
     }
 }

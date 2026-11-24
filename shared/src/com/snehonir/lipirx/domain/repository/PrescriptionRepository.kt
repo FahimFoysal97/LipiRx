@@ -9,7 +9,9 @@ import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 
-interface PrescriptionRepository {
+import com.snehonir.lipirx.data.common.LipiRxRepository
+
+interface PrescriptionRepository : LipiRxRepository {
     suspend fun saveSummary(summaryText: String, timestampMillis: Long = 0L, flow: String = "")
     suspend fun saveDispensedHistory(medicines: List<MedicineItem>, flow: String = "")
     suspend fun getEpisodicMemoryContext(generics: List<String>, flow: String = ""): String

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -51,7 +50,7 @@ import coil3.compose.AsyncImage
 import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
-import com.snehonir.lipirx.presentation.common.AppHeader
+import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.resources.Res
@@ -86,163 +85,174 @@ fun ImagePreviewAndProcessView(
 ) {
     val zoomHint = stringResource(Res.string.hint_zoom_pan)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Lipi.Background)
-            .statusBarsPadding()
-    ) {
-        AppHeader(
-            onBack = onClear,
-            backContentDescription = stringResource(Res.string.btn_cancel),
-            title = stringResource(Res.string.title_prescription_preview)
-        )
+    LipiRxScaffold(
+        title = stringResource(Res.string.title_prescription_preview),
+        onBack = onClear,
+        backContentDescription = stringResource(Res.string.btn_cancel)
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
 
-        if (!errorMessage.isNullOrBlank()) {
-            var isErrorExpanded by remember { mutableStateOf(false) }
-            val isLongError = errorMessage.length > 120 || errorMessage.count { it == '\n' } >= 3
+            if (!errorMessage.isNullOrBlank()) {
+                var isErrorExpanded by remember { mutableStateOf(false) }
+                val isLongError =
+                    errorMessage.length > 120 || errorMessage.count { it == '\n' } >= 3
 
-            Surface(
-                onClick = { isErrorExpanded = !isErrorExpanded },
-                enabled = isLongError,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = Lipi.AmberContainer,
-                border = BorderStroke(1.dp, Lipi.OnAmber.copy(alpha = 0.25f))
-            ) {
-                Column(
+                Surface(
+                    onClick = { isErrorExpanded = !isErrorExpanded },
+                    enabled = isLongError,
                     modifier = Modifier
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                        .animateContentSize(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Lipi.AmberContainer,
+                    border = BorderStroke(1.dp, Lipi.OnAmber.copy(alpha = 0.25f))
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                            .animateContentSize(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = Lipi.OnAmber
-                        )
-                        Text(
-                            text = stringResource(Res.string.title_analysis_notice),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Lipi.OnAmber,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (isLongError) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Lipi.OnAmber
+                            )
                             Text(
-                                text = if (isErrorExpanded) stringResource(Res.string.btn_show_less)
-                                else stringResource(Res.string.btn_show_more),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Lipi.OnAmber
+                                text = stringResource(Res.string.title_analysis_notice),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Lipi.OnAmber,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isLongError) {
+                                Text(
+                                    text = if (isErrorExpanded) stringResource(Res.string.btn_show_less)
+                                    else stringResource(Res.string.btn_show_more),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Lipi.OnAmber
+                                )
+                            }
+                        }
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 140.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                text = errorMessage,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Lipi.OnAmber,
+                                maxLines = if (isErrorExpanded) Int.MAX_VALUE else 3,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 140.dp)
-                            .verticalScroll(rememberScrollState())
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .heightIn(min = 160.dp)
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Lipi.ImageWell)
+                    .clickable(role = Role.Button, onClickLabel = zoomHint, onClick = onZoom),
+            ) {
+                AsyncImage(
+                    model = imageByteArray,
+                    contentDescription = stringResource(Res.string.content_desc_prescription),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentScale = ContentScale.Fit,
+                )
+
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp),
+                    shape = CircleShape,
+                    color = Lipi.ViewerBg.copy(alpha = 0.88f),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = Color.White
+                        )
                         Text(
-                            text = errorMessage,
+                            zoomHint,
                             fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Lipi.OnAmber,
-                            maxLines = if (isErrorExpanded) Int.MAX_VALUE else 3,
-                            overflow = TextOverflow.Ellipsis
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
                         )
                     }
                 }
             }
-        }
-
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .heightIn(min = 160.dp)
-                .padding(horizontal = 20.dp, vertical = 10.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Lipi.ImageWell)
-                .clickable(role = Role.Button, onClickLabel = zoomHint, onClick = onZoom),
-        ) {
-            AsyncImage(
-                model = imageByteArray,
-                contentDescription = stringResource(Res.string.content_desc_prescription),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
-                    .clip(RoundedCornerShape(16.dp)),
-                contentScale = ContentScale.Fit,
-            )
 
             Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp),
-                shape = CircleShape,
-                color = Lipi.ViewerBg.copy(alpha = 0.88f),
+                modifier = Modifier.fillMaxWidth(),
+                color = Lipi.Surface,
+                shadowElevation = 16.dp,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                border = BorderStroke(1.dp, Lipi.CardBorder),
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                Column(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
-                    Text(zoomHint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                }
-            }
-        }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Lipi.Surface,
-            shadowElevation = 16.dp,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            border = BorderStroke(1.dp, Lipi.CardBorder),
-        ) {
-            Column(
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                PipelineSummary(
-                    agentConfigs = agentConfigs,
-                    onConfigure = onOpenSettings
-                )
-
-                PrimaryButton(
-                    text = stringResource(Res.string.btn_analyze_prescription),
-                    icon = Icons.Default.PlayArrow,
-                    onClick = onAnalyze
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SecondaryButton(
-                        text = stringResource(Res.string.btn_retake),
-                        icon = CameraVectorIcon,
-                        onClick = onRetake,
-                        modifier = Modifier.weight(1f),
-                        height = 48.dp,
-                        fontSize = 14
+                    PipelineSummary(
+                        agentConfigs = agentConfigs,
+                        onConfigure = onOpenSettings
                     )
-                    SecondaryButton(
-                        text = stringResource(Res.string.btn_change),
-                        icon = GalleryVectorIcon,
-                        onClick = onChange,
-                        modifier = Modifier.weight(1f),
-                        height = 48.dp,
-                        fontSize = 14
+
+                    PrimaryButton(
+                        text = stringResource(Res.string.btn_analyze_prescription),
+                        icon = Icons.Default.PlayArrow,
+                        onClick = onAnalyze
                     )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SecondaryButton(
+                            text = stringResource(Res.string.btn_retake),
+                            icon = CameraVectorIcon,
+                            onClick = onRetake,
+                            modifier = Modifier.weight(1f),
+                            height = 48.dp,
+                            fontSize = 14
+                        )
+                        SecondaryButton(
+                            text = stringResource(Res.string.btn_change),
+                            icon = GalleryVectorIcon,
+                            onClick = onChange,
+                            modifier = Modifier.weight(1f),
+                            height = 48.dp,
+                            fontSize = 14
+                        )
+                    }
                 }
             }
         }
@@ -255,12 +265,16 @@ private fun PipelineSummary(
     onConfigure: (() -> Unit)?,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val chevronRotation by animateFloatAsState(if (expanded) 180f else 0f, label = "pipelineChevron")
+    val chevronRotation by animateFloatAsState(
+        if (expanded) 180f else 0f,
+        label = "pipelineChevron"
+    )
 
     val assignments = RxAgentType.ALL.map { agentType ->
         val config = agentConfigs[agentType]
         val provider = config?.provider ?: agentType.defaultProvider
-        val rawModel = config?.selectedModel?.ifBlank { provider.defaultModel } ?: provider.defaultModel
+        val rawModel =
+            config?.selectedModel?.ifBlank { provider.defaultModel } ?: provider.defaultModel
         val model = formatModelDisplayName(rawModel)
         Triple(agentType, provider, model)
     }
@@ -376,7 +390,8 @@ private fun PipelineSummary(
                                     modifier = Modifier.size(12.dp),
                                     tint = provider.brandColor
                                 )
-                                val modelLabel = if (model.isNotBlank()) "${provider.displayName} ($model)" else provider.displayName
+                                val modelLabel =
+                                    if (model.isNotBlank()) "${provider.displayName} ($model)" else provider.displayName
                                 Text(
                                     text = modelLabel,
                                     fontSize = 11.sp,

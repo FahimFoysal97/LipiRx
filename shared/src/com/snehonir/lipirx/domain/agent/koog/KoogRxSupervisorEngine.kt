@@ -369,7 +369,7 @@ class KoogRxSupervisorEngine(
         params: ToolExecutionParams
     ): Result<List<MedicineItem>> {
         return when (targetAgentType) {
-            RxAgentType.TRANSCRIPTION -> rxAgentTools.executeVisionOCR(
+            RxAgentType.TRANSCRIPTION -> rxAgentTools.visionOcrTool.execute(
                 input.copy(
                     provider = AiProvider.fromId(params.provider),
                     selectedModel = params.model,
@@ -377,11 +377,12 @@ class KoogRxSupervisorEngine(
                     customUrl = params.customUrl,
                     fallbackProvider = AiProvider.fromId(params.fallbackProvider),
                     fallbackModel = params.fallbackModel
-                )
+                ),
+                params
             )
-            RxAgentType.ENTITY_PARSER -> rxAgentTools.executeEntityParsing(items, params)
-            RxAgentType.GENERIC_SUBSTITUTE -> rxAgentTools.executeGenericSubstituteSearch(items, params)
-            RxAgentType.SAFETY_AUDITOR -> rxAgentTools.executeSafetyAudit(items, params)
+            RxAgentType.ENTITY_PARSER -> rxAgentTools.entityParsingTool.execute(items, params)
+            RxAgentType.GENERIC_SUBSTITUTE -> rxAgentTools.genericSubstituteTool.execute(items, params)
+            RxAgentType.SAFETY_AUDITOR -> rxAgentTools.safetyAuditTool.execute(items, params)
             RxAgentType.SUPERVISOR -> Result.success(items)
         }
     }

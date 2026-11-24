@@ -23,10 +23,10 @@ import kotlinx.serialization.json.Json
 import kotlin.io.encoding.Base64
 
 abstract class OpenAiCompatibleAiService(
-    private val httpClient: HttpClient,
+    protected val httpClient: HttpClient,
     private val defaultApiKey: String = "",
     private val jsonParser: Json
-) : PrescriptionAiService {
+) : LipiRxAiService {
 
     abstract override val provider: AiProvider
     abstract val modelsEndpoint: String
@@ -36,51 +36,43 @@ abstract class OpenAiCompatibleAiService(
         providedApiKey: String,
         customUrl: String,
         flow: String
-    ): Result<List<ModelInfoDto>> {
-        return try {
-            val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
-            if (targetApiKey.isBlank() && provider.requiresApiKey) {
-                throw IllegalStateException("API key is required for ${provider.displayName}. Please enter a valid API key.")
+    ): Result<List<ModelInfoDto>> = safeApiCall(provider.displayName) {
+        val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
+        if (targetApiKey.isBlank() && provider.requiresApiKey) {
+            throw IllegalStateException("API key is required for ${provider.displayName}. Please enter a valid API key.")
+        }
+
+        val endpoint = if (provider == AiProvider.Custom) {
+            resolveCustomModelsEndpoint(customUrl)
+        } else {
+            modelsEndpoint
+        }
+
+        Napier.d("[$flow] Dynamically fetching online models from ${provider.displayName} server: $endpoint", tag = TAG)
+
+        val responseText: String = httpClient.get(endpoint) {
+            if (targetApiKey.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $targetApiKey")
             }
+        }.body()
 
-            val endpoint = if (provider == AiProvider.Custom) {
-                resolveCustomModelsEndpoint(customUrl)
-            } else {
-                modelsEndpoint
-            }
+        Napier.d("[$flow -> ${provider.displayName} Models RawResponse] Raw models response:\n$responseText", tag = TAG)
 
-            Napier.d("[$flow] Dynamically fetching online models from ${provider.displayName} server: $endpoint", tag = TAG)
+        val response = jsonParser.decodeFromString<OpenAiModelsListResponse>(responseText)
+        val allModels = response.data ?: emptyList()
 
-            val responseText: String = httpClient.get(endpoint) {
-                if (targetApiKey.isNotBlank()) {
-                    header(HttpHeaders.Authorization, "Bearer $targetApiKey")
-                }
-            }.body()
+        // Server-driven modalities & capability check:
+        val visionModels = allModels.filter { dto ->
+            val modalities = dto.inputModalities
+            modalities?.contains("image") ?: isVisionCapableModel(provider, dto.id)
+        }.map { dto ->
+            ModelInfoDto(name = dto.id, displayName = dto.id)
+        }
 
-            Napier.d("[$flow -> ${provider.displayName} Models RawResponse] Raw models response:\n$responseText", tag = TAG)
+        Napier.d("[$flow] Filtered ${allModels.size} total models down to ${visionModels.size} Vision-capable models for ${provider.displayName}", tag = TAG)
 
-            val response = jsonParser.decodeFromString<OpenAiModelsListResponse>(responseText)
-            val allModels = response.data ?: emptyList()
-
-            // Server-driven modalities & capability check:
-            val visionModels = allModels.filter { dto ->
-                val modalities = dto.inputModalities
-                modalities?.contains("image") ?: isVisionCapableModel(provider, dto.id)
-            }.map { dto ->
-                ModelInfoDto(name = dto.id, displayName = dto.id)
-            }
-
-            Napier.d("[$flow] Filtered ${allModels.size} total models down to ${visionModels.size} Vision-capable models for ${provider.displayName}", tag = TAG)
-
-            val finalModels = visionModels.ifEmpty {
-                allModels.map { ModelInfoDto(name = it.id, displayName = it.id) }
-            }
-
-            Result.success(finalModels)
-        } catch (ex: Throwable) {
-            val userFriendlyMessage = formatErrorMessage(ex)
-            Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
-            Result.failure(IllegalStateException(userFriendlyMessage, ex))
+        visionModels.ifEmpty {
+            allModels.map { ModelInfoDto(name = it.id, displayName = it.id) }
         }
     }
 

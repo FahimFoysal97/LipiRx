@@ -11,7 +11,7 @@ import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.di.initKoin
 import com.snehonir.lipirx.domain.mcp.LipiRxMcpServer
 import com.snehonir.lipirx.domain.mcp.McpServerController
-import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
@@ -22,7 +22,7 @@ import org.koin.android.ext.koin.androidContext
 
 class LipiRxApplication : Application() {
     private val mcpServer: LipiRxMcpServer by inject()
-    private val manageProviderConfigUseCase: ManageProviderConfigUseCase by inject()
+    private val repository: PrescriptionRepository by inject()
     private var mcpHttpServer: McpHttpServer? = null
 
     override fun onCreate() {
@@ -48,7 +48,7 @@ class LipiRxApplication : Application() {
         }
 
         CoroutineScope(Dispatchers.IO).launch {
-            if (manageProviderConfigUseCase.isMcpServerEnabled()) {
+            if (repository.isMcpServerEnabled()) {
                 Napier.i("[$TAG] MCP Server enabled in config, starting HTTP listener...", tag = TAG)
                 httpServer.start()
             } else {
@@ -99,6 +99,6 @@ class LipiRxApplication : Application() {
     }
 
     companion object {
-        private const val TAG = "LipiRxApplication"
+        private val TAG = LipiRxApplication::class.simpleName
     }
 }

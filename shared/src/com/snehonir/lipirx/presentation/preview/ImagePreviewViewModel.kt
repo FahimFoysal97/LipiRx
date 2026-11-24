@@ -1,20 +1,24 @@
 package com.snehonir.lipirx.presentation.preview
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
 import com.snehonir.lipirx.data.local.getPlatformEpochMillis
 import com.snehonir.lipirx.domain.agent.AgentConfig
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
+import com.snehonir.lipirx.domain.common.LipiRxNoParams
 import com.snehonir.lipirx.domain.model.AiProvider
+import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
-import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
-import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
+import com.snehonir.lipirx.domain.usecase.GetAgentConfigsUseCase
+import com.snehonir.lipirx.domain.usecase.GetProviderConfigUseCase
+import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionParams
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
+import com.snehonir.lipirx.domain.usecase.SaveScanSummaryParams
+import com.snehonir.lipirx.domain.usecase.SaveScanSummaryUseCase
+import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.error_api_key_required
 import com.snehonir.lipirx.resources.error_connection_failed
-import com.snehonir.lipirx.resources.error_enter_valid_gemini_key
 import com.snehonir.lipirx.resources.error_please_select_image
 import com.snehonir.lipirx.resources.loading_default_subtitle
 import io.github.aakira.napier.Napier
@@ -22,11 +26,6 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.getString
 
@@ -60,23 +59,20 @@ data class ImagePreviewUiState(
 class ImagePreviewViewModel(
     private val sessionState: PrescriptionSessionState,
     private val processPrescriptionUseCase: ProcessPrescriptionUseCase,
-    private val manageProviderConfigUseCase: ManageProviderConfigUseCase,
-    private val getScanHistoryUseCase: GetScanHistoryUseCase,
+    private val getAgentConfigsUseCase: GetAgentConfigsUseCase,
+    private val getProviderConfigUseCase: GetProviderConfigUseCase,
+    private val saveScanSummaryUseCase: SaveScanSummaryUseCase,
+    private val repository: PrescriptionRepository,
     private val jsonParser: Json
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(ImagePreviewUiState())
-    val uiState: StateFlow<ImagePreviewUiState> = _uiState.asStateFlow()
+) : LipiRxViewModel<ImagePreviewUiState>(ImagePreviewUiState()) {
 
     init {
-        viewModelScope.launch {
+        launchSafe {
             sessionState.session.collect { data ->
-                val configs = runCatching {
-                    manageProviderConfigUseCase.getAllAgentConfigs()
-                }.getOrDefault(emptyMap()).toImmutableMap()
+                val configs = getAgentConfigsUseCase(LipiRxNoParams).getOrDefault(emptyMap()).toImmutableMap()
 
-                _uiState.update {
-                    it.copy(
+                updateState {
+                    copy(
                         imageByteArray = data.imageByteArray,
                         agentConfigs = configs,
                         errorMessage = data.errorMessage
@@ -87,13 +83,11 @@ class ImagePreviewViewModel(
     }
 
     fun refreshAgentConfigs() {
-        viewModelScope.launch {
-            val configs = runCatching {
-                manageProviderConfigUseCase.getAllAgentConfigs()
-            }.getOrDefault(emptyMap()).toImmutableMap()
+        launchSafe {
+            val configs = getAgentConfigsUseCase(LipiRxNoParams).getOrDefault(emptyMap()).toImmutableMap()
 
-            _uiState.update {
-                it.copy(agentConfigs = configs)
+            updateState {
+                copy(agentConfigs = configs)
             }
         }
     }
@@ -112,42 +106,40 @@ class ImagePreviewViewModel(
     ) {
         val bytes = sessionState.session.value.imageByteArray
         if (bytes == null || bytes.isEmpty()) {
-            viewModelScope.launch {
+            launchSafe {
                 val err = getString(Res.string.error_please_select_image)
-                _uiState.update { it.copy(errorMessage = err) }
+                updateState { copy(errorMessage = err) }
                 onStarted(false)
             }
             return
         }
 
-        viewModelScope.launch {
-            val currentAgentConfigs = runCatching {
-                manageProviderConfigUseCase.getAllAgentConfigs()
-            }.getOrDefault(emptyMap()).toImmutableMap()
+        launchSafe {
+            val currentAgentConfigs = getAgentConfigsUseCase(LipiRxNoParams).getOrDefault(emptyMap()).toImmutableMap()
 
-            _uiState.update { it.copy(agentConfigs = currentAgentConfigs) }
+            updateState { copy(agentConfigs = currentAgentConfigs) }
 
-            val config = manageProviderConfigUseCase.getProviderConfig()
+            val config = getProviderConfigUseCase(LipiRxNoParams).getOrDefault(ProviderConfigEntity())
             val visionConfig = currentAgentConfigs[RxAgentType.TRANSCRIPTION]
             val visionProvider = visionConfig?.provider ?: AiProvider.Gemini
-            val visionApiKey = manageProviderConfigUseCase.getApiKeyForProvider(visionProvider.id)
+            val visionApiKey = repository.getApiKeyForProvider(visionProvider.id)
 
             if (visionProvider.requiresApiKey && visionApiKey.isBlank()) {
                 val errorMsg = getString(Res.string.error_api_key_required, visionProvider.displayName)
-                _uiState.update { it.copy(errorMessage = errorMsg) }
+                updateState { copy(errorMessage = errorMsg) }
                 sessionState.setResults(medicines = emptyList(), error = errorMsg)
                 onStarted(false)
-                return@launch
+                return@launchSafe
             }
 
             val analyzeStartTime = getPlatformEpochMillis()
             val customUrl = if (visionProvider == AiProvider.Custom) config.customUrl else ""
             val visionModel = visionConfig?.selectedModel?.ifBlank { visionProvider.defaultModel } ?: visionProvider.defaultModel
-            val savedStrategy = manageProviderConfigUseCase.getOnDeviceStrategy()
+            val savedStrategy = repository.getOnDeviceStrategy()
 
             val fallbackProvider = visionConfig?.fallbackProvider
             val fallbackApiKey = if (fallbackProvider != null) {
-                manageProviderConfigUseCase.getApiKeyForProvider(fallbackProvider.id)
+                repository.getApiKeyForProvider(fallbackProvider.id)
             } else {
                 ""
             }
@@ -176,10 +168,12 @@ class ImagePreviewViewModel(
 
             sessionState.startPipelineAnalysis {
                 try {
-                    val result = processPrescriptionUseCase.executePipeline(
-                        input = input,
-                        agentConfigs = currentAgentConfigs,
-                        onEvent = sessionState::applyProgress
+                    val result = processPrescriptionUseCase(
+                        ProcessPrescriptionParams(
+                            input = input,
+                            agentConfigs = currentAgentConfigs,
+                            onEvent = sessionState::applyProgress
+                        )
                     )
 
                     result.fold(
@@ -197,8 +191,14 @@ class ImagePreviewViewModel(
                                     orchResult.items.joinToString("; ") { "${it.formattedFullName} (${it.genericName}) [${it.schedule}] Qty: ${it.formattedQuantity}" }
                                 }
                                 if (summaryToSave.isNotBlank() && orchResult.items.isNotEmpty()) {
-                                    getScanHistoryUseCase.saveSummary(summaryToSave, timestampMillis = analyzeStartTime, flow = dbFlow)
-                                    getScanHistoryUseCase.saveDispensedHistory(orchResult.items, flow = dbFlow)
+                                    saveScanSummaryUseCase(
+                                        SaveScanSummaryParams(
+                                            summaryText = summaryToSave,
+                                            timestampMillis = analyzeStartTime,
+                                            medicines = orchResult.items,
+                                            flow = dbFlow
+                                        )
+                                    )
                                 }
                             }.onFailure { ex ->
                                 Napier.w("[$flow -> History Save Exception] ${ex.message}", throwable = ex, tag = TAG)
@@ -228,6 +228,6 @@ class ImagePreviewViewModel(
     }
 
     companion object {
-        private const val TAG = "ImagePreviewViewModel"
+        private val TAG = ImagePreviewViewModel::class.simpleName
     }
 }

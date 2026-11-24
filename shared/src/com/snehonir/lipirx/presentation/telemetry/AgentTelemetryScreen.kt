@@ -18,8 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -57,7 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.data.local.entity.AgentExecutionTraceEntity
 import com.snehonir.lipirx.domain.agent.RxAgentType
-import com.snehonir.lipirx.presentation.common.AppHeader
+import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.resources.Res
@@ -124,22 +124,15 @@ fun AgentTelemetryScreen(
     var showClearConfirm by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<TelemetryScanSession?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Lipi.Background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-    ) {
-        AppHeader(
-            onBack = onClose,
-            backContentDescription = stringResource(Res.string.telemetry_title),
-            title = stringResource(Res.string.telemetry_title),
-            subtitle = stringResource(Res.string.telemetry_subtitle)
-        )
-
+    LipiRxScaffold(
+        title = stringResource(Res.string.telemetry_title),
+        subtitle = stringResource(Res.string.telemetry_subtitle),
+        onBack = onClose,
+        backContentDescription = stringResource(Res.string.telemetry_title)
+    ) { innerPadding ->
         if (scanSessions.isEmpty()) {
             TelemetryEmptyState(
+                innerPadding = innerPadding,
                 isLoading = state.isLoading,
                 onRunBenchmark = { viewModel.runSampleBenchmarkTest() }
             )
@@ -147,6 +140,10 @@ fun AgentTelemetryScreen(
             // The whole page is one scroll: metrics, actions and sessions move together,
             // so the list gets the full screen height.
             LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .navigationBarsPadding(),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -307,13 +304,14 @@ fun AgentTelemetryScreen(
 
 @Composable
 private fun TelemetryEmptyState(
+    innerPadding: PaddingValues,
     isLoading: Boolean,
     onRunBenchmark: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(innerPadding + PaddingValues(32.dp)),
         contentAlignment = Alignment.Center
     ) {
         Column(

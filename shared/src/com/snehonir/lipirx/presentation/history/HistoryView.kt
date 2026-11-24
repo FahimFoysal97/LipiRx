@@ -1,7 +1,7 @@
 package com.snehonir.lipirx.presentation.history
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,24 +10,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,21 +41,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
 import com.snehonir.lipirx.domain.model.MedicineItem
-import com.snehonir.lipirx.presentation.common.AppHeader
 import com.snehonir.lipirx.presentation.common.InfoChip
+import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_clear_history
 import com.snehonir.lipirx.resources.btn_delete
-import com.snehonir.lipirx.resources.confirm_clear_all_msg
-import com.snehonir.lipirx.resources.confirm_clear_all_title
-import com.snehonir.lipirx.resources.confirm_delete_msg
-import com.snehonir.lipirx.resources.confirm_delete_title
+import com.snehonir.lipirx.resources.confirm_clear_all_traces_msg
+import com.snehonir.lipirx.resources.confirm_clear_all_traces_title
+import com.snehonir.lipirx.resources.confirm_delete_scan_traces_msg
+import com.snehonir.lipirx.resources.confirm_delete_scan_traces_title
 import com.snehonir.lipirx.resources.history_empty_subtitle
 import com.snehonir.lipirx.resources.history_empty_title
 import com.snehonir.lipirx.resources.history_title
 import com.snehonir.lipirx.resources.label_count_medicines
-import com.snehonir.lipirx.resources.label_count_to_review
 import com.snehonir.lipirx.resources.label_one_medicine
 import com.snehonir.lipirx.resources.saved_scans_count
 import com.snehonir.lipirx.ui.theme.Lipi
@@ -70,84 +65,95 @@ import org.jetbrains.compose.resources.stringResource
 fun HistoryView(
     historyList: List<PrescriptionHistoryEntity>,
     onClose: () -> Unit,
-    onSelectRecord: (PrescriptionHistoryEntity) -> Unit,
+    onSelectRecord: (record: PrescriptionHistoryEntity) -> Unit,
     onDeleteRecord: (id: Long) -> Unit = {},
     onClearAllHistory: () -> Unit = {}
 ) {
     var showClearAllConfirm by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<PrescriptionHistoryEntity?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Lipi.Background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-    ) {
-        AppHeader(
-            onBack = onClose,
-            backContentDescription = stringResource(Res.string.history_title),
-            title = stringResource(Res.string.history_title)
-        )
-
+    LipiRxScaffold(
+        title = stringResource(Res.string.history_title),
+        onBack = onClose,
+        backContentDescription = stringResource(Res.string.history_title)
+    ) { innerPadding ->
         if (historyList.isEmpty()) {
-            HistoryEmptyState()
+            HistoryEmptyState(innerPadding = innerPadding)
         } else {
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
-                Text(
-                    text = stringResource(Res.string.saved_scans_count, historyList.size),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Lipi.Muted
-                )
-                TextButton(
-                    onClick = { showClearAllConfirm = true },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Lipi.Danger)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = stringResource(Res.string.btn_clear_history),
+                        text = stringResource(Res.string.saved_scans_count, historyList.size),
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold,
+                        color = Lipi.Muted
                     )
+                    TextButton(
+                        onClick = { showClearAllConfirm = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Lipi.Danger)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(Res.string.btn_clear_history),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
-            }
 
-            LazyColumn(
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(historyList, key = { it.id }) { record ->
-                    HistoryCard(
-                        record = record,
-                        onSelect = { onSelectRecord(record) },
-                        onDelete = { itemToDelete = record }
-                    )
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        start = 20.dp,
+                        end = 20.dp,
+                        top = 4.dp,
+                        bottom = 24.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(historyList, key = { it.id }) { record ->
+                        HistoryCard(
+                            record = record,
+                            onSelect = { onSelectRecord(record) },
+                            onDelete = { itemToDelete = record }
+                        )
+                    }
                 }
             }
         }
     }
 
-    if (itemToDelete != null) {
+    itemToDelete?.let { record ->
         AlertDialog(
             onDismissRequest = { itemToDelete = null },
-            title = { Text(stringResource(Res.string.confirm_delete_title)) },
-            text = { Text(stringResource(Res.string.confirm_delete_msg)) },
+            title = { Text(stringResource(Res.string.confirm_delete_scan_traces_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        Res.string.confirm_delete_scan_traces_msg,
+                        1,
+                        record.formattedDateTime
+                    )
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        itemToDelete?.id?.let { onDeleteRecord(it) }
+                        onDeleteRecord(record.id)
                         itemToDelete = null
                     }
                 ) {
@@ -165,8 +171,8 @@ fun HistoryView(
     if (showClearAllConfirm) {
         AlertDialog(
             onDismissRequest = { showClearAllConfirm = false },
-            title = { Text(stringResource(Res.string.confirm_clear_all_title)) },
-            text = { Text(stringResource(Res.string.confirm_clear_all_msg)) },
+            title = { Text(stringResource(Res.string.confirm_clear_all_traces_title)) },
+            text = { Text(stringResource(Res.string.confirm_clear_all_traces_msg)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -187,41 +193,46 @@ fun HistoryView(
 }
 
 @Composable
-private fun HistoryEmptyState() {
+private fun HistoryEmptyState(
+    innerPadding: PaddingValues
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .padding(innerPadding)
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .background(Lipi.PrimaryContainer, CircleShape),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.size(80.dp),
+                shape = CircleShape,
+                color = Lipi.PrimaryContainer,
+                border = BorderStroke(1.dp, Lipi.CardBorder)
             ) {
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = Lipi.Primary
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = Lipi.Primary
+                    )
+                }
             }
+
             Text(
                 text = stringResource(Res.string.history_empty_title),
-                fontSize = 17.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Lipi.Ink,
-                textAlign = TextAlign.Center
+                color = Lipi.Ink
             )
+
             Text(
                 text = stringResource(Res.string.history_empty_subtitle),
                 fontSize = 14.sp,
-                lineHeight = 20.sp,
                 color = Lipi.Muted,
                 textAlign = TextAlign.Center
             )
@@ -235,126 +246,102 @@ private fun HistoryCard(
     onSelect: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val preview = remember(record.medicineSummary) { parseHistoryPreview(record.medicineSummary) }
+    val preview = remember(record.medicineSummary) {
+        parseSummaryPreview(record.medicineSummary)
+    }
 
     Surface(
         onClick = onSelect,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         color = Lipi.Surface,
         border = BorderStroke(1.dp, Lipi.CardBorder)
     ) {
-        Row(
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = record.formattedDateTime,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Lipi.Ink
-                )
-
-                if (preview.count > 0) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        InfoChip(if (preview.count == 1) stringResource(Res.string.label_one_medicine) else stringResource(Res.string.label_count_medicines, preview.count))
-                        if (preview.flagged > 0) {
-                            FlaggedChip(stringResource(Res.string.label_count_to_review, preview.flagged))
-                        }
-                    }
-                }
-
-                if (preview.text.isNotBlank()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Lipi.Primary
+                    )
                     Text(
-                        text = preview.text,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        color = Lipi.Muted,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        text = record.formattedDateTime,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Lipi.Ink
                     )
                 }
-            }
 
-            IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = stringResource(Res.string.btn_delete),
-                    tint = Lipi.Muted,
-                    modifier = Modifier.size(20.dp)
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onDelete),
+                    tint = Lipi.Muted
                 )
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = Lipi.Primary,
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .size(20.dp)
-            )
+
+            if (preview.names.isNotEmpty()) {
+                Text(
+                    text = preview.names.joinToString(" · "),
+                    fontSize = 13.sp,
+                    color = Lipi.Ink,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                InfoChip(
+                    if (preview.count == 1) stringResource(Res.string.label_one_medicine) else stringResource(
+                        Res.string.label_count_medicines,
+                        preview.count
+                    )
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun FlaggedChip(text: String) {
-    Surface(
-        shape = CircleShape,
-        color = Lipi.Error.copy(alpha = 0.15f)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = Lipi.Error
-            )
-            Text(
-                text = text,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Error
-            )
-        }
-    }
-}
-
-private val jsonParser = Json { ignoreUnknownKeys = true; isLenient = true }
-
-private data class HistoryPreview(
+private data class HistorySummaryPreview(
     val count: Int,
     val flagged: Int,
-    val text: String,
+    val names: List<String>
 )
 
-private fun parseHistoryPreview(summaryText: String): HistoryPreview {
-    if (summaryText.isBlank()) return HistoryPreview(0, 0, "")
+private val json = Json { ignoreUnknownKeys = true }
+
+private fun parseSummaryPreview(summaryText: String): HistorySummaryPreview {
+    if (summaryText.isBlank()) return HistorySummaryPreview(0, 0, emptyList())
 
     val items = runCatching {
-        jsonParser.decodeFromString<List<MedicineItem>>(summaryText)
+        json.decodeFromString<List<MedicineItem>>(summaryText)
     }.getOrNull()
 
-    if (!items.isNullOrEmpty()) {
-        val names = items.map { item -> item.formattedFullName.ifBlank { item.medicineName } }
-        val shown = names.take(3).joinToString(" · ")
-        val extra = names.size - 3
-        val text = if (extra > 0) "$shown  +$extra more" else shown
-        return HistoryPreview(
-            count = items.size,
-            flagged = items.count { it.needsReview },
-            text = text
-        )
+    if (items != null) {
+        val names = items.map { it.formattedFullName }.filter { it.isNotBlank() }
+        val flagged = items.count { it.needsReview }
+        return HistorySummaryPreview(items.size, flagged, names)
     }
-    return HistoryPreview(0, 0, summaryText)
+
+    val parts = summaryText.split("; ").filter { it.isNotBlank() }
+    val names = parts.map { it.substringBefore(" (").trim().ifBlank { it.substringBefore(" [").trim() } }
+    return HistorySummaryPreview(parts.size, 0, names)
 }

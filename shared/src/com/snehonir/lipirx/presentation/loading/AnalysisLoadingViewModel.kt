@@ -1,15 +1,9 @@
 package com.snehonir.lipirx.presentation.loading
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.snehonir.lipirx.domain.agent.PipelineProgress
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
+import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import io.github.aakira.napier.Napier
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 data class AnalysisLoadingUiState(
     val imageByteArray: ByteArray? = null,
@@ -40,16 +34,13 @@ data class AnalysisLoadingUiState(
 
 class AnalysisLoadingViewModel(
     private val sessionState: PrescriptionSessionState
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(AnalysisLoadingUiState())
-    val uiState: StateFlow<AnalysisLoadingUiState> = _uiState.asStateFlow()
+) : LipiRxViewModel<AnalysisLoadingUiState>(AnalysisLoadingUiState()) {
 
     init {
-        viewModelScope.launch {
+        launchSafe {
             sessionState.session.collect { data ->
-                _uiState.update {
-                    it.copy(
+                updateState {
+                    copy(
                         imageByteArray = data.imageByteArray,
                         isLoading = data.isLoading,
                         progress = data.progress
@@ -65,6 +56,6 @@ class AnalysisLoadingViewModel(
     }
 
     companion object {
-        private const val TAG = "AnalysisLoadingViewModel"
+        private val TAG = AnalysisLoadingViewModel::class.simpleName
     }
 }

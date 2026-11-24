@@ -5,7 +5,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import com.snehonir.lipirx.presentation.results.MedicineListView
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -30,7 +29,7 @@ fun ScanResultsScreen(
         onZoom = onZoom,
         onCopySummary = {
             val textSummary = viewModel.copyToClipboard()
-            if (textSummary.isNotEmpty()) {
+            if (textSummary.isNotBlank()) {
                 clipboardManager.setText(AnnotatedString(textSummary))
             }
         },

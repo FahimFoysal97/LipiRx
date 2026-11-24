@@ -29,10 +29,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -97,6 +95,7 @@ import com.snehonir.lipirx.domain.agent.PipelinePhase
 import com.snehonir.lipirx.domain.agent.PipelineProgress
 import com.snehonir.lipirx.domain.agent.WorkerProgress
 import com.snehonir.lipirx.presentation.common.PaperIllustration
+import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.resources.Res
@@ -163,7 +162,8 @@ fun LoadingView(
     val primaryColor = Lipi.Primary
     val haptic = LocalHapticFeedback.current
 
-    val isComplete = !isLoading && (progress.phase == PipelinePhase.FINALIZING || progress.phase == PipelinePhase.WAITING_FOR_PHARMACIST)
+    val isComplete =
+        !isLoading && (progress.phase == PipelinePhase.FINALIZING || progress.phase == PipelinePhase.WAITING_FOR_PHARMACIST)
 
     val animatedOverall by animateFloatAsState(
         targetValue = progress.overallPercent / 100f,
@@ -175,7 +175,10 @@ fun LoadingView(
     val scan = infinite.animateFloat(
         initialValue = 0.05f,
         targetValue = 0.95f,
-        animationSpec = infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(
+            tween(2000, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
         label = "scanY",
     )
     val pulse = infinite.animateFloat(
@@ -227,71 +230,77 @@ fun LoadingView(
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Lipi.Background)
-            .drawBehind {
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(primaryColor.copy(alpha = 0.10f), Color.Transparent),
-                        center = Offset(size.width / 2f, 0f),
-                        radius = size.width * 0.95f,
+    LipiRxScaffold(
+        showTopBar = false
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .drawBehind {
+                    drawRect(
+                        Brush.radialGradient(
+                            colors = listOf(primaryColor.copy(alpha = 0.10f), Color.Transparent),
+                            center = Offset(size.width / 2f, 0f),
+                            radius = size.width * 0.95f,
+                        )
                     )
-                )
-            }
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-    ) {
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val minHeight = maxHeight
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
-                    .heightIn(min = minHeight - 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+                },
+        ) {
+            BoxWithConstraints(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
             ) {
-                SegScannerCard(imageByteArray = imageByteArray, scan = scan, pulse = pulse)
-                OverallHeader(animatedOverall)
-                ManagerCard(progress)
-                WorkersCard(progress)
-                FeedCard(progress.feed.takeLast(FEED_VISIBLE))
+                val minHeight = maxHeight
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                        .heightIn(min = minHeight - 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+                ) {
+                    SegScannerCard(imageByteArray = imageByteArray, scan = scan, pulse = pulse)
+                    OverallHeader(animatedOverall)
+                    ManagerCard(progress)
+                    WorkersCard(progress)
+                    FeedCard(progress.feed.takeLast(FEED_VISIBLE))
 
-                AnimatedVisibility(visible = slow && isLoading) {
-                    Text(
-                        text = stringResource(Res.string.hint_taking_longer),
-                        fontSize = 12.sp,
-                        color = Lipi.Muted,
-                        textAlign = TextAlign.Center,
-                    )
+                    AnimatedVisibility(visible = slow && isLoading) {
+                        Text(
+                            text = stringResource(Res.string.hint_taking_longer),
+                            fontSize = 12.sp,
+                            color = Lipi.Muted,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
-        }
 
-        if (isComplete) {
-            PrimaryButton(
-                text = stringResource(Res.string.btn_view_results),
-                icon = Icons.AutoMirrored.Filled.ArrowForward,
-                onClick = onViewResults,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-            )
-        } else {
-            SecondaryButton(
-                text = stringResource(Res.string.btn_stop_analysis),
-                icon = Icons.Default.Close,
-                onClick = { confirmStop = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                height = 52.dp,
-                contentColor = Lipi.Error,
-                fontSize = 15,
-            )
+            if (isComplete) {
+                PrimaryButton(
+                    text = stringResource(Res.string.btn_view_results),
+                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                    onClick = onViewResults,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                )
+            } else {
+                SecondaryButton(
+                    text = stringResource(Res.string.btn_stop_analysis),
+                    icon = Icons.Default.Close,
+                    onClick = { confirmStop = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    height = 52.dp,
+                    contentColor = Lipi.Error,
+                    fontSize = 15,
+                )
+            }
         }
     }
 }
@@ -323,7 +332,10 @@ private fun OverallHeader(fraction: Float) {
         }
         LinearProgressIndicator(
             progress = { fraction },
-            modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(CircleShape),
             color = Lipi.Primary,
             trackColor = Lipi.PrimaryContainer,
             strokeCap = StrokeCap.Round,
@@ -336,7 +348,11 @@ private fun ManagerCard(progress: PipelineProgress) {
     val runningNames = progress.running.map { stringResource(rowLabelRes(it)) }
     val phaseText = when (progress.phase) {
         PipelinePhase.PLANNING -> stringResource(Res.string.phase_planning)
-        PipelinePhase.RUNNING -> stringResource(Res.string.phase_running, runningNames.joinToString(", "))
+        PipelinePhase.RUNNING -> stringResource(
+            Res.string.phase_running,
+            runningNames.joinToString(", ")
+        )
+
         PipelinePhase.FINALIZING -> stringResource(Res.string.phase_finalizing)
         PipelinePhase.WAITING_FOR_PHARMACIST -> stringResource(Res.string.phase_waiting_pharmacist)
     }
@@ -392,7 +408,9 @@ private fun ManagerCard(progress: PipelineProgress) {
                         imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
                         tint = Lipi.OnPrimaryContainer,
-                        modifier = Modifier.size(20.dp).rotate(chevronRotation),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .rotate(chevronRotation),
                     )
                 }
             }
@@ -421,7 +439,10 @@ private fun ManagerCard(progress: PipelineProgress) {
             }
             if (progress.phase == PipelinePhase.PLANNING) {
                 LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(CircleShape),
                     color = Lipi.Primary,
                     trackColor = Lipi.Surface,
                     strokeCap = StrokeCap.Round,
@@ -435,7 +456,11 @@ private fun ManagerCard(progress: PipelineProgress) {
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = stringResource(Res.string.label_checks_count, progress.completedChecks, checks),
+                    text = stringResource(
+                        Res.string.label_checks_count,
+                        progress.completedChecks,
+                        checks
+                    ),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Lipi.OnPrimaryContainer,
@@ -443,7 +468,10 @@ private fun ManagerCard(progress: PipelineProgress) {
             }
             LinearProgressIndicator(
                 progress = { animatedChecks },
-                modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .clip(CircleShape),
                 color = Lipi.Primary,
                 trackColor = Lipi.Surface,
                 strokeCap = StrokeCap.Round,
@@ -464,7 +492,10 @@ private fun WorkersCard(progress: PipelineProgress) {
             WorkerRow(RxAgentType.TRANSCRIPTION, progress.worker(RxAgentType.TRANSCRIPTION))
             WorkerRow(RxAgentType.ENTITY_PARSER, progress.worker(RxAgentType.ENTITY_PARSER))
             ParallelGroup(active = progress.isParallel) {
-                WorkerRow(RxAgentType.GENERIC_SUBSTITUTE, progress.worker(RxAgentType.GENERIC_SUBSTITUTE))
+                WorkerRow(
+                    RxAgentType.GENERIC_SUBSTITUTE,
+                    progress.worker(RxAgentType.GENERIC_SUBSTITUTE)
+                )
                 WorkerRow(RxAgentType.SAFETY_AUDITOR, progress.worker(RxAgentType.SAFETY_AUDITOR))
             }
         }
@@ -584,21 +615,40 @@ private fun StatusIcon(status: AgentStatus) {
     Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
         when (status) {
             AgentStatus.DONE -> Box(
-                Modifier.fillMaxSize().clip(CircleShape).background(Lipi.Primary),
+                Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .background(Lipi.Primary),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
             }
+
             AgentStatus.RUNNING -> CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),
                 strokeWidth = 2.5.dp,
                 color = Lipi.Primary,
             )
+
             AgentStatus.WAITING -> Box(
-                Modifier.size(16.dp).border(1.5.dp, Lipi.CardBorder, CircleShape)
+                Modifier
+                    .size(16.dp)
+                    .border(1.5.dp, Lipi.CardBorder, CircleShape)
             )
-            AgentStatus.FLAGGED -> Icon(Icons.Default.Warning, null, tint = WarningColor, modifier = Modifier.size(20.dp))
-            AgentStatus.FAILED -> Icon(Icons.Default.Warning, null, tint = Lipi.Error, modifier = Modifier.size(20.dp))
+
+            AgentStatus.FLAGGED -> Icon(
+                Icons.Default.Warning,
+                null,
+                tint = WarningColor,
+                modifier = Modifier.size(20.dp)
+            )
+
+            AgentStatus.FAILED -> Icon(
+                Icons.Default.Warning,
+                null,
+                tint = Lipi.Error,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -654,19 +704,26 @@ private fun feedText(entry: FeedEntry): String = when (entry) {
         } else {
             stringResource(startLabelRes(entry.agent))
         }
+
     is FeedEntry.Finished -> when {
         !entry.success && entry.agent == RxAgentType.SAFETY_AUDITOR ->
             stringResource(Res.string.feed_safety_failed)
+
         !entry.success ->
             stringResource(Res.string.feed_step_failed, stringResource(rowLabelRes(entry.agent)))
+
         entry.agent == RxAgentType.TRANSCRIPTION ->
             stringResource(Res.string.feed_found_medicines, entry.itemCount)
+
         entry.agent == RxAgentType.ENTITY_PARSER ->
             stringResource(Res.string.feed_entity_done)
+
         entry.agent == RxAgentType.GENERIC_SUBSTITUTE ->
             stringResource(Res.string.feed_generic_done)
+
         entry.flaggedNames.isNotEmpty() ->
             stringResource(Res.string.feed_safety_flagged, shortList(entry.flaggedNames))
+
         else -> stringResource(Res.string.feed_safety_done)
     }
 }
@@ -771,12 +828,48 @@ private fun SegScannerCard(
                 val r = size.width - inset
                 val b = size.height - inset
 
-                drawLine(primaryColor, Offset(inset, inset), Offset(inset + len, inset), sw, StrokeCap.Round)
-                drawLine(primaryColor, Offset(inset, inset), Offset(inset, inset + len), sw, StrokeCap.Round)
-                drawLine(primaryColor, Offset(r, inset), Offset(r - len, inset), sw, StrokeCap.Round)
-                drawLine(primaryColor, Offset(r, inset), Offset(r, inset + len), sw, StrokeCap.Round)
-                drawLine(primaryColor, Offset(inset, b), Offset(inset + len, b), sw, StrokeCap.Round)
-                drawLine(primaryColor, Offset(inset, b), Offset(inset, b - len), sw, StrokeCap.Round)
+                drawLine(
+                    primaryColor,
+                    Offset(inset, inset),
+                    Offset(inset + len, inset),
+                    sw,
+                    StrokeCap.Round
+                )
+                drawLine(
+                    primaryColor,
+                    Offset(inset, inset),
+                    Offset(inset, inset + len),
+                    sw,
+                    StrokeCap.Round
+                )
+                drawLine(
+                    primaryColor,
+                    Offset(r, inset),
+                    Offset(r - len, inset),
+                    sw,
+                    StrokeCap.Round
+                )
+                drawLine(
+                    primaryColor,
+                    Offset(r, inset),
+                    Offset(r, inset + len),
+                    sw,
+                    StrokeCap.Round
+                )
+                drawLine(
+                    primaryColor,
+                    Offset(inset, b),
+                    Offset(inset + len, b),
+                    sw,
+                    StrokeCap.Round
+                )
+                drawLine(
+                    primaryColor,
+                    Offset(inset, b),
+                    Offset(inset, b - len),
+                    sw,
+                    StrokeCap.Round
+                )
                 drawLine(primaryColor, Offset(r, b), Offset(r - len, b), sw, StrokeCap.Round)
                 drawLine(primaryColor, Offset(r, b), Offset(r, b - len), sw, StrokeCap.Round)
             }
@@ -823,8 +916,16 @@ fun LoadingViewReworkPreview() {
                 PipelineEvent.Dispatched(listOf(RxAgentType.ENTITY_PARSER), "Normalize."),
                 PipelineEvent.WorkerFinished(RxAgentType.ENTITY_PARSER, true, 6),
                 PipelineEvent.Dispatched(listOf(RxAgentType.SAFETY_AUDITOR), "Audit."),
-                PipelineEvent.WorkerFinished(RxAgentType.SAFETY_AUDITOR, true, 6, listOf("Napa Extra")),
-                PipelineEvent.Dispatched(listOf(RxAgentType.ENTITY_PARSER), "One item looks wrong. Sending it back."),
+                PipelineEvent.WorkerFinished(
+                    RxAgentType.SAFETY_AUDITOR,
+                    true,
+                    6,
+                    listOf("Napa Extra")
+                ),
+                PipelineEvent.Dispatched(
+                    listOf(RxAgentType.ENTITY_PARSER),
+                    "One item looks wrong. Sending it back."
+                ),
             )
         )
     }

@@ -1,16 +1,11 @@
 package com.snehonir.lipirx.presentation.home
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
+import com.snehonir.lipirx.domain.usecase.GetHistoryParams
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
+import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val historyCount: Int = 0
@@ -19,19 +14,17 @@ data class HomeUiState(
 class HomeViewModel(
     private val sessionState: PrescriptionSessionState,
     private val getScanHistoryUseCase: GetScanHistoryUseCase
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(HomeUiState())
-    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+) : LipiRxViewModel<HomeUiState>(HomeUiState()) {
 
     init {
         loadHistoryCount()
     }
 
     fun loadHistoryCount(flow: String = "App -> HomeViewModel.loadHistoryCount") {
-        viewModelScope.launch(Dispatchers.Default) {
-            val count = runCatching { getScanHistoryUseCase.getHistory(flow = flow).size }.getOrDefault(0)
-            _uiState.update { it.copy(historyCount = count) }
+        launchSafe(Dispatchers.Default) {
+            val count = getScanHistoryUseCase(GetHistoryParams(flow = flow))
+                .getOrDefault(emptyList()).size
+            updateState { copy(historyCount = count) }
         }
     }
 
@@ -41,6 +34,6 @@ class HomeViewModel(
     }
 
     companion object {
-        private const val TAG = "HomeViewModel"
+        private val TAG = HomeViewModel::class.simpleName
     }
 }

@@ -12,7 +12,7 @@ class OnDeviceAiService(
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; isLenient = true },
     private val onDeviceEngine: OnDeviceLlmEngine = OnDeviceLlmEngine(),
     private val repository: PrescriptionRepository? = null
-) : PrescriptionAiService {
+) : LipiRxAiService {
 
     override val provider: AiProvider = AiProvider.OnDevice
 

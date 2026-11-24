@@ -22,7 +22,7 @@ class GeminiAiService(
     private val httpClient: HttpClient,
     private val defaultApiKey: String = "",
     private val jsonParser: Json
-) : PrescriptionAiService {
+) : LipiRxAiService {
 
     override val provider: AiProvider = AiProvider.Gemini
 

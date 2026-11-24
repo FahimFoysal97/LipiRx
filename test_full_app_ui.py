@@ -83,7 +83,7 @@ def find_node_center(root: ET.Element, text_pattern: str) -> Optional[Tuple]:
                 return center
     return None
 
-def tap_node(root: ET.Element, text_pattern: str, label: str) -> bool:
+def tap_node(root: ET.Element, text_pattern: str, label: str, scroll_if_needed: bool = True) -> bool:
     center = find_node_center(root, text_pattern)
     if center:
         x, y = center
@@ -91,8 +91,43 @@ def tap_node(root: ET.Element, text_pattern: str, label: str) -> bool:
         run_adb(["shell", "input", "tap", str(x), str(y)])
         time.sleep(1.0)
         return True
+
+    if scroll_if_needed:
+        log_info(f"'{label}' not found in current viewport. Swiping down on Home screen...")
+        run_adb(["shell", "input", "swipe", "600", "1600", "600", "800", "300"])
+        time.sleep(0.8)
+        scrolled_root = dump_ui_hierarchy()
+        if scrolled_root is not None:
+            center = find_node_center(scrolled_root, text_pattern)
+            if center:
+                x, y = center
+                log_info(f"Tapping '{label}' after scroll at ({x}, {y})")
+                run_adb(["shell", "input", "tap", str(x), str(y)])
+                time.sleep(1.0)
+                return True
+
     log_err(f"Could not find UI element matching '{text_pattern}' ({label})")
     return False
+
+def tap_app_bar_back(root: ET.Element, label: str) -> bool:
+    for node in root.iter():
+        desc = node.attrib.get("content-desc", "").lower()
+        text = node.attrib.get("text", "").lower()
+        if "back" in desc or "cancel" in desc or "close" in desc or "studio" in desc or "history" in desc or "telemetry" in desc or "results" in desc:
+            bounds = node.attrib.get("bounds", "")
+            center = parse_bounds(bounds)
+            if center:
+                x, y = center
+                if x < 250 and y < 350:
+                    log_info(f"Tapping AppBar back button '{label}' at ({x}, {y})")
+                    run_adb(["shell", "input", "tap", str(x), str(y)])
+                    time.sleep(1.0)
+                    return True
+    
+    log_info(f"Fallback tapping AppBar back button at (70, 160)")
+    run_adb(["shell", "input", "tap", "70", "160"])
+    time.sleep(1.0)
+    return True
 
 def take_device_screenshot(filename: str) -> None:
     if not os.path.exists("screenshots"):
@@ -134,8 +169,10 @@ def test_full_ui_and_workflow() -> None:
     # Step 2: Settings Screen Navigation & Theme Selector Test
     # --------------------------------------------------------------------------
     print(f"\n{Color.BOLD}[2/{total_count}] Settings Screen Navigation & Spring Theme Selector Test{Color.RESET}")
+    run_adb(["shell", "input", "swipe", "600", "1600", "600", "800", "300"])
+    time.sleep(0.8)
     root = dump_ui_hierarchy()
-    if root is not None and tap_node(root, "Settings", "Settings button"):
+    if root is not None and tap_node(root, "Settings", "Settings button", scroll_if_needed=False):
         time.sleep(1.0)
         settings_root = dump_ui_hierarchy()
         if settings_root is not None and (find_node_center(settings_root, "Settings") or find_node_center(settings_root, "Appearance")):
@@ -143,7 +180,7 @@ def test_full_ui_and_workflow() -> None:
             take_device_screenshot("ui_02_settings_screen.png")
 
             # Test tapping 'Dark' theme
-            if tap_node(settings_root, "Dark", "Dark Theme Pill"):
+            if tap_node(settings_root, "Dark", "Dark Theme Pill", scroll_if_needed=False):
                 time.sleep(0.8)
                 log_ok("Interacted with Dark theme selector")
                 take_device_screenshot("ui_02b_settings_dark_theme.png")
@@ -154,10 +191,10 @@ def test_full_ui_and_workflow() -> None:
                 time.sleep(0.8)
                 log_ok("Restored System theme mode")
 
-            # Tap Back button to return to Home
-            settings_root3 = dump_ui_hierarchy()
-            if settings_root3 is not None:
-                tap_node(settings_root3, "Cancel|Back|studio_title", "Back arrow")
+            # Tap AppBar Back button to return to Home
+            settings_root_back = dump_ui_hierarchy()
+            if settings_root_back is not None:
+                tap_app_bar_back(settings_root_back, "Settings Back Button")
                 time.sleep(1.0)
 
             passed_count += 1
@@ -200,9 +237,10 @@ def test_full_ui_and_workflow() -> None:
             elif has_empty:
                 log_ok("Scan history displayed clean empty state view")
 
-            history_root2 = dump_ui_hierarchy()
-            if history_root2 is not None:
-                tap_node(history_root2, "History|Back|Cancel", "Back arrow")
+            # Tap AppBar Back button to return to Home
+            history_root_back = dump_ui_hierarchy()
+            if history_root_back is not None:
+                tap_app_bar_back(history_root_back, "History Back Button")
                 time.sleep(1.0)
             passed_count += 1
         else:
@@ -253,10 +291,16 @@ def test_full_ui_and_workflow() -> None:
                         log_ok("Expanded AgentOps forensic turn reasoning card")
                         take_device_screenshot("ui_04b_telemetry_expanded_turns.png")
 
-                    run_adb(["shell", "input", "keyevent", "4"])
-                    time.sleep(0.8)
-                    run_adb(["shell", "input", "keyevent", "4"])
-                    time.sleep(1.0)
+                    # Tap AppBar Back from Telemetry to Settings, then Settings to Home
+                    telemetry_root_back = dump_ui_hierarchy()
+                    if telemetry_root_back is not None:
+                        tap_app_bar_back(telemetry_root_back, "Telemetry Back Button")
+                        time.sleep(0.8)
+
+                    settings_root_final = dump_ui_hierarchy()
+                    if settings_root_final is not None:
+                        tap_app_bar_back(settings_root_final, "Settings Back Button")
+                        time.sleep(1.0)
                     passed_count += 1
                 else:
                     log_err("Telemetry dashboard UI did not verify expected metrics nodes")

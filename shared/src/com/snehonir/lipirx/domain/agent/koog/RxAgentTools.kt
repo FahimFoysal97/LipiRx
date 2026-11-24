@@ -1,20 +1,60 @@
 package com.snehonir.lipirx.domain.agent.koog
 
 import com.snehonir.lipirx.data.remote.service.CompositeAiService
+import com.snehonir.lipirx.domain.agent.LipiRxAgentTool
+import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
-import com.snehonir.lipirx.domain.agent.koog.dto.*
+import com.snehonir.lipirx.domain.agent.koog.dto.GenericSubstituteDto
+import com.snehonir.lipirx.domain.agent.koog.dto.ParsedEntityDto
+import com.snehonir.lipirx.domain.agent.koog.dto.SafetyAuditDto
+import com.snehonir.lipirx.domain.agent.koog.dto.ToolExecutionParams
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class RxAgentTools(
     private val aiService: CompositeAiService,
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; isLenient = true }
 ) {
+    val visionOcrTool: LipiRxAgentTool<TranscriptionInput, List<MedicineItem>> =
+        object : LipiRxAgentTool<TranscriptionInput, List<MedicineItem>> {
+            override val agentType: RxAgentType = RxAgentType.TRANSCRIPTION
+            override suspend fun execute(input: TranscriptionInput, params: ToolExecutionParams): Result<List<MedicineItem>> {
+                return executeVisionOCR(input)
+            }
+        }
+
+    val entityParsingTool: LipiRxAgentTool<List<MedicineItem>, List<MedicineItem>> =
+        object : LipiRxAgentTool<List<MedicineItem>, List<MedicineItem>> {
+            override val agentType: RxAgentType = RxAgentType.ENTITY_PARSER
+            override suspend fun execute(input: List<MedicineItem>, params: ToolExecutionParams): Result<List<MedicineItem>> {
+                return executeEntityParsing(input, params)
+            }
+        }
+
+    val genericSubstituteTool: LipiRxAgentTool<List<MedicineItem>, List<MedicineItem>> =
+        object : LipiRxAgentTool<List<MedicineItem>, List<MedicineItem>> {
+            override val agentType: RxAgentType = RxAgentType.GENERIC_SUBSTITUTE
+            override suspend fun execute(input: List<MedicineItem>, params: ToolExecutionParams): Result<List<MedicineItem>> {
+                return executeGenericSubstituteSearch(input, params)
+            }
+        }
+
+    val safetyAuditTool: LipiRxAgentTool<List<MedicineItem>, List<MedicineItem>> =
+        object : LipiRxAgentTool<List<MedicineItem>, List<MedicineItem>> {
+            override val agentType: RxAgentType = RxAgentType.SAFETY_AUDITOR
+            override suspend fun execute(input: List<MedicineItem>, params: ToolExecutionParams): Result<List<MedicineItem>> {
+                return executeSafetyAudit(input, params)
+            }
+        }
     suspend fun executeVisionOCR(input: TranscriptionInput): Result<List<MedicineItem>> {
         Napier.d("Invoking Vision OCR via ${input.provider.displayName}...", tag = TAG)
         return aiService.processPrescriptionImage(

@@ -19,9 +19,9 @@ import org.jetbrains.compose.resources.getString
 import kotlin.time.Duration.Companion.milliseconds
 
 class CompositeAiService(
-    private val services: Map<AiProvider, PrescriptionAiService>
+    private val services: Map<AiProvider, LipiRxAiService>
 ) {
-    fun getService(provider: AiProvider): PrescriptionAiService {
+    fun getService(provider: AiProvider): LipiRxAiService {
         return services[provider] ?: services.values.first()
     }
 

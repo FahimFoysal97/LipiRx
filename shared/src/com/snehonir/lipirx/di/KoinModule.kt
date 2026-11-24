@@ -7,6 +7,7 @@ import com.snehonir.lipirx.data.local.getRoomDatabase
 import com.snehonir.lipirx.data.remote.service.ClaudeAiService
 import com.snehonir.lipirx.data.remote.service.CompositeAiService
 import com.snehonir.lipirx.data.remote.service.CustomAiService
+import com.snehonir.lipirx.data.remote.service.LipiRxAiService
 import com.snehonir.lipirx.data.remote.service.GeminiAiService
 import com.snehonir.lipirx.data.remote.service.GroqAiService
 import com.snehonir.lipirx.data.remote.service.OnDeviceAiService
@@ -22,9 +23,18 @@ import com.snehonir.lipirx.domain.mcp.McpToolHandler
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
+import com.snehonir.lipirx.domain.usecase.DeleteScanHistoryUseCase
+import com.snehonir.lipirx.domain.usecase.FetchAvailableModelsUseCase
+import com.snehonir.lipirx.domain.usecase.FormatMedicineSummaryUseCase
+import com.snehonir.lipirx.domain.usecase.GetAgentConfigsUseCase
+import com.snehonir.lipirx.domain.usecase.GetProviderConfigUseCase
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
-import com.snehonir.lipirx.domain.usecase.ManageProviderConfigUseCase
+import com.snehonir.lipirx.domain.usecase.ManageMcpServerUseCase
+import com.snehonir.lipirx.domain.usecase.ManageOnDeviceStrategyUseCase
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
+import com.snehonir.lipirx.domain.usecase.SaveAgentConfigUseCase
+import com.snehonir.lipirx.domain.usecase.SaveProviderConfigUseCase
+import com.snehonir.lipirx.domain.usecase.SaveScanSummaryUseCase
 import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.presentation.history.HistoryViewModel
 import com.snehonir.lipirx.presentation.home.HomeViewModel
@@ -105,7 +115,7 @@ private val aiAgentModule = module {
         val json: Json = get()
         val repository: PrescriptionRepository = get()
 
-        val services = mapOf(
+        val services = mapOf<AiProvider, LipiRxAiService>(
             AiProvider.Gemini to GeminiAiService(httpClient = client, jsonParser = json),
             AiProvider.Groq to GroqAiService(httpClient = client, jsonParser = json),
             AiProvider.OpenAi to OpenAiAiService(httpClient = client, jsonParser = json),
@@ -151,9 +161,18 @@ private val mcpModule = module {
 }
 
 private val domainModule = module {
-    single { ProcessPrescriptionUseCase(koogSupervisorEngine = get(), aiService = get()) }
+    single { ProcessPrescriptionUseCase(koogSupervisorEngine = get()) }
     single { GetScanHistoryUseCase(repository = get()) }
-    single { ManageProviderConfigUseCase(repository = get()) }
+    single { SaveScanSummaryUseCase(repository = get()) }
+    single { DeleteScanHistoryUseCase(repository = get()) }
+    single { FetchAvailableModelsUseCase(aiService = get()) }
+    single { GetProviderConfigUseCase(repository = get()) }
+    single { SaveProviderConfigUseCase(repository = get()) }
+    single { GetAgentConfigsUseCase(repository = get()) }
+    single { SaveAgentConfigUseCase(repository = get()) }
+    single { ManageOnDeviceStrategyUseCase(repository = get()) }
+    single { ManageMcpServerUseCase(repository = get()) }
+    single { FormatMedicineSummaryUseCase() }
     single { PrescriptionSessionState() }
     single {
         UpdateManager(
@@ -171,8 +190,10 @@ private val presentationModule = module {
         ImagePreviewViewModel(
             sessionState = get(),
             processPrescriptionUseCase = get(),
-            manageProviderConfigUseCase = get(),
-            getScanHistoryUseCase = get(),
+            getAgentConfigsUseCase = get(),
+            getProviderConfigUseCase = get(),
+            saveScanSummaryUseCase = get(),
+            repository = get(),
             jsonParser = get()
         )
     }
@@ -180,21 +201,29 @@ private val presentationModule = module {
     factory {
         ScanResultsViewModel(
             sessionState = get(),
-            getScanHistoryUseCase = get(),
+            saveScanSummaryUseCase = get(),
+            formatMedicineSummaryUseCase = get(),
             jsonParser = get()
         )
     }
     factory {
         HistoryViewModel(
             getScanHistoryUseCase = get(),
+            deleteScanHistoryUseCase = get(),
             sessionState = get(),
             jsonParser = get()
         )
     }
     single {
         SettingsViewModel(
-            manageProviderConfigUseCase = get(),
-            processPrescriptionUseCase = get()
+            getProviderConfigUseCase = get(),
+            saveProviderConfigUseCase = get(),
+            getAgentConfigsUseCase = get(),
+            saveAgentConfigUseCase = get(),
+            manageOnDeviceStrategyUseCase = get(),
+            manageMcpServerUseCase = get(),
+            fetchAvailableModelsUseCase = get(),
+            repository = get()
         )
     }
     factory {
