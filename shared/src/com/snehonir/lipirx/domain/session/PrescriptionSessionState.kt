@@ -84,7 +84,7 @@ class PrescriptionSessionState {
 
     fun startPipelineAnalysis(block: suspend () -> Unit) {
         cancelActiveAnalysis()
-        _session.update { it.copy(isLoading = true) }
+        _session.update { it.copy(isLoading = true, errorMessage = null) }
         activeAnalysisJob = scope.launch {
             block()
         }
