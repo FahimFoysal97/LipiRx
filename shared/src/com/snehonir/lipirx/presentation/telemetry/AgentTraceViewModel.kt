@@ -50,7 +50,7 @@ class AgentTraceViewModel(
         launchSafe {
             updateState { copy(isLoading = true) }
             runCatching {
-                evaluator.runEvaluationSuite()
+                evaluator.runEvaluationSuite(flow = flow)
             }
             updateState { copy(isLoading = false) }
         }

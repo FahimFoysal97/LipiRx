@@ -10,9 +10,10 @@ class RxAgentEvaluator(
     private val supervisorEngine: KoogRxSupervisorEngine
 ) {
     suspend fun runEvaluationSuite(
-        testCases: List<RxEvalTestCase> = RxGoldenDataset.testSuites
+        testCases: List<RxEvalTestCase> = RxGoldenDataset.testSuites,
+        flow: String = "App -> RxAgentEvaluator.runEvaluationSuite"
     ): EvalSummaryReport {
-        Napier.i("[$TAG] Starting Automated Multi-Agent Evaluation Suite (${testCases.size} test cases)...", tag = TAG)
+        Napier.i("[$flow] Starting Automated Multi-Agent Evaluation Suite (${testCases.size} test cases)...", tag = TAG)
         SelfHealingDiagnosticRunner.runDiagnostic()
         val metricsList = mutableListOf<EvalMetrics>()
 
