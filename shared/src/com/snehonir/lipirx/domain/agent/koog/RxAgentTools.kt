@@ -248,14 +248,25 @@ class RxAgentTools(
                 ?: item.similarBrands
         )
 
-    private fun mergeSafety(item: MedicineItem, dto: SafetyAuditDto): MedicineItem =
-        item.copy(
-            // The audit may raise a flag but never clear one.
-            needsReview = item.needsReview || dto.needsReview == true,
-            possibleMisreading = dto.possibleMisreading.orKeep(item.possibleMisreading),
-            confidence = dto.confidence.orKeep(item.confidence),
-            enrichmentConfidence = dto.enrichmentConfidence.orKeep(item.enrichmentConfidence)
+    private fun mergeSafety(item: MedicineItem, dto: SafetyAuditDto): MedicineItem {
+        val conf = dto.confidence.orKeep(item.confidence)
+        val enrichConf = dto.enrichmentConfidence.orKeep(item.enrichmentConfidence)
+        val misreading = dto.possibleMisreading.orKeep(item.possibleMisreading)
+
+        val tempItem = item.copy(
+            confidence = conf,
+            enrichmentConfidence = enrichConf,
+            possibleMisreading = misreading
         )
+
+        val hasSafetyRisk = dto.needsReview == true ||
+                tempItem.confidenceEnum.isLow ||
+                tempItem.enrichmentConfidenceEnum.isLow ||
+                misreading.isNotBlank() ||
+                item.units > HIGH_VOLUME_UNITS
+
+        return tempItem.copy(needsReview = hasSafetyRisk)
+    }
 
     private fun String?.orKeep(fallback: String): String = this?.takeIf { it.isNotBlank() } ?: fallback
 
@@ -274,11 +285,9 @@ class RxAgentTools(
 
     private fun applyLocalSafetyRules(items: List<MedicineItem>): List<MedicineItem> =
         items.map { item ->
-            val needsReview = item.needsReview ||
-                    item.confidenceEnum.isLow ||
+            val needsReview = item.confidenceEnum.isLow ||
                     item.enrichmentConfidenceEnum.isLow ||
                     item.possibleMisreading.isNotBlank() ||
-                    !item.brandRecognized ||
                     item.units > HIGH_VOLUME_UNITS
             item.copy(needsReview = needsReview)
         }

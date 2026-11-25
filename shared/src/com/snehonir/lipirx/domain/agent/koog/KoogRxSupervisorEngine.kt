@@ -112,65 +112,65 @@ class KoogRxSupervisorEngine(
 
                 state = updateEpisodicMemoryIfNeeded(state)
 
-                val agentStartTime = getPlatformEpochMillis()
                 val parallelResults = coroutineScope {
                     parallelWorkers.map { agentType ->
-                        val workerRuntime = resolveRuntimeConfig(
-                            agentType = agentType,
-                            agentConfigs = agentConfigs,
-                            fallbackApiKey = input.providedApiKey,
-                            fallbackCustomUrl = input.customUrl
-                        )
-                        val toolParams = ToolExecutionParams(
-                            provider = workerRuntime.provider.id,
-                            model = workerRuntime.model,
-                            apiKey = workerRuntime.apiKey,
-                            customUrl = workerRuntime.customUrl,
-                            feedbackPrompt = decision.feedbackPrompt,
-                            memoryContext = state.episodicMemory,
-                            strategy = input.strategy.id,
-                            fallbackProvider = workerRuntime.fallbackProvider.id,
-                            fallbackModel = workerRuntime.fallbackModel
-                        )
                         async {
+                            val workerStart = getPlatformEpochMillis()
+                            val workerRuntime = resolveRuntimeConfig(
+                                agentType = agentType,
+                                agentConfigs = agentConfigs,
+                                fallbackApiKey = input.providedApiKey,
+                                fallbackCustomUrl = input.customUrl
+                            )
+                            val toolParams = ToolExecutionParams(
+                                provider = workerRuntime.provider.id,
+                                model = workerRuntime.model,
+                                apiKey = workerRuntime.apiKey,
+                                customUrl = workerRuntime.customUrl,
+                                feedbackPrompt = decision.feedbackPrompt,
+                                memoryContext = state.episodicMemory,
+                                strategy = input.strategy.id,
+                                fallbackProvider = workerRuntime.fallbackProvider.id,
+                                fallbackModel = workerRuntime.fallbackModel
+                            )
                             val res = executeToolForAgent(agentType, input, state.items, toolParams)
-                            Triple(agentType, workerRuntime, res)
+                            val workerTimeMs = getPlatformEpochMillis() - workerStart
+                            ParallelWorkerResult(agentType, workerRuntime, res, workerTimeMs)
                         }
                     }.awaitAll()
                 }
-                val agentTimeMs = getPlatformEpochMillis() - agentStartTime
 
-                parallelResults.forEach { (agentType, runtime, res) ->
+                parallelResults.forEach { workerRes ->
                     repository.saveAgentTrace(
                         turnNumber = state.turnCount + 1,
-                        agentType = agentType.id,
-                        provider = runtime.provider.id,
-                        modelName = runtime.model,
+                        agentType = workerRes.agentType.id,
+                        provider = workerRes.runtime.provider.id,
+                        modelName = workerRes.runtime.model,
                         reasoning = decision.reasoning,
                         feedbackPrompt = decision.feedbackPrompt,
-                        itemCount = if (res.isSuccess) res.getOrThrow().size else state.items.size,
-                        executionTimeMs = agentTimeMs,
-                        isSuccess = res.isSuccess,
-                        errorMessage = res.exceptionOrNull()?.message ?: "",
+                        itemCount = if (workerRes.result.isSuccess) workerRes.result.getOrThrow().size else state.items.size,
+                        executionTimeMs = workerRes.executionTimeMs,
+                        isSuccess = workerRes.result.isSuccess,
+                        errorMessage = workerRes.result.exceptionOrNull()?.message ?: "",
                         flow = "KoogEngine -> ParallelToolTrace"
                     )
-                    onEvent(finishedEvent(agentType, res))
+                    onEvent(finishedEvent(workerRes.agentType, workerRes.result))
                 }
 
-                val mergedItems = rxAgentTools.mergeParallelResults(state.items, parallelResults.map { it.third })
-                val workerRecords = parallelResults.map { (agentType, _, res) ->
+                val mergedItems = rxAgentTools.mergeParallelResults(state.items, parallelResults.map { it.result })
+                val workerRecords = parallelResults.map { workerRes ->
                     AgentExecutionRecord(
-                        agentType = agentType,
+                        agentType = workerRes.agentType,
                         reasoning = decision.reasoning,
                         feedbackPrompt = decision.feedbackPrompt,
                         itemCount = mergedItems.size,
-                        executionTimeMs = agentTimeMs,
-                        failureReason = res.exceptionOrNull()?.let { PipelineFailureReason.fromThrowable(it) }
+                        executionTimeMs = workerRes.executionTimeMs,
+                        failureReason = workerRes.result.exceptionOrNull()?.let { PipelineFailureReason.fromThrowable(it) }
                     )
                 }
 
                 // A safety audit only counts as done if it actually succeeded.
-                val safetyResult = parallelResults.firstOrNull { it.first == RxAgentType.SAFETY_AUDITOR }?.third
+                val safetyResult = parallelResults.firstOrNull { it.agentType == RxAgentType.SAFETY_AUDITOR }?.result
                 val safetyError = safetyResult?.exceptionOrNull()
 
                 state = state.copy(
@@ -446,5 +446,12 @@ class KoogRxSupervisorEngine(
         val customUrl: String,
         val fallbackProvider: AiProvider = AiProvider.OnDevice,
         val fallbackModel: String = ""
+    )
+
+    private data class ParallelWorkerResult(
+        val agentType: RxAgentType,
+        val runtime: RuntimeConfig,
+        val result: Result<List<MedicineItem>>,
+        val executionTimeMs: Long
     )
 }

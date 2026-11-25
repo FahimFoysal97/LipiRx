@@ -356,7 +356,7 @@ private fun ManagerCard(progress: PipelineProgress) {
         PipelinePhase.FINALIZING -> stringResource(Res.string.phase_finalizing)
         PipelinePhase.WAITING_FOR_PHARMACIST -> stringResource(Res.string.phase_waiting_pharmacist)
     }
-    val checks = PipelineProgress.CHECKS.size
+    val checks = PipelineProgress.WORKERS.size
     val animatedChecks by animateFloatAsState(
         targetValue = progress.completedChecks / checks.toFloat(),
         animationSpec = tween(450, easing = FastOutSlowInEasing),

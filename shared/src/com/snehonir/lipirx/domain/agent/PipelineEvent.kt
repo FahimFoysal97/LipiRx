@@ -61,7 +61,7 @@ data class PipelineProgress(
 
     val isParallel: Boolean get() = running.size > 1
 
-    val completedChecks: Int get() = CHECKS.count { worker(it).completedOk }
+    val completedChecks: Int get() = WORKERS.count { worker(it).completedOk }
 
     fun reduce(event: PipelineEvent): PipelineProgress = when (event) {
         PipelineEvent.Planning -> copy(phase = PipelinePhase.PLANNING)
@@ -156,12 +156,7 @@ data class PipelineProgress(
             RxAgentType.GENERIC_SUBSTITUTE,
             RxAgentType.SAFETY_AUDITOR
         )
-        /** The three checks shown in the "Required checks" bar. */
-        val CHECKS = listOf(
-            RxAgentType.TRANSCRIPTION,
-            RxAgentType.ENTITY_PARSER,
-            RxAgentType.SAFETY_AUDITOR
-        )
+        /** The worker checks shown in the "Required checks" bar. */
         private const val UNIT_POINTS = 25
         private const val ASSUMED_RUNNING_PERCENT = 30
         private const val MAX_BEFORE_FINAL = 99

@@ -96,19 +96,6 @@ import com.snehonir.lipirx.resources.unit_seconds
 import com.snehonir.lipirx.ui.theme.Lipi
 import org.jetbrains.compose.resources.stringResource
 
-private data class TelemetryScanSession(
-    val sessionId: String,
-    val timestamp: Long,
-    val formattedDateTime: String,
-    val totalTimeMs: Long,
-    val totalHops: Int,
-    val isSuccess: Boolean,
-    val failedTurnCount: Int,
-    val finalItemCount: Int,
-    val modelSummary: String,
-    val traces: List<AgentExecutionTraceEntity>
-)
-
 @Composable
 fun AgentTelemetryScreen(
     viewModel: AgentTraceViewModel,
@@ -725,57 +712,4 @@ private fun formatDuration(totalTimeMs: Long): String {
         }
         else -> stringResource(Res.string.unit_millis, remMs)
     }
-}
-
-private fun groupTracesIntoScanSessions(rawTraces: List<AgentExecutionTraceEntity>): List<TelemetryScanSession> {
-    if (rawTraces.isEmpty()) return emptyList()
-
-    val chronologicalTraces = rawTraces.sortedBy { it.id }
-    val sessionGroups = mutableListOf<MutableList<AgentExecutionTraceEntity>>()
-    var currentGroup: MutableList<AgentExecutionTraceEntity>? = null
-
-    for (trace in chronologicalTraces) {
-        val lastTrace = currentGroup?.lastOrNull()
-        val isNewScan = currentGroup == null ||
-                (trace.turnNumber == 1 && trace.agentType.equals(RxAgentType.SUPERVISOR.id, ignoreCase = true)) ||
-                (trace.turnNumber == 1 && lastTrace?.turnNumber != 1) ||
-                (lastTrace != null && (trace.timestamp - lastTrace.timestamp) > 30_000L)
-
-        if (isNewScan) {
-            currentGroup = mutableListOf()
-            sessionGroups.add(currentGroup)
-        }
-        currentGroup.add(trace)
-    }
-
-    return sessionGroups.mapIndexed { idx, sessionTraces ->
-        val firstTrace = sessionTraces.first()
-        val lastTrace = sessionTraces.last()
-        val totalTime = sessionTraces.sumOf { it.executionTimeMs }
-        val allSuccessful = sessionTraces.all { it.isSuccess }
-        val failedCount = sessionTraces.count { !it.isSuccess }
-
-        val providers = sessionTraces.map { it.provider }.filter { it.isNotBlank() }.distinct()
-        val models = sessionTraces.map { it.modelName }.filter { it.isNotBlank() }.distinct()
-
-        val summary = when {
-            providers.isEmpty() -> ""
-            providers.size == 1 && models.size == 1 -> "${providers.first()} • ${models.first()}"
-            providers.size == 1 -> "${providers.first()} (${models.joinToString(", ")})"
-            else -> "Multi-Provider (${providers.joinToString(", ")})"
-        }
-
-        TelemetryScanSession(
-            sessionId = "scan_${firstTrace.id}_$idx",
-            timestamp = lastTrace.timestamp,
-            formattedDateTime = lastTrace.formattedDateTime,
-            totalTimeMs = totalTime,
-            totalHops = sessionTraces.size,
-            isSuccess = allSuccessful,
-            failedTurnCount = failedCount,
-            finalItemCount = lastTrace.itemCount,
-            modelSummary = summary,
-            traces = sessionTraces
-        )
-    }.sortedByDescending { it.timestamp }
 }

@@ -113,11 +113,28 @@ class RxSupervisorAgent(
         return when {
             nextAgentStr == SupervisorConstants.TOKEN_FINISH || nextAgentStr.isBlank() -> handleFinishDecision(dto, state)
             else -> {
+                val parsedParallel = dto.parallelAgents.orEmpty().map { parseAgentType(it) }.distinct()
+                val historyTypes = state.history.map { it.agentType }.toSet()
+
                 val targetAgent = parseAgentType(nextAgentStr)
+
+                // Check if parallel execution is requested or should be triggered when both Generic Substitute & Safety Auditor are pending
+                val parallelList = when {
+                    parsedParallel.size > 1 -> parsedParallel
+                    nextAgentStr.contains("GENERIC") && nextAgentStr.contains("SAFETY") -> listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR)
+                    (targetAgent == RxAgentType.GENERIC_SUBSTITUTE || targetAgent == RxAgentType.SAFETY_AUDITOR) &&
+                            !historyTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) && !historyTypes.contains(RxAgentType.SAFETY_AUDITOR) ->
+                        listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR)
+                    else -> emptyList()
+                }
+
+                val primaryAgent = if (parallelList.isNotEmpty()) parallelList.first() else targetAgent
+
                 SupervisorDecision(
-                    nextAgent = targetAgent,
+                    nextAgent = primaryAgent,
+                    parallelAgents = parallelList,
                     isFinished = false,
-                    reasoning = dto.reasoning ?: SupervisorConstants.reasonTaskAssigned(getString(targetAgent.displayNameRes)),
+                    reasoning = dto.reasoning ?: SupervisorConstants.reasonTaskAssigned(getString(primaryAgent.displayNameRes)),
                     feedbackPrompt = dto.feedbackPrompt ?: ""
                 )
             }
@@ -175,7 +192,8 @@ class RxSupervisorAgent(
         }
         appendLine()
         appendLine("""Return ONLY a JSON object with this structure:""")
-        appendLine("""{"nextAgent": "TRANSCRIPTION"|"ENTITY_PARSER"|"GENERIC_SUBSTITUTE"|"SAFETY_AUDITOR"|"FINISH", "reasoning": "Explanation", "feedbackPrompt": "Instructions", "isSuspendedForApproval": false, "approvalReason": ""}""")
+        appendLine("""{"nextAgent": "TRANSCRIPTION"|"ENTITY_PARSER"|"GENERIC_SUBSTITUTE"|"SAFETY_AUDITOR"|"PARALLEL"|"FINISH", "parallelAgents": ["GENERIC_SUBSTITUTE", "SAFETY_AUDITOR"], "reasoning": "Explanation", "feedbackPrompt": "Instructions", "isSuspendedForApproval": false, "approvalReason": ""}""")
+        appendLine("""Note: When both generic substitutes and safety audit are needed, dispatch them concurrently in parallel by setting "nextAgent": "PARALLEL" and "parallelAgents": ["GENERIC_SUBSTITUTE", "SAFETY_AUDITOR"].""")
     }
 
     private fun buildCorrectionPrompt(initialPrompt: String, parseError: String): String = buildString {
