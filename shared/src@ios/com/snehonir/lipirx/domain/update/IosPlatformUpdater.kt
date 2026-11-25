@@ -4,7 +4,7 @@ import io.github.aakira.napier.Napier
 
 class IosPlatformUpdater : PlatformUpdater {
 
-    override fun getAppVersionName(): String = "0.6.3"
+    override fun getAppVersionName(): String = "0.6.4"
 
     override suspend fun downloadApk(
         downloadUrl: String,
