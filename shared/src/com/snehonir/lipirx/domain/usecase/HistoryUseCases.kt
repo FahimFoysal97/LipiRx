@@ -5,6 +5,7 @@ import com.snehonir.lipirx.domain.common.LipiRxSuspendUseCase
 import com.snehonir.lipirx.domain.common.LipiRxUseCase
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
+import kotlinx.coroutines.flow.Flow
 
 // ── Query Scan History ────────────────────────────────────────────────────────
 data class GetHistoryParams(val flow: String = "")
@@ -17,6 +18,10 @@ class GetScanHistoryUseCase(
         return repository.safeDbCall(params.flow) {
             repository.getHistory(params.flow)
         }
+    }
+
+    fun observe(flow: String = ""): Flow<List<PrescriptionHistoryEntity>> {
+        return repository.getHistoryFlow(flow)
     }
 }
 

@@ -65,6 +65,14 @@
     <string name="label_items">Items</string>
     <string name="label_turn_breakdown">Per-Agent Turn Breakdown</string>
     <string name="label_turn_number">Turn %1$d</string>
+    <string name="label_parallel_execution">⚡ Parallel Execution</string>
+    <string name="outcome_transcription">Extracted raw prescription text (%1$d items found)</string>
+    <string name="outcome_transcription_raw">Extracted raw prescription text</string>
+    <string name="outcome_entity_parser">Cleaned and normalized brand names, strengths &amp; schedules</string>
+    <string name="outcome_generic_substitute">Cross-referenced active salts &amp; matched Bangladeshi brand substitutes</string>
+    <string name="outcome_generic_substitute_raw">Cross-referenced active generic compositions</string>
+    <string name="outcome_safety_auditor_passed">Verified clinical dosage safety &amp; interaction risks</string>
+    <string name="outcome_safety_auditor_flagged">Audited %1$d items — Flagged for pharmacist review</string>
     <string name="saved_scans_count">%1$d Saved Scans</string>
     <string name="cd_expand">Expand</string>
     <string name="cd_collapse">Collapse</string>
@@ -74,6 +82,16 @@
     <string name="unit_seconds">%1$ds</string>
     <string name="unit_millis">%1$dms</string>
     <string name="label_multi_provider">Multi-Provider (%1$s)</string>
+    <string name="cd_back">Back</string>
+    <string name="metric_avg_latency">Avg latency</string>
+    <string name="metric_slowest_scan">Slowest scan</string>
+    <string name="filter_all">All</string>
+    <string name="filter_failed">Failed</string>
+    <string name="label_latest">Latest</string>
+    <string name="label_no_matching_scans">No scans match this filter.</string>
+    <string name="btn_copy_trace">Copy trace</string>
+    <string name="label_hops_count">Hops: %1$d</string>
+    <string name="label_items_count">Items: %1$d</string>
 
     <!-- Scan Empty State -->
     <string name="scan_title">Scan Prescription</string>
@@ -126,6 +144,21 @@
     <string name="status_finalizing_audit">Finalizing clinical safety audit &amp; pharmacist review gate...</string>
     <string name="status_initiating_analysis">Initiating Vision AI Analysis...</string>
     <string name="status_agent_active">Agent active...</string>
+
+    <!-- Agent Reasoning Messages -->
+    <string name="reason_planning_step">Supervisor Manager Agent evaluating workspace state &amp; planning next step...</string>
+    <string name="reason_human_approval">Supervisor flagged contraindications or dosage risks requiring pharmacist approval.</string>
+    <string name="reason_forced_transcription">Workspace is empty. Extracting handwritten prescription text, medicine brand names, and dosages via Vision OCR.</string>
+    <string name="reason_all_completed">All supervisor orchestration turns completed. Finalizing prescription summary.</string>
+    <string name="reason_empty_workspace">Workspace is empty. Extracting handwritten prescription text and brand names via Vision OCR.</string>
+    <string name="reason_transcription_done">Raw OCR complete. Cleaning medicine brand names, dosage forms, strengths, and administration schedules.</string>
+    <string name="reason_entities_normalized">Entities normalized. Matching active generic ingredients with DGDA directory and searching Bangladeshi brand substitutes.</string>
+    <string name="reason_substitutes_enriched">Substitutes enriched. Auditing dosage limits, drug interactions, contraindications, and clinical review flags.</string>
+    <string name="reason_parallel_enrichment">Entities normalized. Concurrently searching Bangladeshi brand substitutes and auditing clinical dosage safety in parallel.</string>
+    <string name="reason_flagged_items">Prescription contains flagged low-confidence or dosage review items requiring human pharmacist sign-off.</string>
+    <string name="reason_pipeline_success">All multi-agent transcription and safety verification steps executed successfully.</string>
+    <string name="reason_finalizing">Finalizing clinical safety audit &amp; preparing prescription summary...</string>
+    <string name="reason_suspended">Pipeline suspended: Pharmacist approval required before dispensing.</string>
     <string name="error_analysis_failed">Analysis failed.</string>
     <string name="error_please_select_image">Please select an image first.</string>
     <string name="error_api_key_required">%1$s API key is required. Please set your API key in Model Settings.</string>

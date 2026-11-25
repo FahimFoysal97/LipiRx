@@ -19,6 +19,9 @@ import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.reason_finalizing
+import com.snehonir.lipirx.resources.reason_planning_step
+import com.snehonir.lipirx.resources.reason_suspended
 import com.snehonir.lipirx.resources.status_evaluating_workspace
 import com.snehonir.lipirx.resources.status_finalizing_audit
 import io.github.aakira.napier.Napier
@@ -54,7 +57,7 @@ class KoogRxSupervisorEngine(
         val maxTurns = MAX_SUPERVISOR_TURNS
 
         while (!state.isFinished && state.turnCount < maxTurns) {
-            onEvent(PipelineEvent.Planning)
+            onEvent(PipelineEvent.Planning(getString(Res.string.reason_planning_step)))
 
             val supervisorStartTime = getPlatformEpochMillis()
             val decision = rxSupervisorAgent.decideNextStep(
@@ -69,6 +72,19 @@ class KoogRxSupervisorEngine(
 
             if (decision.isSuspendedForApproval) {
                 Napier.d("[$TAG -> Suspended] Pipeline suspended for Pharmacist Gate: ${decision.approvalReason}", tag = TAG)
+                repository.saveAgentTrace(
+                    turnNumber = state.turnCount + 1,
+                    agentType = RxAgentType.SUPERVISOR.id,
+                    provider = supervisorRuntime.provider.id,
+                    modelName = supervisorRuntime.model,
+                    reasoning = decision.reasoning,
+                    feedbackPrompt = "",
+                    itemCount = state.items.size,
+                    executionTimeMs = supervisorTimeMs,
+                    isSuccess = true,
+                    errorMessage = "",
+                    flow = "KoogEngine -> SupervisorSuspendedTrace"
+                )
                 state = state.copy(
                     isSuspendedForApproval = true,
                     approvalReason = decision.approvalReason
@@ -78,6 +94,19 @@ class KoogRxSupervisorEngine(
 
             if (decision.isFinished || (decision.nextAgent == null && decision.parallelAgents.isEmpty())) {
                 Napier.d("[$TAG -> Complete] Supervisor finished execution at turn ${state.turnCount}", tag = TAG)
+                repository.saveAgentTrace(
+                    turnNumber = state.turnCount + 1,
+                    agentType = RxAgentType.SUPERVISOR.id,
+                    provider = supervisorRuntime.provider.id,
+                    modelName = supervisorRuntime.model,
+                    reasoning = decision.reasoning,
+                    feedbackPrompt = "",
+                    itemCount = state.items.size,
+                    executionTimeMs = supervisorTimeMs,
+                    isSuccess = true,
+                    errorMessage = "",
+                    flow = "KoogEngine -> SupervisorFinishTrace"
+                )
                 break
             }
 
@@ -330,7 +359,11 @@ class KoogRxSupervisorEngine(
         }
 
         onProgress(RxAgentType.SAFETY_AUDITOR, getString(Res.string.status_finalizing_audit))
-        onEvent(if (state.isSuspendedForApproval) PipelineEvent.Suspended else PipelineEvent.Finalizing)
+        if (state.isSuspendedForApproval) {
+            onEvent(PipelineEvent.Suspended(getString(Res.string.reason_suspended)))
+        } else {
+            onEvent(PipelineEvent.Finalizing(getString(Res.string.reason_finalizing)))
+        }
 
         return Result.success(
             OrchestrationResult(

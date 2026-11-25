@@ -10,12 +10,14 @@ import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 
 import com.snehonir.lipirx.data.common.LipiRxRepository
+import kotlinx.coroutines.flow.Flow
 
 interface PrescriptionRepository : LipiRxRepository {
     suspend fun saveSummary(summaryText: String, timestampMillis: Long = 0L, flow: String = "")
     suspend fun saveDispensedHistory(medicines: List<MedicineItem>, flow: String = "")
     suspend fun getEpisodicMemoryContext(generics: List<String>, flow: String = ""): String
     suspend fun getHistory(flow: String = ""): List<PrescriptionHistoryEntity>
+    fun getHistoryFlow(flow: String = ""): Flow<List<PrescriptionHistoryEntity>>
     suspend fun deleteHistoryRecord(id: Long, flow: String = "")
     suspend fun clearAllHistory(flow: String = "")
     suspend fun saveOnDeviceStrategy(strategy: OnDeviceStrategy, flow: String = "")
@@ -41,6 +43,7 @@ interface PrescriptionRepository : LipiRxRepository {
     suspend fun getAllProviderModelsMap(): Map<String, List<String>>
     suspend fun saveAgentTrace(turnNumber: Int, agentType: String, provider: String, modelName: String, reasoning: String, feedbackPrompt: String = "", itemCount: Int, executionTimeMs: Long, isSuccess: Boolean, errorMessage: String = "", flow: String = "")
     suspend fun getAgentTraces(limit: Int = 100, flow: String = ""): List<AgentExecutionTraceEntity>
+    fun getAgentTracesFlow(limit: Int = 100, flow: String = ""): Flow<List<AgentExecutionTraceEntity>>
     suspend fun deleteAgentTraces(traceIds: List<Long>, flow: String = "")
     suspend fun clearAgentTraces(flow: String = "")
 }

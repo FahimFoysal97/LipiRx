@@ -5,7 +5,6 @@ import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.ClinicalApprovalReasons
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
-import org.jetbrains.compose.resources.getString
 
 import com.snehonir.lipirx.domain.model.OnDeviceStrategy
 
@@ -104,7 +103,7 @@ class RxSupervisorAgent(
                 isFinished = false,
                 isSuspendedForApproval = true,
                 approvalReason = dto.approvalReason ?: ClinicalApprovalReasons.DEFAULT_PHARMACIST_APPROVAL,
-                reasoning = dto.reasoning ?: SupervisorConstants.REASON_HUMAN_APPROVAL,
+                reasoning = dto.reasoning ?: SupervisorConstants.getHumanApprovalReason(),
                 feedbackPrompt = ""
             )
         }
@@ -134,27 +133,28 @@ class RxSupervisorAgent(
                     nextAgent = primaryAgent,
                     parallelAgents = parallelList,
                     isFinished = false,
-                    reasoning = dto.reasoning ?: SupervisorConstants.reasonTaskAssigned(getString(primaryAgent.displayNameRes)),
+                    reasoning = dto.reasoning?.takeIf { it.isNotBlank() && !it.startsWith("Supervisor assigned task", ignoreCase = true) }
+                        ?: SupervisorConstants.reasonTaskAssigned(primaryAgent, isParallel = parallelList.size > 1),
                     feedbackPrompt = dto.feedbackPrompt ?: ""
                 )
             }
         }
     }
 
-    private fun handleFinishDecision(dto: SupervisorDecisionDto, state: SupervisorState): SupervisorDecision {
+    private suspend fun handleFinishDecision(dto: SupervisorDecisionDto, state: SupervisorState): SupervisorDecision {
         return if (state.items.isEmpty()) {
             Napier.w("[$agentName] Supervisor prematurely returned FINISH/blank while workspace items is empty. Forcing TRANSCRIPTION step.", tag = TAG)
             SupervisorDecision(
                 nextAgent = RxAgentType.TRANSCRIPTION,
                 isFinished = false,
-                reasoning = SupervisorConstants.REASON_FORCED_TRANSCRIPTION,
+                reasoning = SupervisorConstants.getForcedTranscriptionReason(),
                 feedbackPrompt = SupervisorConstants.PROMPT_TRANSCRIBE_DEFAULT
             )
         } else {
             SupervisorDecision(
                 nextAgent = null,
                 isFinished = true,
-                reasoning = dto.reasoning ?: SupervisorConstants.REASON_ALL_COMPLETED,
+                reasoning = dto.reasoning ?: SupervisorConstants.getAllCompletedReason(),
                 feedbackPrompt = dto.feedbackPrompt ?: ""
             )
         }
@@ -213,14 +213,14 @@ class RxSupervisorAgent(
         }
     }
 
-    private fun getFallbackDecision(state: SupervisorState): SupervisorDecision {
+    private suspend fun getFallbackDecision(state: SupervisorState): SupervisorDecision {
         val historyTypes = state.history.map { it.agentType }.toSet()
         return when {
             state.items.isEmpty() && !historyTypes.contains(RxAgentType.TRANSCRIPTION) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.TRANSCRIPTION,
                     isFinished = false,
-                    reasoning = SupervisorConstants.REASON_EMPTY_WORKSPACE,
+                    reasoning = SupervisorConstants.getEmptyWorkspaceReason(),
                     feedbackPrompt = SupervisorConstants.PROMPT_TRANSCRIBE_ACCURATE
                 )
             }
@@ -228,7 +228,7 @@ class RxSupervisorAgent(
                 SupervisorDecision(
                     nextAgent = RxAgentType.ENTITY_PARSER,
                     isFinished = false,
-                    reasoning = SupervisorConstants.REASON_TRANSCRIPTION_DONE,
+                    reasoning = SupervisorConstants.getTranscriptionDoneReason(),
                     feedbackPrompt = SupervisorConstants.PROMPT_CLEAN_STRENGTHS
                 )
             }
@@ -237,7 +237,7 @@ class RxSupervisorAgent(
                     nextAgent = RxAgentType.GENERIC_SUBSTITUTE,
                     parallelAgents = listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR),
                     isFinished = false,
-                    reasoning = SupervisorConstants.REASON_PARALLEL_ENRICHMENT,
+                    reasoning = SupervisorConstants.getParallelEnrichmentReason(),
                     feedbackPrompt = SupervisorConstants.PROMPT_PARALLEL_ENRICHMENT
                 )
             }
@@ -246,7 +246,7 @@ class RxSupervisorAgent(
                     nextAgent = RxAgentType.GENERIC_SUBSTITUTE,
                     parallelAgents = emptyList(),
                     isFinished = false,
-                    reasoning = SupervisorConstants.REASON_ENTITIES_NORMALIZED,
+                    reasoning = SupervisorConstants.getEntitiesNormalizedReason(),
                     feedbackPrompt = SupervisorConstants.PROMPT_PROVIDE_SUBSTITUTES
                 )
             }
@@ -255,7 +255,7 @@ class RxSupervisorAgent(
                     nextAgent = RxAgentType.SAFETY_AUDITOR,
                     parallelAgents = emptyList(),
                     isFinished = false,
-                    reasoning = SupervisorConstants.REASON_SUBSTITUTES_ENRICHED,
+                    reasoning = SupervisorConstants.getSubstitutesEnrichedReason(),
                     feedbackPrompt = SupervisorConstants.PROMPT_AUDIT_RISKS
                 )
             }
@@ -265,7 +265,7 @@ class RxSupervisorAgent(
                     isFinished = false,
                     isSuspendedForApproval = true,
                     approvalReason = ClinicalApprovalReasons.FLAGGED_ITEMS_VERIFICATION,
-                    reasoning = SupervisorConstants.REASON_FLAGGED_ITEMS,
+                    reasoning = SupervisorConstants.getFlaggedItemsReason(),
                     feedbackPrompt = ""
                 )
             }
@@ -273,7 +273,7 @@ class RxSupervisorAgent(
                 SupervisorDecision(
                     nextAgent = null,
                     isFinished = true,
-                    reasoning = SupervisorConstants.REASON_PIPELINE_SUCCESS,
+                    reasoning = SupervisorConstants.getPipelineSuccessReason(),
                     feedbackPrompt = ""
                 )
             }

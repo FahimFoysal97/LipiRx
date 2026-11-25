@@ -15,6 +15,7 @@ import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
 class LipiRxRoomRepository(
@@ -107,6 +108,11 @@ class LipiRxRoomRepository(
             Napier.d("[$flow] Room DB querying SELECT PrescriptionHistory...", tag = TAG)
             historyDao.getAllHistory()
         }.getOrThrow()
+    }
+
+    override fun getHistoryFlow(flow: String): Flow<List<PrescriptionHistoryEntity>> {
+        Napier.d("[$flow] Room DB observing getAllHistoryFlow...", tag = TAG)
+        return historyDao.getAllHistoryFlow()
     }
 
     override suspend fun deleteHistoryRecord(id: Long, flow: String) {
@@ -337,6 +343,11 @@ class LipiRxRoomRepository(
         return safeDbCall(flow) {
             traceDao.getAgentTraces(limit)
         }.getOrThrow()
+    }
+
+    override fun getAgentTracesFlow(limit: Int, flow: String): Flow<List<AgentExecutionTraceEntity>> {
+        Napier.d("[$flow] Room DB observing getAgentTracesFlow(limit=$limit)...", tag = TAG)
+        return traceDao.getAgentTracesFlow(limit)
     }
 
     override suspend fun deleteAgentTraces(traceIds: List<Long>, flow: String) {

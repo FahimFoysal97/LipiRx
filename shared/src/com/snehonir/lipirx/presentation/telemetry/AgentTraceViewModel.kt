@@ -6,6 +6,10 @@ import com.snehonir.lipirx.domain.eval.RxAgentEvaluator
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
 import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 
+import io.github.aakira.napier.Napier
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
+
 data class TelemetryUiState(
     val traces: List<AgentExecutionTraceEntity> = emptyList(),
     val totalPipelineTimeMs: Long = 0L,
@@ -95,30 +99,36 @@ class AgentTraceViewModel(
     private val rxAgentEvaluator: RxAgentEvaluator? = null
 ) : LipiRxViewModel<TelemetryUiState>(TelemetryUiState()) {
 
+    private var observeJob: Job? = null
+
     init {
         loadAgentTraces()
     }
 
     fun loadAgentTraces(flow: String = "App -> AgentTraceViewModel.loadAgentTraces") {
-        launchSafe {
+        observeJob?.cancel()
+        observeJob = launchSafe {
             updateState { copy(isLoading = true) }
-            val rawTraces = runCatching {
-                repository.getAgentTraces(limit = 100, flow = flow)
-            }.getOrDefault(emptyList())
+            repository.getAgentTracesFlow(limit = 100, flow = flow)
+                .catch { ex ->
+                    Napier.e("[$flow] Failed to observe agent traces: ${ex.message}", ex)
+                    updateState { copy(isLoading = false) }
+                }
+                .collect { rawTraces ->
+                    val sessions = groupTracesIntoScanSessions(rawTraces)
+                    val totalTime = sessions.sumOf { it.totalTimeMs }
+                    val successCount = rawTraces.count { it.isSuccess }
+                    val rate = if (rawTraces.isNotEmpty()) successCount.toFloat() / rawTraces.size.toFloat() else 1f
 
-            val sessions = groupTracesIntoScanSessions(rawTraces)
-            val totalTime = sessions.sumOf { it.totalTimeMs }
-            val successCount = rawTraces.count { it.isSuccess }
-            val rate = if (rawTraces.isNotEmpty()) successCount.toFloat() / rawTraces.size.toFloat() else 1f
-
-            updateState {
-                copy(
-                    traces = rawTraces,
-                    totalPipelineTimeMs = totalTime,
-                    successRate = rate,
-                    isLoading = false
-                )
-            }
+                    updateState {
+                        copy(
+                            traces = rawTraces,
+                            totalPipelineTimeMs = totalTime,
+                            successRate = rate,
+                            isLoading = false
+                        )
+                    }
+                }
         }
     }
 
@@ -129,7 +139,7 @@ class AgentTraceViewModel(
             runCatching {
                 evaluator.runEvaluationSuite()
             }
-            loadAgentTraces(flow = flow)
+            updateState { copy(isLoading = false) }
         }
     }
 
@@ -139,7 +149,6 @@ class AgentTraceViewModel(
             runCatching {
                 repository.deleteAgentTraces(traceIds = traceIds, flow = flow)
             }
-            loadAgentTraces(flow = flow)
         }
     }
 
@@ -148,7 +157,6 @@ class AgentTraceViewModel(
             runCatching {
                 repository.clearAgentTraces(flow = flow)
             }
-            loadAgentTraces(flow = flow)
         }
     }
 }

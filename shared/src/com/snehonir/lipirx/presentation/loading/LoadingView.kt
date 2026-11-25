@@ -433,7 +433,7 @@ private fun ManagerCard(progress: PipelineProgress) {
                     fontSize = 13.sp,
                     lineHeight = 18.sp,
                     color = Lipi.Muted,
-                    maxLines = if (expanded) Int.MAX_VALUE else 1,
+                    maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -884,7 +884,7 @@ private fun previewProgress(vararg events: PipelineEvent): PipelineProgress =
 @Composable
 fun LoadingViewStartPreview() {
     LipiRxTheme {
-        LoadingView(progress = previewProgress(PipelineEvent.Planning))
+        LoadingView(progress = previewProgress(PipelineEvent.Planning()))
     }
 }
 
@@ -937,7 +937,7 @@ fun LoadingViewCompletePreview() {
     LipiRxTheme {
         LoadingView(
             isLoading = false,
-            progress = previewProgress(PipelineEvent.Finalizing)
+            progress = previewProgress(PipelineEvent.Finalizing())
         )
     }
 }

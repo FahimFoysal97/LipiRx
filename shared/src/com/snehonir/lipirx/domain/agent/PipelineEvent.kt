@@ -7,7 +7,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
 
 sealed interface PipelineEvent {
-    data object Planning : PipelineEvent
+    data class Planning(val reasoning: String = "") : PipelineEvent
     data class Dispatched(val agents: List<RxAgentType>, val reasoning: String) : PipelineEvent
     data class WorkerPercent(val agent: RxAgentType, val percent: Int) : PipelineEvent
     data class WorkerFinished(
@@ -16,8 +16,8 @@ sealed interface PipelineEvent {
         val itemCount: Int = 0,
         val flaggedNames: List<String> = emptyList()
     ) : PipelineEvent
-    data object Finalizing : PipelineEvent
-    data object Suspended : PipelineEvent
+    data class Finalizing(val reasoning: String = "") : PipelineEvent
+    data class Suspended(val reasoning: String = "") : PipelineEvent
 }
 
 enum class AgentStatus { WAITING, RUNNING, DONE, FLAGGED, FAILED }
@@ -64,7 +64,10 @@ data class PipelineProgress(
     val completedChecks: Int get() = WORKERS.count { worker(it).completedOk }
 
     fun reduce(event: PipelineEvent): PipelineProgress = when (event) {
-        PipelineEvent.Planning -> copy(phase = PipelinePhase.PLANNING)
+        is PipelineEvent.Planning -> copy(
+            phase = PipelinePhase.PLANNING,
+            reasoning = event.reasoning.ifBlank { reasoning }
+        )
         is PipelineEvent.Dispatched -> dispatch(event)
         is PipelineEvent.WorkerPercent -> {
             val cur = worker(event.agent)
@@ -73,12 +76,14 @@ data class PipelineProgress(
             } else this
         }
         is PipelineEvent.WorkerFinished -> finish(event)
-        PipelineEvent.Finalizing -> copy(
+        is PipelineEvent.Finalizing -> copy(
             phase = PipelinePhase.FINALIZING,
+            reasoning = event.reasoning.ifBlank { reasoning },
             feed = feed.addBounded(FeedEntry.Finalizing)
         )
-        PipelineEvent.Suspended -> copy(
+        is PipelineEvent.Suspended -> copy(
             phase = PipelinePhase.WAITING_FOR_PHARMACIST,
+            reasoning = event.reasoning.ifBlank { reasoning },
             feed = feed.addBounded(FeedEntry.WaitingForPharmacist)
         )
     }.withOverall()

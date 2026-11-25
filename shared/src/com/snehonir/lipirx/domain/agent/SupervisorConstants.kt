@@ -1,5 +1,18 @@
 package com.snehonir.lipirx.domain.agent
 
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.reason_all_completed
+import com.snehonir.lipirx.resources.reason_empty_workspace
+import com.snehonir.lipirx.resources.reason_entities_normalized
+import com.snehonir.lipirx.resources.reason_flagged_items
+import com.snehonir.lipirx.resources.reason_forced_transcription
+import com.snehonir.lipirx.resources.reason_human_approval
+import com.snehonir.lipirx.resources.reason_parallel_enrichment
+import com.snehonir.lipirx.resources.reason_pipeline_success
+import com.snehonir.lipirx.resources.reason_substitutes_enriched
+import com.snehonir.lipirx.resources.reason_transcription_done
+import org.jetbrains.compose.resources.getString
+
 object SupervisorConstants {
     const val AGENT_NAME = "Rx Supervisor Manager Agent"
 
@@ -13,19 +26,28 @@ object SupervisorConstants {
     const val TOKEN_SAFETY = "SAFETY"
     const val TOKEN_AUDITOR = "AUDITOR"
 
-    // Default Reasoning Messages
-    const val REASON_HUMAN_APPROVAL = "Supervisor requested human approval."
-    const val REASON_FORCED_TRANSCRIPTION = "Forced transcription because workspace has no items yet."
-    const val REASON_ALL_COMPLETED = "Supervisor completed all orchestration steps."
-    const val REASON_EMPTY_WORKSPACE = "Workspace empty. Requesting Vision Transcription Agent to perform handwriting OCR."
-    const val REASON_TRANSCRIPTION_DONE = "Raw transcription complete. Requesting Medical Entity Parser Agent to clean brand names and normalize forms."
-    const val REASON_ENTITIES_NORMALIZED = "Entities normalized. Requesting Generic & Substitute Agent to match DGDA active ingredients and BD brand substitutes."
-    const val REASON_SUBSTITUTES_ENRICHED = "Substitutes enriched. Requesting Safety Auditor Agent to verify clinical dosage safety and review flags."
-    const val REASON_PARALLEL_ENRICHMENT = "Entities normalized. Assigning Generic Substitute Search & Safety Audit in parallel."
-    const val REASON_FLAGGED_ITEMS = "Flagged low confidence or dosage review items requiring human sign-off."
-    const val REASON_PIPELINE_SUCCESS = "All pipeline capabilities executed successfully."
+    // Default Reasoning Messages (Localized via Res.string)
+    suspend fun getHumanApprovalReason(): String = getString(Res.string.reason_human_approval)
+    suspend fun getForcedTranscriptionReason(): String = getString(Res.string.reason_forced_transcription)
+    suspend fun getAllCompletedReason(): String = getString(Res.string.reason_all_completed)
+    suspend fun getEmptyWorkspaceReason(): String = getString(Res.string.reason_empty_workspace)
+    suspend fun getTranscriptionDoneReason(): String = getString(Res.string.reason_transcription_done)
+    suspend fun getEntitiesNormalizedReason(): String = getString(Res.string.reason_entities_normalized)
+    suspend fun getSubstitutesEnrichedReason(): String = getString(Res.string.reason_substitutes_enriched)
+    suspend fun getParallelEnrichmentReason(): String = getString(Res.string.reason_parallel_enrichment)
+    suspend fun getFlaggedItemsReason(): String = getString(Res.string.reason_flagged_items)
+    suspend fun getPipelineSuccessReason(): String = getString(Res.string.reason_pipeline_success)
 
-    fun reasonTaskAssigned(agentName: String): String = "Supervisor assigned task to $agentName."
+    suspend fun reasonTaskAssigned(agentType: RxAgentType, isParallel: Boolean = false): String {
+        if (isParallel) return getParallelEnrichmentReason()
+        return when (agentType) {
+            RxAgentType.SUPERVISOR -> getEmptyWorkspaceReason()
+            RxAgentType.TRANSCRIPTION -> getForcedTranscriptionReason()
+            RxAgentType.ENTITY_PARSER -> getTranscriptionDoneReason()
+            RxAgentType.GENERIC_SUBSTITUTE -> getEntitiesNormalizedReason()
+            RxAgentType.SAFETY_AUDITOR -> getSubstitutesEnrichedReason()
+        }
+    }
 
     // Default Feedback Prompts
     const val PROMPT_TRANSCRIBE_ACCURATE = "Transcribe all written medicines accurately."

@@ -5,7 +5,6 @@ import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
 import com.snehonir.lipirx.domain.usecase.DeleteHistoryParams
 import com.snehonir.lipirx.domain.usecase.DeleteScanHistoryUseCase
-import com.snehonir.lipirx.domain.usecase.GetHistoryParams
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
 import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import io.github.aakira.napier.Napier
@@ -13,6 +12,8 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
 import kotlinx.serialization.json.Json
 
 data class HistoryUiState(
@@ -27,21 +28,27 @@ class HistoryViewModel(
     private val jsonParser: Json
 ) : LipiRxViewModel<HistoryUiState>(HistoryUiState()) {
 
+    private var observeJob: Job? = null
+
     init {
         loadHistoryList()
     }
 
     fun loadHistoryList(flow: String = "App -> HistoryViewModel.loadHistoryList") {
-        Napier.d("[$flow] Querying scan history list from SQLite database", tag = TAG)
-        launchSafe(Dispatchers.Default) {
+        Napier.d("[$flow] Observing scan history list from SQLite database", tag = TAG)
+        observeJob?.cancel()
+        observeJob = launchSafe(Dispatchers.Default) {
             updateState { copy(isLoading = true) }
-            val records = getScanHistoryUseCase(GetHistoryParams(flow = flow))
-                .getOrDefault(emptyList())
-                .toImmutableList()
-
-            updateState {
-                copy(historyList = records, isLoading = false)
-            }
+            getScanHistoryUseCase.observe(flow = flow)
+                .catch { ex ->
+                    Napier.e("[$flow] Failed to observe scan history: ${ex.message}", ex)
+                    updateState { copy(isLoading = false) }
+                }
+                .collect { records ->
+                    updateState {
+                        copy(historyList = records.toImmutableList(), isLoading = false)
+                    }
+                }
         }
     }
 
@@ -55,7 +62,6 @@ class HistoryViewModel(
         Napier.d("[$flow] Deleting history record ID=$id", tag = TAG)
         launchSafe(Dispatchers.Default) {
             deleteScanHistoryUseCase(DeleteHistoryParams(recordId = id, flow = flow))
-            loadHistoryList(flow = "$flow -> refreshHistory")
         }
     }
 
@@ -63,7 +69,6 @@ class HistoryViewModel(
         Napier.d("[$flow] Clearing all history records from SQLite database", tag = TAG)
         launchSafe(Dispatchers.Default) {
             deleteScanHistoryUseCase(DeleteHistoryParams(clearAll = true, flow = flow))
-            loadHistoryList(flow = "$flow -> refreshHistory")
         }
     }
 

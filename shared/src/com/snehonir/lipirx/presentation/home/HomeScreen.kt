@@ -1,6 +1,7 @@
 package com.snehonir.lipirx.presentation.home
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.snehonir.lipirx.presentation.common.rememberImagePicker
@@ -13,6 +14,10 @@ fun HomeScreen(
     onHistoryClick: () -> Unit,
     onImageCaptured: () -> Unit
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadHistoryCount()
+    }
+
     val uiState by viewModel.uiState.collectAsState()
 
     val imagePicker = rememberImagePicker { imageBytes ->

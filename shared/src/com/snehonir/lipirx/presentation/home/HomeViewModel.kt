@@ -1,11 +1,12 @@
 package com.snehonir.lipirx.presentation.home
 
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
-import com.snehonir.lipirx.domain.usecase.GetHistoryParams
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
 import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
 
 data class HomeUiState(
     val historyCount: Int = 0
@@ -16,15 +17,22 @@ class HomeViewModel(
     private val getScanHistoryUseCase: GetScanHistoryUseCase
 ) : LipiRxViewModel<HomeUiState>(HomeUiState()) {
 
+    private var observeJob: Job? = null
+
     init {
         loadHistoryCount()
     }
 
     fun loadHistoryCount(flow: String = "App -> HomeViewModel.loadHistoryCount") {
-        launchSafe(Dispatchers.Default) {
-            val count = getScanHistoryUseCase(GetHistoryParams(flow = flow))
-                .getOrDefault(emptyList()).size
-            updateState { copy(historyCount = count) }
+        observeJob?.cancel()
+        observeJob = launchSafe(Dispatchers.Default) {
+            getScanHistoryUseCase.observe(flow = flow)
+                .catch { ex ->
+                    Napier.e("[$flow] Failed to observe scan history count: ${ex.message}", ex)
+                }
+                .collect { records ->
+                    updateState { copy(historyCount = records.size) }
+                }
         }
     }
 

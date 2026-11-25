@@ -41,7 +41,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 1. **Supervisor-Driven Multi-Agent Orchestration (JetBrains Koog)**:
     - Configurable **Per-Agent AI Assignments Matrix** allowing developers and pharmacists to assign specific primary providers/models AND dedicated fallback providers/models for every agent (including `📱 On-Device SLM`).
     - Single-expanded **accordion card behavior** in Settings preventing visual clutter.
-    - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`decision.reasoning`), per-agent task completion percentages (`0% → 100%`), active agent name banners, animated feed card expansion (`animateContentSize`), and execution timing logs.
+    - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`progress.reasoning` localized via `Res.string.reason_*`), per-agent task completion percentages (`0% → 100%`), active agent name banners, animated feed card expansion (`animateContentSize`), and turn-by-turn planning updates.
     - **Parallel Multi-Agent Tool Dispatch**: `KoogRxSupervisorEngine` supports dispatching independent worker agents (such as `GENERIC_SUBSTITUTE` and `SAFETY_AUDITOR`) concurrently using Kotlin coroutines, significantly accelerating overall scan execution time.
     - **Explicit "View Results" Completion UX**: Replaced automatic completion transitions with an explicit "View Results" primary action on `LoadingView`, allowing pharmacists and developers to inspect the full multi-agent progress and reasoning feed prior to navigating to results.
 
@@ -56,8 +56,9 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **System Bar Sync & Emerald Green Palette**: Refactored theme engine with a vibrant Emerald Green palette (`Color(0xFF0B7A6E)`), paper illustration tokens, launcher graphics, and system status/navigation bar appearance synchronization across platforms.
     - **3-Way Animated Theme Switcher**: 3-segment theme control in Settings featuring a spring-physics sliding highlight pill (`animateDpAsState` + `spring`) and smooth text/icon color transitions.
 
-4. **Per-Scan Accordion AgentOps Telemetry Dashboard**:
-    - Grouped raw execution traces into **Per-Scan Session Accordion Cards** (`TelemetryScanSession`), displaying pipeline duration (formatted in hours, minutes, seconds, and milliseconds via localized string resources), total hops, extracted item count, pass/fail status, and AI Engine summary (`Gemini • gemini-2.5-flash` or `Multi-Provider (Gemini, OpenAI)`).
+4. **Reactive Per-Scan Accordion AgentOps Telemetry Dashboard**:
+    - **Real-Time Reactive Room `Flow` Observation**: Agent execution traces are observed via Room 3 `Flow<List<AgentExecutionTraceEntity>>` in `AgentTraceViewModel`. Scans executed in the background or active session appear immediately on `AgentTelemetryScreen` without requiring an app restart.
+    - Grouped raw execution traces into **Per-Scan Session Accordion Cards** (`TelemetryScanSession`), displaying true wall-clock pipeline duration (`supervisorTime + max(workerTimes)`), total hops, extracted item count, pass/fail status, and AI Engine summary (`Gemini • gemini-2.5-flash` or `Multi-Provider (Gemini, OpenAI)`).
     - **Individual Session Trace Deletion**: Delete single scan trace sessions or clear all telemetry records with confirmation dialogs.
     - Single-card accordion expansion behavior revealing detailed in-card per-turn agent reasoning and diagnostics.
     - Permanent **"Run Benchmark"** action bar with updated action icons (`PlayArrow`) in the telemetry header for instant evaluation triggers.
@@ -84,8 +85,8 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Fallback API Key Propagation**: `TranscriptionInput` and `CompositeAiService` pass dedicated `fallbackApiKey` credentials, ensuring fallback AI providers authenticate cleanly when configured with a distinct provider key.
     - **On-Device SLM & Folder Picker** (`Color(0xFF0B7A6E)`): Local offline inference via LiteRT-LM. Features an interactive Android System Folder Picker (`ACTION_OPEN_DOCUMENT_TREE`) allowing users to select any folder on their device storage, discovering `.litertlm`, `.tflite`, `.bin`, and `.gguf` model weight files with auto-scanning.
 
-9. **Scan History & Full JSON Local Storage Management**:
-    - Room 3 KMP SQLite storage saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
+9. **Scan History & Reactive Local Storage Management**:
+    - Room 3 KMP SQLite storage observed via `Flow<List<PrescriptionHistoryEntity>>`, saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
     - Interactive `HistoryScreen` displaying medicine count & review requirement chips, supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
 
 10. **In-App Self-Update Engine (`UpdateManager`, `PlatformUpdater` & `UpdateHeroIcon`)**:
@@ -104,7 +105,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Compose LinkAnnotation Markdown Parser**: Migrated markdown link rendering across description views to Compose `LinkAnnotation` with refined link parsing logic.
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
     - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
-    - **100% Resource Localization**: Zero hardcoded UI strings; all texts externalized into `composeResources/values/strings.xml`.
+    - **100% Resource Localization**: Zero hardcoded UI strings; all reasoning messages, status updates, and UI texts externalized into `composeResources/values/strings.xml`.
     - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
 
 12. **Android AppFunctions, App Actions & Launcher Shortcuts**:
