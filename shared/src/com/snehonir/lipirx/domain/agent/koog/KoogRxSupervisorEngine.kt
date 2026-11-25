@@ -60,13 +60,15 @@ class KoogRxSupervisorEngine(
             onEvent(PipelineEvent.Planning(getString(Res.string.reason_planning_step)))
 
             val supervisorStartTime = getPlatformEpochMillis()
+            val allowParallel = input.provider != AiProvider.OnDevice && input.strategy != OnDeviceStrategy.ON_DEVICE_ONLY
             val decision = rxSupervisorAgent.decideNextStep(
                 state = state,
                 provider = supervisorRuntime.provider,
                 selectedModel = supervisorRuntime.model,
                 apiKey = supervisorRuntime.apiKey,
                 customUrl = supervisorRuntime.customUrl,
-                strategy = input.strategy
+                strategy = input.strategy,
+                allowParallel = allowParallel
             )
             val supervisorTimeMs = getPlatformEpochMillis() - supervisorStartTime
 
@@ -200,23 +202,15 @@ class KoogRxSupervisorEngine(
 
                 // A safety audit only counts as done if it actually succeeded.
                 val safetyResult = parallelResults.firstOrNull { it.agentType == RxAgentType.SAFETY_AUDITOR }?.result
-                val safetyError = safetyResult?.exceptionOrNull()
 
                 state = state.copy(
                     items = mergedItems,
-                    safetyAudited = safetyResult?.isSuccess ?: state.safetyAudited,
+                    safetyAudited = (safetyResult?.isSuccess == true) || state.safetyAudited,
                     history = state.history + supervisorRecord + workerRecords,
                     turnCount = state.turnCount + 1
                 )
 
-                if (safetyError != null) {
-                    val reason = PipelineFailureReason.fromThrowable(safetyError)
-                    state = state.copy(
-                        isSuspendedForApproval = true,
-                        approvalReason = ClinicalApprovalReasons.auditAgentFailed(reason.displayName)
-                    )
-                    break
-                }
+                // If parallel safety audit failed, loop continues so the Supervisor Manager can retry SAFETY_AUDITOR sequentially on the next turn.
                 continue
             }
 

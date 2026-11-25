@@ -8,18 +8,11 @@ import com.snehonir.lipirx.domain.usecase.DeleteScanHistoryUseCase
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
 import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import io.github.aakira.napier.Napier
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.serialization.json.Json
-
-data class HistoryUiState(
-    val historyList: ImmutableList<PrescriptionHistoryEntity> = persistentListOf(),
-    val isLoading: Boolean = false
-)
 
 class HistoryViewModel(
     private val getScanHistoryUseCase: GetScanHistoryUseCase,

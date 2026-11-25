@@ -37,38 +37,6 @@ import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.compose.resources.getString
 
-data class SettingsUiState(
-    val selectedModel: String = "",
-    val provider: AiProvider = AiProvider.Gemini,
-    val customUrl: String = "",
-    val geminiApiKey: String = "",
-    val groqApiKey: String = "",
-    val openaiApiKey: String = "",
-    val claudeApiKey: String = "",
-    val customApiKey: String = "",
-    val apiKeyError: String? = null,
-    val apiKeySuccess: String? = null,
-    val isTestingApiKey: Boolean = false,
-    val isMcpServerEnabled: Boolean = false,
-    val onDeviceStrategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
-    val slmModelDirectory: String = "",
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val agentConfigs: ImmutableMap<RxAgentType, AgentConfig> = persistentMapOf(),
-    val providerModelsMap: ImmutableMap<String, ImmutableList<String>> = persistentMapOf()
-) {
-    val providerType: String get() = provider.id
-
-    val apiKey: String
-        get() = when (provider) {
-            AiProvider.Groq -> groqApiKey
-            AiProvider.OpenAi -> openaiApiKey
-            AiProvider.Claude -> claudeApiKey
-            AiProvider.Custom -> customApiKey
-            AiProvider.Gemini -> geminiApiKey
-            AiProvider.OnDevice -> geminiApiKey
-        }
-}
-
 class SettingsViewModel(
     private val getProviderConfigUseCase: GetProviderConfigUseCase,
     private val saveProviderConfigUseCase: SaveProviderConfigUseCase,

@@ -8,10 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 
-data class HomeUiState(
-    val historyCount: Int = 0
-)
-
 class HomeViewModel(
     private val sessionState: PrescriptionSessionState,
     private val getScanHistoryUseCase: GetScanHistoryUseCase

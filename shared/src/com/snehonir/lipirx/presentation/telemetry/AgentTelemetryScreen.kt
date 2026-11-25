@@ -6,7 +6,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
+import com.snehonir.lipirx.presentation.telemetry.components.MetricCard
+import com.snehonir.lipirx.presentation.telemetry.components.TelemetryEmptyState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -514,141 +515,6 @@ private fun FilterRow(
             selected = selected == TelemetryFilter.FAILED,
             onClick = { onSelect(TelemetryFilter.FAILED) },
             label = { Text(stringResource(Res.string.filter_failed), fontSize = 12.sp) }
-        )
-    }
-}
-
-// ───────────────────────────── Empty state ─────────────────────────────
-
-@Composable
-private fun TelemetryEmptyState(
-    innerPadding: PaddingValues,
-    isLoading: Boolean,
-    onRunBenchmark: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding + PaddingValues(32.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .background(Lipi.PrimaryContainer, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                // Swap for Icons.Default.Analytics if you have material-icons-extended.
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = Lipi.Primary
-                )
-            }
-            Text(
-                text = stringResource(Res.string.telemetry_empty_title),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Ink,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = stringResource(Res.string.telemetry_empty_subtitle),
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                color = Lipi.Muted,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(28.dp),
-                    color = Lipi.Primary,
-                    strokeWidth = 2.5.dp
-                )
-            } else {
-                PrimaryButton(
-                    text = stringResource(Res.string.btn_run_sample_benchmark),
-                    icon = Icons.Default.PlayArrow,
-                    onClick = onRunBenchmark,
-                    modifier = Modifier.fillMaxWidth(0.85f)
-                )
-            }
-        }
-    }
-}
-
-// ───────────────────────────── Metrics ─────────────────────────────
-
-@Composable
-private fun MetricCard(
-    title: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    valueColor: Color = Lipi.Ink,
-    trend: List<Long> = emptyList()
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = Lipi.Surface,
-        border = BorderStroke(1.dp, Lipi.CardBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 11.sp,
-                color = Lipi.Muted,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = value,
-                fontSize = 17.sp,
-                color = valueColor,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (trend.size >= 2) {
-                Sparkline(values = trend, color = Lipi.Primary)
-            }
-        }
-    }
-}
-
-/** Last-N scan durations, oldest on the left, so regressions show up as a rising line. */
-@Composable
-private fun Sparkline(values: List<Long>, color: Color) {
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(16.dp)
-    ) {
-        val max = values.max().toFloat().coerceAtLeast(1f)
-        val stepX = size.width / (values.size - 1)
-        val path = Path()
-        values.forEachIndexed { i, v ->
-            val x = i * stepX
-            val y = size.height - (v / max) * size.height
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawPath(
-            path = path,
-            color = color,
-            style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
 }

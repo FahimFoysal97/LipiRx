@@ -72,7 +72,12 @@ data class PipelineProgress(
         is PipelineEvent.WorkerPercent -> {
             val cur = worker(event.agent)
             if (cur.status == AgentStatus.RUNNING) {
-                copy(workers = workers.put(event.agent, cur.copy(percent = event.percent.coerceIn(0, 100))))
+                copy(
+                    workers = workers.putting(
+                        event.agent,
+                        cur.copy(percent = event.percent.coerceIn(0, 100))
+                    )
+                )
             } else this
         }
         is PipelineEvent.WorkerFinished -> finish(event)
@@ -95,7 +100,7 @@ data class PipelineProgress(
         var f = feed
         targets.forEach { agent ->
             val cur = worker(agent)
-            w = w.put(
+            w = w.putting(
                 agent,
                 cur.copy(
                     status = AgentStatus.RUNNING,
@@ -117,7 +122,7 @@ data class PipelineProgress(
             else -> AgentStatus.DONE
         }
         val names = if (flagged) e.flaggedNames else emptyList()
-        val w = workers.put(
+        val w = workers.putting(
             e.agent,
             worker(e.agent).copy(
                 status = status,

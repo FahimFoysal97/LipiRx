@@ -15,6 +15,7 @@ import org.jetbrains.compose.resources.getString
 
 object SupervisorConstants {
     const val AGENT_NAME = "Rx Supervisor Manager Agent"
+    const val MAX_PER_AGENT_ATTEMPTS = 3
 
     // Action Tokens
     const val TOKEN_FINISH = "FINISH"

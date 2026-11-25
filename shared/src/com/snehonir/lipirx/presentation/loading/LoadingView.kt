@@ -1,52 +1,36 @@
 package com.snehonir.lipirx.presentation.loading
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,101 +39,58 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.snehonir.lipirx.domain.agent.RxAgentType
-import com.snehonir.lipirx.domain.agent.AgentStatus
-import com.snehonir.lipirx.domain.agent.FeedEntry
 import com.snehonir.lipirx.domain.agent.PipelineEvent
 import com.snehonir.lipirx.domain.agent.PipelinePhase
 import com.snehonir.lipirx.domain.agent.PipelineProgress
-import com.snehonir.lipirx.domain.agent.WorkerProgress
-import com.snehonir.lipirx.presentation.common.PaperIllustration
+import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.presentation.common.LipiRxScaffold
+import com.snehonir.lipirx.presentation.common.PaperIllustration
 import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
+import com.snehonir.lipirx.presentation.loading.components.FeedCard
+import com.snehonir.lipirx.presentation.loading.components.ManagerCard
+import com.snehonir.lipirx.presentation.loading.components.WorkersCard
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.btn_keep_waiting
 import com.snehonir.lipirx.resources.btn_stop
 import com.snehonir.lipirx.resources.btn_stop_analysis
 import com.snehonir.lipirx.resources.btn_view_results
-import com.snehonir.lipirx.resources.cd_hide_details
-import com.snehonir.lipirx.resources.cd_show_details
-import com.snehonir.lipirx.resources.chip_flagged
 import com.snehonir.lipirx.resources.content_desc_prescription
 import com.snehonir.lipirx.resources.dialog_stop_message
 import com.snehonir.lipirx.resources.dialog_stop_title
-import com.snehonir.lipirx.resources.feed_double_check
-import com.snehonir.lipirx.resources.feed_entity_done
-import com.snehonir.lipirx.resources.feed_finalizing
-import com.snehonir.lipirx.resources.feed_found_medicines
-import com.snehonir.lipirx.resources.feed_generic_done
-import com.snehonir.lipirx.resources.feed_preparing
-import com.snehonir.lipirx.resources.feed_safety_done
-import com.snehonir.lipirx.resources.feed_safety_failed
-import com.snehonir.lipirx.resources.feed_safety_flagged
-import com.snehonir.lipirx.resources.feed_start_entity
-import com.snehonir.lipirx.resources.feed_start_generic
-import com.snehonir.lipirx.resources.feed_start_safety
-import com.snehonir.lipirx.resources.feed_start_transcription
-import com.snehonir.lipirx.resources.feed_step_failed
-import com.snehonir.lipirx.resources.feed_waiting_pharmacist
 import com.snehonir.lipirx.resources.hint_taking_longer
 import com.snehonir.lipirx.resources.label_analysis_progress
-import com.snehonir.lipirx.resources.label_checks_count
-import com.snehonir.lipirx.resources.label_required_checks
-import com.snehonir.lipirx.resources.label_running_together
-import com.snehonir.lipirx.resources.manager_title
-import com.snehonir.lipirx.resources.phase_finalizing
-import com.snehonir.lipirx.resources.phase_planning
-import com.snehonir.lipirx.resources.phase_running
-import com.snehonir.lipirx.resources.phase_waiting_pharmacist
-import com.snehonir.lipirx.resources.row_entity
-import com.snehonir.lipirx.resources.row_generic
-import com.snehonir.lipirx.resources.row_safety
-import com.snehonir.lipirx.resources.row_transcription
 import com.snehonir.lipirx.ui.BackHandler
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import kotlinx.coroutines.delay
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
-/** Swap for a theme token if Lipi has a warning color. */
-private val WarningColor = Color(0xFFB26A00)
 private const val FEED_VISIBLE = 5
-private const val MAX_NAMES_SHOWN = 3
 
 @Composable
 fun LoadingView(
@@ -341,413 +282,6 @@ private fun OverallHeader(fraction: Float) {
             strokeCap = StrokeCap.Round,
         )
     }
-}
-
-@Composable
-private fun ManagerCard(progress: PipelineProgress) {
-    val runningNames = progress.running.map { stringResource(rowLabelRes(it)) }
-    val phaseText = when (progress.phase) {
-        PipelinePhase.PLANNING -> stringResource(Res.string.phase_planning)
-        PipelinePhase.RUNNING -> stringResource(
-            Res.string.phase_running,
-            runningNames.joinToString(", ")
-        )
-
-        PipelinePhase.FINALIZING -> stringResource(Res.string.phase_finalizing)
-        PipelinePhase.WAITING_FOR_PHARMACIST -> stringResource(Res.string.phase_waiting_pharmacist)
-    }
-    val checks = PipelineProgress.WORKERS.size
-    val animatedChecks by animateFloatAsState(
-        targetValue = progress.completedChecks / checks.toFloat(),
-        animationSpec = tween(450, easing = FastOutSlowInEasing),
-        label = "checks",
-    )
-
-    val hasReasoning = progress.reasoning.isNotBlank()
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(250, easing = FastOutSlowInEasing),
-        label = "chevron",
-    )
-    val toggleLabel = stringResource(
-        if (expanded) Res.string.cd_hide_details else Res.string.cd_show_details
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = Lipi.PrimaryContainer,
-    ) {
-        Column(
-            modifier = Modifier
-                .then(
-                    if (hasReasoning) {
-                        Modifier.clickable(
-                            role = Role.Button,
-                            onClickLabel = toggleLabel,
-                        ) { expanded = !expanded }
-                    } else {
-                        Modifier
-                    }
-                )
-                .animateContentSize(tween(250, easing = FastOutSlowInEasing))
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(Res.string.manager_title),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Lipi.OnPrimaryContainer,
-                    modifier = Modifier.weight(1f),
-                )
-                if (hasReasoning) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = Lipi.OnPrimaryContainer,
-                        modifier = Modifier
-                            .size(20.dp)
-                            .rotate(chevronRotation),
-                    )
-                }
-            }
-            Crossfade(
-                targetState = phaseText,
-                animationSpec = tween(300),
-                label = "phase",
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            ) { text ->
-                Text(
-                    text = text,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Lipi.Ink,
-                )
-            }
-            if (hasReasoning) {
-                Text(
-                    text = progress.reasoning,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    color = Lipi.Muted,
-                    maxLines = if (expanded) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (progress.phase == PipelinePhase.PLANNING) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(CircleShape),
-                    color = Lipi.Primary,
-                    trackColor = Lipi.Surface,
-                    strokeCap = StrokeCap.Round,
-                )
-            }
-            Row {
-                Text(
-                    text = stringResource(Res.string.label_required_checks),
-                    fontSize = 12.sp,
-                    color = Lipi.OnPrimaryContainer,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = stringResource(
-                        Res.string.label_checks_count,
-                        progress.completedChecks,
-                        checks
-                    ),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Lipi.OnPrimaryContainer,
-                )
-            }
-            LinearProgressIndicator(
-                progress = { animatedChecks },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(5.dp)
-                    .clip(CircleShape),
-                color = Lipi.Primary,
-                trackColor = Lipi.Surface,
-                strokeCap = StrokeCap.Round,
-            )
-        }
-    }
-}
-
-@Composable
-private fun WorkersCard(progress: PipelineProgress) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = Lipi.Surface,
-        border = BorderStroke(1.dp, Lipi.CardBorder),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            WorkerRow(RxAgentType.TRANSCRIPTION, progress.worker(RxAgentType.TRANSCRIPTION))
-            WorkerRow(RxAgentType.ENTITY_PARSER, progress.worker(RxAgentType.ENTITY_PARSER))
-            ParallelGroup(active = progress.isParallel) {
-                WorkerRow(
-                    RxAgentType.GENERIC_SUBSTITUTE,
-                    progress.worker(RxAgentType.GENERIC_SUBSTITUTE)
-                )
-                WorkerRow(RxAgentType.SAFETY_AUDITOR, progress.worker(RxAgentType.SAFETY_AUDITOR))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ParallelGroup(active: Boolean, content: @Composable ColumnScope.() -> Unit) {
-    val stroke = Lipi.Primary.copy(alpha = 0.5f)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                if (active) {
-                    drawRoundRect(
-                        color = stroke,
-                        cornerRadius = CornerRadius(12.dp.toPx()),
-                        style = Stroke(
-                            width = 1.dp.toPx(),
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f)),
-                        ),
-                    )
-                }
-            }
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-    ) {
-        AnimatedVisibility(visible = active) {
-            Text(
-                text = stringResource(Res.string.label_running_together),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Lipi.Primary,
-                modifier = Modifier.padding(start = 4.dp, top = 4.dp),
-            )
-        }
-        content()
-    }
-}
-
-@Composable
-private fun WorkerRow(agent: RxAgentType, worker: WorkerProgress) {
-    val textColor by animateColorAsState(
-        targetValue = when (worker.status) {
-            AgentStatus.RUNNING -> Lipi.Ink
-            AgentStatus.WAITING -> Lipi.Muted.copy(alpha = 0.55f)
-            else -> Lipi.Muted
-        },
-        animationSpec = tween(300),
-        label = "rowColor",
-    )
-    val animatedPercent by animateIntAsState(
-        targetValue = worker.percent ?: 0,
-        animationSpec = tween(450, easing = FastOutSlowInEasing),
-        label = "rowPercent",
-    )
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        StatusIcon(worker.status)
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = stringResource(rowLabelRes(agent)),
-            modifier = Modifier.weight(1f),
-            fontSize = 14.sp,
-            color = textColor,
-            fontWeight = if (worker.status == AgentStatus.RUNNING) FontWeight.Bold else FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (worker.runs > 1) {
-            Spacer(Modifier.width(8.dp))
-            Chip(text = "×${worker.runs}")
-        }
-        if (worker.status == AgentStatus.FLAGGED) {
-            Spacer(Modifier.width(8.dp))
-            Chip(
-                text = stringResource(Res.string.chip_flagged),
-                container = WarningColor.copy(alpha = 0.15f),
-                content = WarningColor,
-            )
-        }
-        if (worker.status == AgentStatus.RUNNING && worker.percent != null) {
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "$animatedPercent%",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Lipi.Primary,
-            )
-        }
-    }
-}
-
-@Composable
-private fun Chip(
-    text: String,
-    container: Color = Lipi.PrimaryContainer,
-    content: Color = Lipi.OnPrimaryContainer,
-) {
-    Surface(shape = RoundedCornerShape(8.dp), color = container) {
-        Text(
-            text = text,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = content,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-        )
-    }
-}
-
-@Composable
-private fun StatusIcon(status: AgentStatus) {
-    Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
-        when (status) {
-            AgentStatus.DONE -> Box(
-                Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .background(Lipi.Primary),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
-            }
-
-            AgentStatus.RUNNING -> CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.5.dp,
-                color = Lipi.Primary,
-            )
-
-            AgentStatus.WAITING -> Box(
-                Modifier
-                    .size(16.dp)
-                    .border(1.5.dp, Lipi.CardBorder, CircleShape)
-            )
-
-            AgentStatus.FLAGGED -> Icon(
-                Icons.Default.Warning,
-                null,
-                tint = WarningColor,
-                modifier = Modifier.size(20.dp)
-            )
-
-            AgentStatus.FAILED -> Icon(
-                Icons.Default.Warning,
-                null,
-                tint = Lipi.Error,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun FeedCard(entries: List<FeedEntry>) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = Lipi.Surface,
-        border = BorderStroke(1.dp, Lipi.CardBorder),
-    ) {
-        Column(
-            modifier = Modifier
-                .animateContentSize(tween(350, easing = FastOutSlowInEasing))
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            entries.forEachIndexed { index, entry ->
-                val latest = index == entries.lastIndex
-                Row(verticalAlignment = Alignment.Top) {
-                    Box(
-                        Modifier
-                            .padding(top = 6.dp)
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(if (latest) Lipi.Primary else Lipi.CardBorder)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = feedText(entry),
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        color = if (latest) Lipi.Ink else Lipi.Muted,
-                        fontWeight = if (latest) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun feedText(entry: FeedEntry): String = when (entry) {
-    FeedEntry.Preparing -> stringResource(Res.string.feed_preparing)
-    FeedEntry.Finalizing -> stringResource(Res.string.feed_finalizing)
-    FeedEntry.WaitingForPharmacist -> stringResource(Res.string.feed_waiting_pharmacist)
-    is FeedEntry.Started ->
-        if (entry.rerun) {
-            stringResource(Res.string.feed_double_check, stringResource(rowLabelRes(entry.agent)))
-        } else {
-            stringResource(startLabelRes(entry.agent))
-        }
-
-    is FeedEntry.Finished -> when {
-        !entry.success && entry.agent == RxAgentType.SAFETY_AUDITOR ->
-            stringResource(Res.string.feed_safety_failed)
-
-        !entry.success ->
-            stringResource(Res.string.feed_step_failed, stringResource(rowLabelRes(entry.agent)))
-
-        entry.agent == RxAgentType.TRANSCRIPTION ->
-            stringResource(Res.string.feed_found_medicines, entry.itemCount)
-
-        entry.agent == RxAgentType.ENTITY_PARSER ->
-            stringResource(Res.string.feed_entity_done)
-
-        entry.agent == RxAgentType.GENERIC_SUBSTITUTE ->
-            stringResource(Res.string.feed_generic_done)
-
-        entry.flaggedNames.isNotEmpty() ->
-            stringResource(Res.string.feed_safety_flagged, shortList(entry.flaggedNames))
-
-        else -> stringResource(Res.string.feed_safety_done)
-    }
-}
-
-private fun shortList(names: List<String>): String {
-    val shown = names.take(MAX_NAMES_SHOWN).joinToString(", ")
-    val extra = names.size - MAX_NAMES_SHOWN
-    return if (extra > 0) "$shown +$extra" else shown
-}
-
-private fun rowLabelRes(agent: RxAgentType): StringResource = when (agent) {
-    RxAgentType.TRANSCRIPTION -> Res.string.row_transcription
-    RxAgentType.ENTITY_PARSER -> Res.string.row_entity
-    RxAgentType.GENERIC_SUBSTITUTE -> Res.string.row_generic
-    RxAgentType.SAFETY_AUDITOR -> Res.string.row_safety
-    else -> Res.string.manager_title
-}
-
-private fun startLabelRes(agent: RxAgentType): StringResource = when (agent) {
-    RxAgentType.TRANSCRIPTION -> Res.string.feed_start_transcription
-    RxAgentType.ENTITY_PARSER -> Res.string.feed_start_entity
-    RxAgentType.GENERIC_SUBSTITUTE -> Res.string.feed_start_generic
-    RxAgentType.SAFETY_AUDITOR -> Res.string.feed_start_safety
-    else -> Res.string.feed_preparing
 }
 
 @Composable

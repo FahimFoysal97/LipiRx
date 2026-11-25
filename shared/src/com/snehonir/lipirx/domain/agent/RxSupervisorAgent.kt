@@ -20,18 +20,19 @@ class RxSupervisorAgent(
         selectedModel: String = "",
         apiKey: String = "",
         customUrl: String = "",
-        strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK
+        strategy: OnDeviceStrategy = OnDeviceStrategy.HYBRID_FALLBACK,
+        allowParallel: Boolean = true
     ): SupervisorDecision {
         Napier.d("[$agentName] Turn ${state.turnCount + 1}: Evaluating state (items=${state.items.size}, historySize=${state.history.size}, memoryLength=${state.episodicMemory.length})...", tag = TAG)
 
         if (canExecuteAiService(provider, apiKey, customUrl)) {
-            executeSupervisorLlmLoop(state, provider, selectedModel, apiKey, customUrl, strategy)?.let { decision ->
+            executeSupervisorLlmLoop(state, provider, selectedModel, apiKey, customUrl, strategy, allowParallel)?.let { decision ->
                 Napier.d("[$agentName -> LLM Decision] Next: ${decision.nextAgent?.id ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${decision.reasoning}", tag = TAG)
                 return decision
             }
         }
 
-        val fallback = getFallbackDecision(state)
+        val fallback = getFallbackDecision(state, allowParallel)
         Napier.d("[$agentName -> Rule Fallback] Next: ${fallback.nextAgent?.id ?: SupervisorConstants.TOKEN_FINISH}, Reason: ${fallback.reasoning}", tag = TAG)
         return fallback
     }
@@ -46,7 +47,8 @@ class RxSupervisorAgent(
         selectedModel: String,
         apiKey: String,
         customUrl: String,
-        strategy: OnDeviceStrategy
+        strategy: OnDeviceStrategy,
+        allowParallel: Boolean
     ): SupervisorDecision? {
         val service = aiService ?: return null
         val initialPrompt = buildSupervisorPrompt(state)
@@ -68,7 +70,7 @@ class RxSupervisorAgent(
             if (aiResult.isFailure) break
 
             val rawText = aiResult.getOrThrow()
-            val parseResult = parseAndValidateDecision(rawText, state)
+            val parseResult = parseAndValidateDecision(rawText, state, allowParallel)
 
             if (parseResult.isSuccess) {
                 return parseResult.getOrThrow()
@@ -83,7 +85,11 @@ class RxSupervisorAgent(
         return null
     }
 
-    private suspend fun parseAndValidateDecision(rawText: String, state: SupervisorState): Result<SupervisorDecision> {
+    private suspend fun parseAndValidateDecision(
+        rawText: String,
+        state: SupervisorState,
+        allowParallel: Boolean
+    ): Result<SupervisorDecision> {
         val cleanedJson = cleanJson(rawText)
         val decodedResult = runCatching { jsonParser.decodeFromString<SupervisorDecisionDto>(cleanedJson) }
 
@@ -92,11 +98,15 @@ class RxSupervisorAgent(
         }
 
         val dto = decodedResult.getOrThrow()
-        val decision = mapDtoToDecision(dto, state)
+        val decision = mapDtoToDecision(dto, state, allowParallel)
         return Result.success(decision)
     }
 
-    private suspend fun mapDtoToDecision(dto: SupervisorDecisionDto, state: SupervisorState): SupervisorDecision {
+    private suspend fun mapDtoToDecision(
+        dto: SupervisorDecisionDto,
+        state: SupervisorState,
+        allowParallel: Boolean
+    ): SupervisorDecision {
         if (dto.isSuspendedForApproval == true) {
             return SupervisorDecision(
                 nextAgent = null,
@@ -113,20 +123,23 @@ class RxSupervisorAgent(
             nextAgentStr == SupervisorConstants.TOKEN_FINISH || nextAgentStr.isBlank() -> handleFinishDecision(dto, state)
             else -> {
                 val parsedParallel = dto.parallelAgents.orEmpty().map { parseAgentType(it) }.distinct()
-                val historyTypes = state.history.map { it.agentType }.toSet()
-
                 val targetAgent = parseAgentType(nextAgentStr)
 
-                // Check if parallel execution is requested or should be triggered when both Generic Substitute & Safety Auditor are pending
-                val parallelList = when {
-                    parsedParallel.size > 1 -> parsedParallel
-                    nextAgentStr.contains("GENERIC") && nextAgentStr.contains("SAFETY") -> listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR)
-                    (targetAgent == RxAgentType.GENERIC_SUBSTITUTE || targetAgent == RxAgentType.SAFETY_AUDITOR) &&
-                            !historyTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) && !historyTypes.contains(RxAgentType.SAFETY_AUDITOR) ->
-                        listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR)
-                    else -> emptyList()
+                // Cap per-agent attempts at MAX_PER_AGENT_ATTEMPTS (3)
+                val agentAttempts = state.history.count { it.agentType == targetAgent }
+                if (agentAttempts >= SupervisorConstants.MAX_PER_AGENT_ATTEMPTS) {
+                    Napier.w("[$agentName] Agent '${targetAgent.id}' reached max ${SupervisorConstants.MAX_PER_AGENT_ATTEMPTS} attempts. Suspending for pharmacist review.", tag = TAG)
+                    return SupervisorDecision(
+                        nextAgent = null,
+                        isFinished = false,
+                        isSuspendedForApproval = true,
+                        approvalReason = ClinicalApprovalReasons.auditAgentFailed("Agent ${targetAgent.id} reached max ${SupervisorConstants.MAX_PER_AGENT_ATTEMPTS} attempts"),
+                        reasoning = SupervisorConstants.getHumanApprovalReason(),
+                        feedbackPrompt = ""
+                    )
                 }
 
+                val parallelList = if (allowParallel && parsedParallel.size > 1) parsedParallel else emptyList()
                 val primaryAgent = if (parallelList.isNotEmpty()) parallelList.first() else targetAgent
 
                 SupervisorDecision(
@@ -213,10 +226,29 @@ class RxSupervisorAgent(
         }
     }
 
-    private suspend fun getFallbackDecision(state: SupervisorState): SupervisorDecision {
-        val historyTypes = state.history.map { it.agentType }.toSet()
+    private suspend fun getFallbackDecision(
+        state: SupervisorState,
+        allowParallel: Boolean = true
+    ): SupervisorDecision {
+        val successfulAgentTypes = state.history.filter { it.failureReason == null }.map { it.agentType }.toSet()
+        val allAttemptedTypes = state.history.map { it.agentType }.toSet()
+        val failureCounts = state.history.filter { it.failureReason != null }.groupingBy { it.agentType }.eachCount()
+
+        // If any worker agent has failed MAX_PER_AGENT_ATTEMPTS (3) times, suspend for pharmacist approval.
+        val exhaustedAgent = failureCounts.entries.firstOrNull { it.value >= SupervisorConstants.MAX_PER_AGENT_ATTEMPTS }?.key
+        if (exhaustedAgent != null) {
+            return SupervisorDecision(
+                nextAgent = null,
+                isFinished = false,
+                isSuspendedForApproval = true,
+                approvalReason = ClinicalApprovalReasons.auditAgentFailed("Agent ${exhaustedAgent.id} reached max ${SupervisorConstants.MAX_PER_AGENT_ATTEMPTS} attempts"),
+                reasoning = SupervisorConstants.getHumanApprovalReason(),
+                feedbackPrompt = ""
+            )
+        }
+
         return when {
-            state.items.isEmpty() && !historyTypes.contains(RxAgentType.TRANSCRIPTION) -> {
+            state.items.isEmpty() && !allAttemptedTypes.contains(RxAgentType.TRANSCRIPTION) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.TRANSCRIPTION,
                     isFinished = false,
@@ -224,7 +256,7 @@ class RxSupervisorAgent(
                     feedbackPrompt = SupervisorConstants.PROMPT_TRANSCRIBE_ACCURATE
                 )
             }
-            !historyTypes.contains(RxAgentType.ENTITY_PARSER) -> {
+            !successfulAgentTypes.contains(RxAgentType.ENTITY_PARSER) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.ENTITY_PARSER,
                     isFinished = false,
@@ -232,7 +264,7 @@ class RxSupervisorAgent(
                     feedbackPrompt = SupervisorConstants.PROMPT_CLEAN_STRENGTHS
                 )
             }
-            !historyTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) && !historyTypes.contains(RxAgentType.SAFETY_AUDITOR) -> {
+            allowParallel && !allAttemptedTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) && !allAttemptedTypes.contains(RxAgentType.SAFETY_AUDITOR) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.GENERIC_SUBSTITUTE,
                     parallelAgents = listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR),
@@ -241,7 +273,7 @@ class RxSupervisorAgent(
                     feedbackPrompt = SupervisorConstants.PROMPT_PARALLEL_ENRICHMENT
                 )
             }
-            !historyTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) -> {
+            !successfulAgentTypes.contains(RxAgentType.GENERIC_SUBSTITUTE) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.GENERIC_SUBSTITUTE,
                     parallelAgents = emptyList(),
@@ -250,7 +282,7 @@ class RxSupervisorAgent(
                     feedbackPrompt = SupervisorConstants.PROMPT_PROVIDE_SUBSTITUTES
                 )
             }
-            !historyTypes.contains(RxAgentType.SAFETY_AUDITOR) -> {
+            !successfulAgentTypes.contains(RxAgentType.SAFETY_AUDITOR) -> {
                 SupervisorDecision(
                     nextAgent = RxAgentType.SAFETY_AUDITOR,
                     parallelAgents = emptyList(),
