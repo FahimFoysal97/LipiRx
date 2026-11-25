@@ -203,7 +203,12 @@ fun LoadingView(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
                 ) {
-                    SegScannerCard(imageByteArray = imageByteArray, scan = scan, pulse = pulse)
+                    SegScannerCard(
+                        imageByteArray = imageByteArray,
+                        scan = scan,
+                        pulse = pulse,
+                        isScanning = !isComplete
+                    )
                     OverallHeader(animatedOverall)
                     ManagerCard(progress)
                     WorkersCard(progress)
@@ -289,30 +294,33 @@ private fun SegScannerCard(
     imageByteArray: ByteArray?,
     scan: State<Float>,
     pulse: State<Float>,
+    isScanning: Boolean = true,
 ) {
     val primaryColor = Lipi.Primary
     val shape = RoundedCornerShape(22.dp)
 
     Box(contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(230.dp, 260.dp)) {
-            val strength = 0.14f + 0.10f * (1f - pulse.value)
-            drawRect(
-                Brush.radialGradient(
-                    colors = listOf(primaryColor.copy(alpha = strength), Color.Transparent),
-                    center = center,
-                    radius = size.minDimension * 0.62f,
+        if (isScanning) {
+            Canvas(modifier = Modifier.size(230.dp, 260.dp)) {
+                val strength = 0.14f + 0.10f * (1f - pulse.value)
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(primaryColor.copy(alpha = strength), Color.Transparent),
+                        center = center,
+                        radius = size.minDimension * 0.62f,
+                    )
                 )
-            )
+            }
         }
 
         Box(
             modifier = Modifier
                 .size(200.dp, 240.dp)
                 .shadow(
-                    elevation = 20.dp,
+                    elevation = if (isScanning) 20.dp else 6.dp,
                     shape = shape,
-                    ambientColor = primaryColor.copy(alpha = 0.25f),
-                    spotColor = primaryColor.copy(alpha = 0.35f),
+                    ambientColor = primaryColor.copy(alpha = if (isScanning) 0.25f else 0.08f),
+                    spotColor = primaryColor.copy(alpha = if (isScanning) 0.35f else 0.12f),
                 )
                 .clip(shape)
                 .background(Color.White),
@@ -329,83 +337,85 @@ private fun SegScannerCard(
                 PaperIllustration(124.dp, 166.dp)
             }
 
-            Canvas(modifier = Modifier.matchParentSize()) {
-                val y = size.height * scan.value
-                val glow = 44.dp.toPx()
+            if (isScanning) {
+                Canvas(modifier = Modifier.matchParentSize()) {
+                    val y = size.height * scan.value
+                    val glow = 44.dp.toPx()
 
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            primaryColor.copy(alpha = 0.32f),
-                            Color.Transparent,
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                primaryColor.copy(alpha = 0.32f),
+                                Color.Transparent,
+                            ),
+                            startY = y - glow,
+                            endY = y + glow,
                         ),
-                        startY = y - glow,
-                        endY = y + glow,
-                    ),
-                    topLeft = Offset(0f, y - glow),
-                    size = Size(size.width, glow * 2f),
-                )
-                drawLine(
-                    brush = Brush.horizontalGradient(
-                        listOf(Color.Transparent, primaryColor, primaryColor, Color.Transparent)
-                    ),
-                    start = Offset(0f, y),
-                    end = Offset(size.width, y),
-                    strokeWidth = 3.dp.toPx(),
-                    cap = StrokeCap.Round,
-                )
+                        topLeft = Offset(0f, y - glow),
+                        size = Size(size.width, glow * 2f),
+                    )
+                    drawLine(
+                        brush = Brush.horizontalGradient(
+                            listOf(Color.Transparent, primaryColor, primaryColor, Color.Transparent)
+                        ),
+                        start = Offset(0f, y),
+                        end = Offset(size.width, y),
+                        strokeWidth = 3.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
 
-                val inset = 12.dp.toPx()
-                val len = 22.dp.toPx()
-                val sw = 3.dp.toPx()
-                val r = size.width - inset
-                val b = size.height - inset
+                    val inset = 12.dp.toPx()
+                    val len = 22.dp.toPx()
+                    val sw = 3.dp.toPx()
+                    val r = size.width - inset
+                    val b = size.height - inset
 
-                drawLine(
-                    primaryColor,
-                    Offset(inset, inset),
-                    Offset(inset + len, inset),
-                    sw,
-                    StrokeCap.Round
-                )
-                drawLine(
-                    primaryColor,
-                    Offset(inset, inset),
-                    Offset(inset, inset + len),
-                    sw,
-                    StrokeCap.Round
-                )
-                drawLine(
-                    primaryColor,
-                    Offset(r, inset),
-                    Offset(r - len, inset),
-                    sw,
-                    StrokeCap.Round
-                )
-                drawLine(
-                    primaryColor,
-                    Offset(r, inset),
-                    Offset(r, inset + len),
-                    sw,
-                    StrokeCap.Round
-                )
-                drawLine(
-                    primaryColor,
-                    Offset(inset, b),
-                    Offset(inset + len, b),
-                    sw,
-                    StrokeCap.Round
-                )
-                drawLine(
-                    primaryColor,
-                    Offset(inset, b),
-                    Offset(inset, b - len),
-                    sw,
-                    StrokeCap.Round
-                )
-                drawLine(primaryColor, Offset(r, b), Offset(r - len, b), sw, StrokeCap.Round)
-                drawLine(primaryColor, Offset(r, b), Offset(r, b - len), sw, StrokeCap.Round)
+                    drawLine(
+                        primaryColor,
+                        Offset(inset, inset),
+                        Offset(inset + len, inset),
+                        sw,
+                        StrokeCap.Round
+                    )
+                    drawLine(
+                        primaryColor,
+                        Offset(inset, inset),
+                        Offset(inset, inset + len),
+                        sw,
+                        StrokeCap.Round
+                    )
+                    drawLine(
+                        primaryColor,
+                        Offset(r, inset),
+                        Offset(r - len, inset),
+                        sw,
+                        StrokeCap.Round
+                    )
+                    drawLine(
+                        primaryColor,
+                        Offset(r, inset),
+                        Offset(r, inset + len),
+                        sw,
+                        StrokeCap.Round
+                    )
+                    drawLine(
+                        primaryColor,
+                        Offset(inset, b),
+                        Offset(inset + len, b),
+                        sw,
+                        StrokeCap.Round
+                    )
+                    drawLine(
+                        primaryColor,
+                        Offset(inset, b),
+                        Offset(inset, b - len),
+                        sw,
+                        StrokeCap.Round
+                    )
+                    drawLine(primaryColor, Offset(r, b), Offset(r - len, b), sw, StrokeCap.Round)
+                    drawLine(primaryColor, Offset(r, b), Offset(r, b - len), sw, StrokeCap.Round)
+                }
             }
         }
     }

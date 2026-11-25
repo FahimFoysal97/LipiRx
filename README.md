@@ -41,42 +41,50 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 1. **Supervisor-Driven Multi-Agent Orchestration (JetBrains Koog)**:
     - Configurable **Per-Agent AI Assignments Matrix** allowing developers and pharmacists to assign specific primary providers/models AND dedicated fallback providers/models for every agent (including `📱 On-Device SLM`).
     - Single-expanded **accordion card behavior** in Settings preventing visual clutter.
-    - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`progress.reasoning` localized via `Res.string.reason_*`), per-agent task completion percentages (`0% → 100%`), active agent name banners, animated feed card expansion (`animateContentSize`), and turn-by-turn planning updates.
-    - **Parallel Multi-Agent Tool Dispatch**: `KoogRxSupervisorEngine` supports dispatching independent worker agents (such as `GENERIC_SUBSTITUTE` and `SAFETY_AUDITOR`) concurrently using Kotlin coroutines, significantly accelerating overall scan execution time.
+    - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`progress.reasoning` 100% localized via `Res.string.reason_*`), per-agent task completion percentages (`0% → 100%`), active agent name banners, animated feed card expansion (`animateContentSize`), and turn-by-turn planning updates.
+    - **Configurable Parallel / Sequential Strategy (`allowParallel`)**: `KoogRxSupervisorEngine` supports dispatching independent worker agents (`GENERIC_SUBSTITUTE` and `SAFETY_AUDITOR`) concurrently on Cloud AI, or sequentially step-by-step on mobile networks and On-Device SLM to prevent GPU/NPU memory limits and socket aborts.
+    - **Smart Sequential Safety Retry**: If a parallel safety audit fails due to network socket drop, generic substitutes are preserved in workspace memory, and the Manager schedules a sequential `SAFETY_AUDITOR` retry turn before suspending for pharmacist review.
     - **Explicit "View Results" Completion UX**: Replaced automatic completion transitions with an explicit "View Results" primary action on `LoadingView`, allowing pharmacists and developers to inspect the full multi-agent progress and reasoning feed prior to navigating to results.
 
-2. **Self-Healing & 3-Attempt Retry Execution Wrappers**:
+2. **Per-Agent Attempt Cap & JSON Self-Healing Wrappers**:
+    - **`SupervisorConstants.MAX_PER_AGENT_ATTEMPTS = 3` Cap**: The Supervisor Manager enforces a strict cap of 3 attempts per worker agent across turns. If an agent fails 3 times, the pipeline cleanly suspends for Pharmacist Review Gate rather than looping indefinitely.
     - **Cloud AI 3-Attempt Retry Rule**: `CompositeAiService` attempts primary Cloud AI model requests up to 3 times before triggering the agent's assigned fallback model.
-    - **JSON Self-Healing Wrapper (`SelfHealingAgentExecutor`)**: Automatically catches `SerializationException` and JSON formatting errors, generates targeted schema repair prompts, and retries execution up to 2 times.
+    - **JSON Self-Healing Wrapper (`SelfHealingAgentExecutor`)**: Automatically catches `SerializationException` and JSON formatting errors, generates targeted schema repair prompts, and retries execution up to 2 times within each turn.
 
-3. **Jetpack Navigation 3 Architecture & Feature ViewModels**:
+3. **Pure MVVM & 1-Declaration-per-File Architecture**:
+    - **100% Extracted UI States**: All ViewModels expose a single immutable `StateFlow<UiState>` backed by dedicated UI state files (`AnalysisLoadingUiState`, `ScanResultsUiState`, `HistoryUiState`, `TelemetryUiState`, `SettingsUiState`, `HomeUiState`, `ImagePreviewUiState`).
+    - **Modular Component Sub-Packages**: Monolithic view files decomposed into feature-private `components/` sub-packages (`presentation/loading/components/` with `ManagerCard`, `WorkersCard`, `FeedCard`; `presentation/results/components/` with `MedicineItemCard`; `presentation/telemetry/components/` with `MetricCard`, `TelemetryEmptyState`).
+    - **100% Compose Resources Localization (`Res.string`)**: All reasoning strings, status labels, phase text, and feedback prompts resolve via Compose Resources (`Res.string.reason_*`, `Res.string.status_*`). Zero hardcoded reasoning strings.
+
+4. **Jetpack Navigation 3 Architecture & Feature ViewModels**:
     - **Navigation 3 Destination Architecture**: Type-safe destination state management via `AppNavKey` and `AppNavigator`. Back-stack state survives Android screen rotations and configuration changes using Compose `rememberSaveable` with a custom `Saver`.
     - **Dedicated Feature ViewModels & Koin DI**: Testable, feature-aligned ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`), bound in Koin dependency injection modules and isolated within modular package hierarchies (`presentation/home`, `preview`, `loading`, `results`, `history`, `settings`, `common`).
     - **60/120 FPS Smooth Theme Transition Engine**: Single-driver linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme`, animating all 22 custom design tokens and Material 3 color schemes seamlessly without recomposition lag.
     - **System Bar Sync & Emerald Green Palette**: Refactored theme engine with a vibrant Emerald Green palette (`Color(0xFF0B7A6E)`), paper illustration tokens, launcher graphics, and system status/navigation bar appearance synchronization across platforms.
     - **3-Way Animated Theme Switcher**: 3-segment theme control in Settings featuring a spring-physics sliding highlight pill (`animateDpAsState` + `spring`) and smooth text/icon color transitions.
 
-4. **Reactive Per-Scan Accordion AgentOps Telemetry Dashboard**:
+5. **Reactive Per-Scan Accordion AgentOps Telemetry Dashboard**:
     - **Real-Time Reactive Room `Flow` Observation**: Agent execution traces are observed via Room 3 `Flow<List<AgentExecutionTraceEntity>>` in `AgentTraceViewModel`. Scans executed in the background or active session appear immediately on `AgentTelemetryScreen` without requiring an app restart.
     - Grouped raw execution traces into **Per-Scan Session Accordion Cards** (`TelemetryScanSession`), displaying true wall-clock pipeline duration (`supervisorTime + max(workerTimes)`), total hops, extracted item count, pass/fail status, and AI Engine summary (`Gemini • gemini-2.5-flash` or `Multi-Provider (Gemini, OpenAI)`).
     - **Individual Session Trace Deletion**: Delete single scan trace sessions or clear all telemetry records with confirmation dialogs.
     - Single-card accordion expansion behavior revealing detailed in-card per-turn agent reasoning and diagnostics.
     - Permanent **"Run Benchmark"** action bar with updated action icons (`PlayArrow`) in the telemetry header for instant evaluation triggers.
 
-5. **Embedded Model Context Protocol (MCP) & OS Integration**:
+6. **Embedded Model Context Protocol (MCP) & OS Integration**:
     - JSON-RPC 2.0 server (`LipiRxMcpServer`) and local HTTP listener (`McpHttpServer` on port `8080`).
     - Exposes Room 3 KMP prescription history (`lipirx://history/scans`), provider configurations (`lipirx://config/providers`), and SQLite AgentOps forensic traces (`lipirx://history/traces`) as MCP Resources.
     - Exposes `RxAgentTools` (Vision OCR, entity parsing, generic substitutes, patient safety audit, `get_agent_execution_traces`, and `eval_run_benchmark`) as executable MCP Tools for terminal scripts, Claude Desktop, Cursor, and POS desktop software.
 
-6. **Production AgentOps Forensic Execution Tracing**:
+7. **Production AgentOps Forensic Execution Tracing**:
     - SQLite table (`AgentExecutionTrace`) automatically recording every supervisor turn and worker tool execution with timestamps, provider/model metadata, reasoning steps, feedback prompts, execution durations, item counts, and error status.
     - `LipiRxLocalDatabase` guarantees all tables exist on initialization (`init { ensureTablesExist() }`) with automatic fallback retry handling.
 
-7. **Automated Multi-Agent Evaluation & Regression Testing Harness**:
+8. **Automated Multi-Agent Evaluation & Regression Testing Harness**:
     - `RxAgentEvaluator` executes the pipeline against golden benchmark test cases (`RxEvalTestCase`), computing extraction accuracy %, turn counts, and latency.
+    - Added contextual `flow` tracking parameter to `runEvaluationSuite()` for trace context logging in evaluation benchmark runs.
     - Exposes on-device evaluation runner via MCP Tool `eval_run_benchmark` (`http://localhost:8080/lipirx/mcp`).
 
-8. **Multi-Provider AI Engine & Fallback Key Propagation**:
+9. **Multi-Provider AI Engine & Fallback Key Propagation**:
     - **Google Gemini** (`Color(0xFF4285F4)`): Dynamic model discovery via Gemini REST API (`gemini-2.5-flash`, etc.).
     - **OpenAI** (`Color(0xFF10A37F)`): Integration with OpenAI Vision models (`gpt-4o`, etc.).
     - **Anthropic Claude** (`Color(0xFFD97757)`): Multimodal Vision integration via Anthropic `/v1/messages` and dynamic model discovery (`claude-3-5-sonnet-20241022`, etc.).
@@ -85,11 +93,11 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Fallback API Key Propagation**: `TranscriptionInput` and `CompositeAiService` pass dedicated `fallbackApiKey` credentials, ensuring fallback AI providers authenticate cleanly when configured with a distinct provider key.
     - **On-Device SLM & Folder Picker** (`Color(0xFF0B7A6E)`): Local offline inference via LiteRT-LM. Features an interactive Android System Folder Picker (`ACTION_OPEN_DOCUMENT_TREE`) allowing users to select any folder on their device storage, discovering `.litertlm`, `.tflite`, `.bin`, and `.gguf` model weight files with auto-scanning.
 
-9. **Scan History & Reactive Local Storage Management**:
+10. **Scan History & Reactive Local Storage Management**:
     - Room 3 KMP SQLite storage observed via `Flow<List<PrescriptionHistoryEntity>>`, saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
     - Interactive `HistoryScreen` displaying medicine count & review requirement chips, supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
 
-10. **In-App Self-Update Engine (`UpdateManager`, `PlatformUpdater` & `UpdateHeroIcon`)**:
+11. **In-App Self-Update Engine (`UpdateManager`, `PlatformUpdater` & `UpdateHeroIcon`)**:
     - **`UpdateHeroIcon` Animation Suite**: Custom Compose Canvas-based vector illustrations featuring spinning loading rings, floating clouds, pulsing download arrows, checkmark reveals, and error shakes for all update lifecycle states.
     - **Silent Startup Check & Single Popup Dismissal**: Queries GitHub Releases API (`https://api.github.com/repos/FahimFoysal97/LipiRx/releases/latest`) on launch. Dismissing a release popup saves the dismissed version string to SQLite (`DISMISSED_UPDATE_VERSION`), suppressing repetitive popups on subsequent launches while keeping update notices active in Settings.
     - **Semantic Versioning (`SemVer`)**: Compares `Major.Minor.Patch` semver numbers against the installed app version.
@@ -99,16 +107,15 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Download Progress & SHA-256 Checksum**: Streams APK downloads with live MB counters, percentage progress, and optional SHA-256 checksum verification.
     - **Automatic Android Installer**: Integrates `FileProvider` (`${applicationId}.fileprovider`) and `REQUEST_INSTALL_PACKAGES` permission, smoothly launching the system package installer.
 
-11. **Safety, UX Controls & Interactive Medicine Editing**:
+12. **Safety, UX Controls & Interactive Medicine Editing**:
     - **Interactive Medicine Item Editing**: Edit scanned brand names, generic compositions, strength values/units, dosage schedules, duration, quantities, instructions, and review flags via modal `EditMedicineDialog`. Edits automatically persist to SQLite history and update POS copy summaries (read-only in audit history mode).
     - **API Key Visibility Toggle & Tap-Outside Focus Dismissal**: Mask/unmask API keys using inline eye toggle buttons (`EyeShowVectorIcon` / `EyeHideVectorIcon`), and tap anywhere outside input fields to clear keyboard focus.
     - **Compose LinkAnnotation Markdown Parser**: Migrated markdown link rendering across description views to Compose `LinkAnnotation` with refined link parsing logic.
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
     - **Scrollable & Expandable Error Handling**: Image preview view with vertical scrolling and collapsible error notices.
-    - **100% Resource Localization**: Zero hardcoded UI strings; all reasoning messages, status updates, and UI texts externalized into `composeResources/values/strings.xml`.
     - **POS Actions**: One-click summary copying to clipboard for quick pasting into pharmacy POS software.
 
-12. **Android AppFunctions, App Actions & Launcher Shortcuts**:
+13. **Android AppFunctions, App Actions & Launcher Shortcuts**:
     - **App Actions & Deep Linking**: Integrated `androidx.appfunctions` with system shortcuts (`shortcuts.xml`) and App Actions, enabling users to launch prescription scans directly from launcher icons or system assistant commands.
 
 ---
@@ -208,10 +215,11 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 - **Multi-Agent Pipeline**: `KoogRxSupervisorEngine` + `RxSupervisorAgent` supporting parallel worker tool dispatching to type-safe `RxAgentTools`
 - **Android Integration**: Android AppFunctions (`androidx.appfunctions`), launcher shortcuts (`shortcuts.xml`), and App Actions deep linking
 - **Navigation**: Jetpack Navigation 3 destination state management (`AppNavKey`, `AppNavigator`) with `rememberSaveable` back-stack state persistence across orientation changes
-- **Architecture**: MVVM + Feature-based ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`)
+- **Architecture**: Pure MVVM + Feature-based ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`, `AgentTraceViewModel`)
+- **Reactive State Flow**: 100% immutable `StateFlow<UiState>` pattern (`AnalysisLoadingUiState`, `ScanResultsUiState`, `HistoryUiState`, `TelemetryUiState`, `SettingsUiState`, `HomeUiState`, `ImagePreviewUiState`)
 - **Session State Management**: Centralized `PrescriptionSessionState` managing active scan sessions, isolating history record inspection (`activeScanMedicines`)
 - **Theme Animation System**: Single-driver 60/120 FPS linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme.kt` with spring-animated segmented theme controls
-- **Local Database**: Room 3.0.3 (`androidx.room3`) KMP SQLite database with `BundledSQLiteDriver` logging provider keys, per-provider models, agent matrix configurations, theme preferences, offline prescription history, and AgentOps execution traces
+- **Local Database**: Room 3.0.3 (`androidx.room3`) KMP SQLite database with `BundledSQLiteDriver` observing reactive `Flow` streams for prescription history and AgentOps execution traces
 - **Networking**: Ktor Client 3.x (`OkHttp` for Android, `Darwin` for iOS) with `kotlinx.serialization`
 - **Dependency Injection**: Koin 4.x (`koin-core`, `koin-compose`, `koin-compose-viewmodel`, `koin-android`) with modularized DI sub-modules (`networkModule`, `databaseModule`, `aiAgentModule`, `mcpModule`, `domainModule`, `presentationModule`)
 - **Testing Framework**: Native KMP unit test suite in `shared/test/` (`AppNavKeyTest`, `PrescriptionSessionStateTest`, `SemVerTest`, `LipiRxMcpServerTest`) + E2E Python automation test runners (`test_full_app.py`, `test_full_app_ui.py`, `test_mcp.py`)
@@ -250,6 +258,10 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   └── AppConstants.kt                  # Application, network, database, and unit constants
             ├── data/
             │   ├── local/
+            │   │   ├── dao/                         # Room 3 DAOs
+            │   │   │   ├── AgentExecutionTraceDao.kt # AgentTrace DAO with getAgentTracesFlow()
+            │   │   │   ├── PrescriptionHistoryDao.kt  # History DAO with getHistoryFlow()
+            │   │   │   └── ProviderConfigDao.kt
             │   │   ├── entity/                      # SQLite entities
             │   │   │   ├── PrescriptionHistoryEntity.kt
             │   │   │   ├── ProviderConfigEntity.kt
@@ -277,8 +289,12 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   │   └── RxAgentTools.kt           # Type-safe Koog Agent Tools
             │   │   ├── SelfHealingAgentExecutor.kt  # Autonomous JSON self-healing execution wrapper
             │   │   ├── RxSupervisorAgent.kt         # Master Supervisor LLM Agent
-            │   │   └── TranscriptionInput.kt        # Prescription input domain model (with fallbackApiKey)
+            │   │   ├── SupervisorConstants.kt       # Localized reasoning constants & MAX_PER_AGENT_ATTEMPTS
+            │   │   └── TranscriptionInput.kt        # Prescription input domain model
             │   ├── eval/                            # Evaluation & Regression Testing Harness
+            │   │   ├── RxAgentEvaluator.kt          # Multi-agent evaluator with flow context parameter
+            │   │   ├── RxEvalTestCase.kt
+            │   │   └── RxGoldenDataset.kt
             │   ├── mcp/                             # Model Context Protocol (MCP) Engine
             │   ├── model/                           # Domain enums & data models
             │   ├── session/
@@ -295,33 +311,49 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   ├── FolderPicker.kt              # Android SAF document tree folder picker contract
             │   │   └── FullScreenImagePreviewDialog.kt # Pinch-to-zoom 6x prescription dialog
             │   ├── history/                         # Scan History feature
-            │   │   ├── HistoryViewModel.kt          # History ViewModel (offloaded DB I/O)
+            │   │   ├── HistoryViewModel.kt          # History ViewModel collecting Room Flow
+            │   │   ├── HistoryUiState.kt            # Extracted History UI State
             │   │   ├── HistoryView.kt               # Stateless scan history list UI
             │   │   └── HistoryScreen.kt             # Stateful history container composable
             │   ├── home/                            # Home Scan feature
             │   │   ├── HomeViewModel.kt             # Home ViewModel
+            │   │   ├── HomeUiState.kt               # Extracted Home UI State
             │   │   ├── HomeScreen.kt                # Home screen container composable
             │   │   └── EmptyStateView.kt            # Home scan upload & viewfinder UI
             │   ├── loading/                         # Analysis Loading feature
             │   │   ├── AnalysisLoadingViewModel.kt  # Loading ViewModel
+            │   │   ├── AnalysisLoadingUiState.kt    # Extracted Loading UI State
             │   │   ├── AnalysisLoadingScreen.kt     # Loading screen container composable
-            │   │   └── LoadingView.kt               # Multi-agent live analysis UI
+            │   │   ├── LoadingView.kt               # Multi-agent live analysis UI
+            │   │   └── components/                  # Extracted Loading components
+            │   │       ├── ManagerCard.kt           # Supervisor phase & reasoning card
+            │   │       ├── WorkersCard.kt           # Worker agent execution rows
+            │   │       └── FeedCard.kt              # Live event feed card
             │   ├── preview/                         # Image Preview feature
-            │   │   ├── ImagePreviewViewModel.kt     # Preview ViewModel (rethrows CancellationException)
+            │   │   ├── ImagePreviewViewModel.kt     # Preview ViewModel
+            │   │   ├── ImagePreviewUiState.kt       # Extracted Preview UI State
             │   │   ├── ImagePreviewScreen.kt        # Preview screen container composable
             │   │   └── ImagePreviewAndProcessView.kt # Prescription preview & AI pipeline summary
             │   ├── results/                         # Scan Results feature
-            │   │   ├── ScanResultsViewModel.kt      # Results ViewModel (auto-persists pharmacist edits)
+            │   │   ├── ScanResultsViewModel.kt      # Results ViewModel
+            │   │   ├── ScanResultsUiState.kt        # Extracted Results UI State
             │   │   ├── ScanResultsScreen.kt         # Scan results container composable
-            │   │   ├── MedicineListView.kt          # Extracted medicine list & pharmacist sign-off
-            │   │   └── EditMedicineDialog.kt        # Interactive medicine item editing dialog
+            │   │   ├── MedicineListView.kt          # Medicine list & pharmacist sign-off
+            │   │   ├── EditMedicineDialog.kt        # Interactive medicine item editing dialog
+            │   │   └── components/                  # Extracted Results components
+            │   │       └── MedicineItemCard.kt      # Dosage, schedule, and brand substitutes card
             │   ├── settings/                        # Settings feature
-            │   │   ├── SettingsViewModel.kt         # Settings ViewModel (Koin singleton)
+            │   │   ├── SettingsViewModel.kt         # Settings ViewModel
+            │   │   ├── SettingsUiState.kt           # Extracted Settings UI State
             │   │   ├── SettingsView.kt              # Stateless settings UI view
             │   │   └── SettingsScreen.kt            # Settings container composable
             │   ├── telemetry/                       # AgentOps Telemetry feature
             │   │   ├── AgentTraceViewModel.kt       # Telemetry trace ViewModel
-            │   │   └── AgentTelemetryScreen.kt      # AgentOps per-scan accordion telemetry UI
+            │   │   ├── TelemetryUiState.kt          # Extracted Telemetry UI State & session grouping
+            │   │   ├── AgentTelemetryScreen.kt      # AgentOps per-scan accordion telemetry UI
+            │   │   └── components/                  # Extracted Telemetry components
+            │   │       ├── MetricCard.kt            # Telemetry metric cards with sparkline
+            │   │       └── TelemetryEmptyState.kt   # Telemetry empty state
             │   └── update/                          # Self-Update feature
             └── ui/theme/
                 └── LipiRxTheme.kt                   # 60/120 FPS linear theme color interpolation engine
