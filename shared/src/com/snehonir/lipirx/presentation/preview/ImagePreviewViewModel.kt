@@ -2,6 +2,7 @@ package com.snehonir.lipirx.presentation.preview
 
 import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
 import com.snehonir.lipirx.data.local.getPlatformEpochMillis
+import com.snehonir.lipirx.domain.agent.PipelineFailureReason
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
 import com.snehonir.lipirx.domain.common.LipiRxNoParams
@@ -21,8 +22,6 @@ import com.snehonir.lipirx.resources.error_connection_failed
 import com.snehonir.lipirx.resources.error_please_select_image
 import com.snehonir.lipirx.resources.loading_default_subtitle
 import io.github.aakira.napier.Napier
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
@@ -47,7 +46,8 @@ class ImagePreviewViewModel(
                     copy(
                         imageByteArray = data.imageByteArray,
                         agentConfigs = configs,
-                        errorMessage = data.errorMessage
+                        errorMessage = data.errorMessage,
+                        isRetryableError = data.isRetryableError
                     )
                 }
             }
@@ -98,8 +98,9 @@ class ImagePreviewViewModel(
 
             if (visionProvider.requiresApiKey && visionApiKey.isBlank()) {
                 val errorMsg = getString(Res.string.error_api_key_required, visionProvider.displayName)
-                updateState { copy(errorMessage = errorMsg) }
-                sessionState.setResults(medicines = emptyList(), error = errorMsg)
+                val isRetryable = PipelineFailureReason.fromThrowable(IllegalStateException(errorMsg)).isRetryable
+                updateState { copy(errorMessage = errorMsg, isRetryableError = isRetryable) }
+                sessionState.setResults(medicines = emptyList(), error = errorMsg, isRetryable = isRetryable)
                 onStarted(false)
                 return@launchSafe
             }
@@ -180,9 +181,11 @@ class ImagePreviewViewModel(
                             if (error is CancellationException) throw error
                             val fallbackFail = getString(Res.string.error_connection_failed)
                             val errorMsg = error.message ?: fallbackFail
+                            val isRetryable = PipelineFailureReason.fromThrowable(error).isRetryable
                             sessionState.setResults(
                                 medicines = emptyList(),
-                                error = errorMsg
+                                error = errorMsg,
+                                isRetryable = isRetryable
                             )
                         }
                     )
@@ -190,9 +193,12 @@ class ImagePreviewViewModel(
                     if (e is CancellationException) throw e
                     Napier.e("[$flow -> Pipeline Execution Exception] ${e.message}", throwable = e, tag = TAG)
                     val fallbackFail = getString(Res.string.error_connection_failed)
+                    val errorMsg = e.message ?: fallbackFail
+                    val isRetryable = PipelineFailureReason.fromThrowable(e).isRetryable
                     sessionState.setResults(
                         medicines = emptyList(),
-                        error = e.message ?: fallbackFail
+                        error = errorMsg,
+                        isRetryable = isRetryable
                     )
                 }
             }

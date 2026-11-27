@@ -5,8 +5,15 @@ import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.repository.PrescriptionRepository
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.error_local_slm_decode_failed
+import com.snehonir.lipirx.resources.error_local_slm_parse_failed
+import com.snehonir.lipirx.resources.error_no_local_slm_model
+import com.snehonir.lipirx.resources.error_on_device_ocr_failed
+import com.snehonir.lipirx.resources.on_device_executing
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
+import org.jetbrains.compose.resources.getString
 
 class OnDeviceAiService(
     private val jsonParser: Json = Json { ignoreUnknownKeys = true; isLenient = true },
@@ -37,17 +44,17 @@ class OnDeviceAiService(
         onProgress: (step: Int, statusText: String) -> Unit
     ): Result<List<MedicineItem>> {
         Napier.d("[$flow -> OnDevice] Executing local On-Device SLM OCR processing (${imageByteArray.size} bytes)...", tag = TAG)
-        onProgress(1, "📱 On-Device SLM executing locally on device...")
+        onProgress(1, getString(Res.string.on_device_executing))
 
         if (!onDeviceEngine.isModelInstalled()) {
-            val errorMsg = "No local .litertlm or .tflite model file found on device storage. Push model file via adb to filesDir."
+            val errorMsg = formatAiErrorMessage(IllegalStateException(getString(Res.string.error_no_local_slm_model)), provider)
             Napier.w("[$flow -> OnDevice Error] $errorMsg", tag = TAG)
             return Result.failure(IllegalStateException(errorMsg))
         }
 
         val localResult = onDeviceEngine.runVisionOcr(imageByteArray, selectedModel)
         if (localResult.isFailure) {
-            val ex = localResult.exceptionOrNull() ?: IllegalStateException("On-Device SLM vision OCR failed.")
+            val ex = localResult.exceptionOrNull() ?: IllegalStateException(getString(Res.string.error_on_device_ocr_failed))
             Napier.e("[$flow -> OnDevice Error] Vision OCR failed: ${ex.message}", throwable = ex, tag = TAG)
             return Result.failure(ex)
         }
@@ -56,7 +63,7 @@ class OnDeviceAiService(
         val parseResult = parseMedicineItemsFromText(rawText)
 
         if (parseResult.isFailure) {
-            val ex = parseResult.exceptionOrNull() ?: IllegalStateException("Failed to parse structured JSON from local SLM model.")
+            val ex = parseResult.exceptionOrNull() ?: IllegalStateException(getString(Res.string.error_local_slm_parse_failed))
             Napier.w("[$flow -> OnDevice Error] ${ex.message}", tag = TAG)
             return Result.failure(ex)
         }
@@ -76,7 +83,7 @@ class OnDeviceAiService(
         Napier.d("[$flow -> OnDevice] Executing local On-Device SLM text prompt (${promptText.length} chars)...", tag = TAG)
 
         if (!onDeviceEngine.isModelInstalled()) {
-            val errorMsg = "No local .litertlm or .tflite model file found on device storage. Push model file via adb to filesDir."
+            val errorMsg = formatAiErrorMessage(IllegalStateException(getString(Res.string.error_no_local_slm_model)), provider)
             Napier.w("[$flow -> OnDevice Error] $errorMsg", tag = TAG)
             return Result.failure(IllegalStateException(errorMsg))
         }
@@ -107,7 +114,7 @@ class OnDeviceAiService(
         return res
     }
 
-    private fun parseMedicineItemsFromText(rawText: String): Result<List<MedicineItem>> {
+    private suspend fun parseMedicineItemsFromText(rawText: String): Result<List<MedicineItem>> {
         val cleaned = cleanJson(rawText)
 
         runCatching { jsonParser.decodeFromString<List<MedicineItem>>(cleaned) }
@@ -119,7 +126,7 @@ class OnDeviceAiService(
             ?.let { return Result.success(listOf(it)) }
 
         return Result.failure(
-            IllegalStateException("Local SLM response could not be decoded into structured prescription JSON.")
+            IllegalStateException(getString(Res.string.error_local_slm_decode_failed))
         )
     }
 

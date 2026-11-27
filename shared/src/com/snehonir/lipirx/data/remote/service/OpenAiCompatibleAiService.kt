@@ -144,7 +144,7 @@ abstract class OpenAiCompatibleAiService(
             Napier.d("[$flow -> Result] Merged ${items.size} MedicineItem objects: $items", tag = TAG)
             Result.success(items)
         } catch (ex: Throwable) {
-            val userFriendlyMessage = formatErrorMessage(ex)
+            val userFriendlyMessage = formatAiErrorMessage(ex, provider)
             Napier.e("[$flow -> Exception] $userFriendlyMessage", throwable = ex, tag = TAG)
             Result.failure(IllegalStateException(userFriendlyMessage, ex))
         }
@@ -200,7 +200,7 @@ abstract class OpenAiCompatibleAiService(
                     ""
                 }
                 val apiErrorMsg = if (errorBody.isNotBlank()) parseOpenAiErrorResponse(errorBody) else null
-                val finalMsg = apiErrorMsg ?: formatErrorMessage(postEx)
+                val finalMsg = apiErrorMsg ?: formatAiErrorMessage(postEx, provider)
                 throw IllegalStateException(finalMsg, postEx)
             }
 
@@ -275,7 +275,7 @@ abstract class OpenAiCompatibleAiService(
                 ""
             }
             val apiErrorMsg = if (errorBody.isNotBlank()) parseOpenAiErrorResponse(errorBody) else null
-            val finalMsg = apiErrorMsg ?: formatErrorMessage(postEx)
+            val finalMsg = apiErrorMsg ?: formatAiErrorMessage(postEx, provider)
             throw IllegalStateException(finalMsg, postEx)
         }
 
@@ -448,46 +448,6 @@ abstract class OpenAiCompatibleAiService(
         }
         val result = sb.toString()
         return if (inString) "$result\"" else result
-    }
-
-    private fun formatErrorMessage(ex: Throwable): String {
-        val msg = ex.message ?: ""
-        return when {
-            msg.contains("content must be a string", ignoreCase = true) -> {
-                "The selected model does not support image analysis. Please select a vision-capable model."
-            }
-            msg.contains("UnknownHostException", ignoreCase = true) || msg.contains("Unable to resolve host", ignoreCase = true) || msg.contains("No address associated with hostname", ignoreCase = true) -> {
-                "No internet connection or server unreachable. Please check your network connection and tap 'Analyze Prescription' to try again."
-            }
-            msg.contains("429") || msg.contains("RESOURCE_EXHAUSTED", ignoreCase = true) || msg.contains("quota", ignoreCase = true) -> {
-                "Model is currently in high demand. Please tap 'Analyze Prescription' to try again or switch model."
-            }
-            msg.contains("503") || msg.contains("UNAVAILABLE", ignoreCase = true) || msg.contains("overloaded", ignoreCase = true) -> {
-                "Model is currently overloaded due to high demand. Please tap 'Analyze Prescription' to try again."
-            }
-            msg.contains("500") || msg.contains("INTERNAL", ignoreCase = true) -> {
-                "Server encountered a temporary issue. Please tap 'Analyze Prescription' to retry."
-            }
-            msg.contains("401") || msg.contains("UNAUTHENTICATED", ignoreCase = true) || msg.contains("API key not valid", ignoreCase = true) -> {
-                "API key not valid. Please check your API key in Model Settings."
-            }
-            msg.contains("403") || msg.contains("PERMISSION_DENIED", ignoreCase = true) -> {
-                "Access forbidden. Please check your API key permissions."
-            }
-            msg.contains("400") || msg.contains("INVALID_ARGUMENT", ignoreCase = true) -> {
-                "Bad request. Please check your API key or model parameters."
-            }
-            msg.contains("404") || msg.contains("NOT_FOUND", ignoreCase = true) -> {
-                "Model not found. Please select an available model."
-            }
-            msg.contains("422") || msg.contains("Unprocessable", ignoreCase = true) -> {
-                "Unprocessable request (422) from ${provider.displayName}. Please verify your selected model ID in Model Settings."
-            }
-            msg.contains("timeout", ignoreCase = true) -> {
-                "Network request timed out. Please check your internet connection."
-            }
-            else -> msg.ifBlank { "Model is currently unavailable. Please tap 'Analyze Prescription' to try again." }
-        }
     }
 
     private fun resolveCustomCompletionsEndpoint(customUrl: String): String {

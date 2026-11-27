@@ -4,9 +4,17 @@ import com.snehonir.lipirx.common.AppConstants
 import com.snehonir.lipirx.data.remote.dto.ModelInfoDto
 import com.snehonir.lipirx.domain.model.AiProvider
 import com.snehonir.lipirx.domain.model.MedicineItem
+import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.error_api_key_missing
+import com.snehonir.lipirx.resources.error_invalid_response
+import com.snehonir.lipirx.resources.error_no_models_found
+import com.snehonir.lipirx.resources.error_service_unavailable_fallback
+import com.snehonir.lipirx.resources.status_agent_active
+import com.snehonir.lipirx.resources.status_encoding_payload
+import com.snehonir.lipirx.resources.status_matching_brands
+import com.snehonir.lipirx.resources.status_reading_handwriting
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -17,6 +25,7 @@ import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.jetbrains.compose.resources.getString
 import kotlin.io.encoding.Base64
 
 @Serializable
@@ -100,19 +109,19 @@ class ClaudeAiService(
     ): Result<List<MedicineItem>> {
         val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
         if (targetApiKey.isBlank()) {
-            return Result.failure(IllegalStateException("Claude API key is required."))
+            return Result.failure(IllegalStateException(getString(Res.string.error_api_key_missing, provider.displayName)))
         }
 
         val model = selectedModel.ifBlank { provider.defaultModel }.trim()
         val targetUrl = customUrl.ifBlank { endpoint }.trim()
 
-        onProgress(0, "Encoding image & constructing Claude payload...")
+        onProgress(0, getString(Res.string.status_encoding_payload))
         Napier.d("[$flow] Encoding ${imageByteArray.size} bytes as Base64 for Claude model '$model'...", tag = TAG)
 
         val base64Data = Base64.encode(imageByteArray)
         val promptText = "Analyze this handwritten doctor prescription and return ONLY a raw JSON array of prescribed medicines matching standard schema."
 
-        onProgress(1, "Sending request to Anthropic Claude...")
+        onProgress(1, getString(Res.string.status_agent_active))
 
         val requestPayload = ClaudeRequestPayload(
             model = model,
@@ -133,7 +142,7 @@ class ClaudeAiService(
             )
         )
 
-        return runCatching {
+        return try {
             val response = httpClient.post(targetUrl) {
                 contentType(ContentType.Application.Json)
                 headers {
@@ -147,18 +156,22 @@ class ClaudeAiService(
             if (!response.status.isSuccess()) {
                 Napier.e("[$flow -> Error] Claude request failed (${response.status}): $rawBody", tag = TAG)
                 val errorMsg = runCatching { jsonParser.decodeFromString<ClaudeResponsePayload>(rawBody).error?.message }.getOrNull()
-                throw IllegalStateException(errorMsg ?: "Claude API error (${response.status})")
+                throw IllegalStateException(errorMsg ?: getString(Res.string.error_service_unavailable_fallback, provider.displayName))
             }
 
-            onProgress(2, "Parsing Claude response...")
+            onProgress(2, getString(Res.string.status_matching_brands))
             val parsedResponse = jsonParser.decodeFromString<ClaudeResponsePayload>(rawBody)
             val responseText = parsedResponse.content?.firstOrNull { it.type == "text" }?.text
-                ?: throw IllegalStateException("Claude response contained no text content.")
+                ?: throw IllegalStateException(getString(Res.string.error_invalid_response))
 
-            onProgress(3, "Extracting medicines...")
+            onProgress(3, getString(Res.string.status_reading_handwriting))
             val items = parseMedicinesFromJson(responseText)
             Napier.d("[$flow -> Success] Claude extracted ${items.size} medicine items", tag = TAG)
-            items
+            Result.success(items)
+        } catch (ex: Throwable) {
+            val userMsg = formatAiErrorMessage(ex, provider)
+            Napier.e("[$flow -> Exception] $userMsg", throwable = ex, tag = TAG)
+            Result.failure(IllegalStateException(userMsg, ex))
         }
     }
 
@@ -171,7 +184,7 @@ class ClaudeAiService(
     ): Result<String> {
         val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
         if (targetApiKey.isBlank()) {
-            return Result.failure(IllegalStateException("Claude API key is required."))
+            return Result.failure(IllegalStateException(getString(Res.string.error_api_key_missing, provider.displayName)))
         }
 
         val model = selectedModel.ifBlank { provider.defaultModel }.trim()
@@ -187,7 +200,7 @@ class ClaudeAiService(
             )
         )
 
-        return runCatching {
+        return try {
             val response = httpClient.post(targetUrl) {
                 contentType(ContentType.Application.Json)
                 headers {
@@ -200,12 +213,17 @@ class ClaudeAiService(
             val rawBody = response.bodyAsText()
             if (!response.status.isSuccess()) {
                 val errorMsg = runCatching { jsonParser.decodeFromString<ClaudeResponsePayload>(rawBody).error?.message }.getOrNull()
-                throw IllegalStateException(errorMsg ?: "Claude API error (${response.status})")
+                throw IllegalStateException(errorMsg ?: getString(Res.string.error_service_unavailable_fallback, provider.displayName))
             }
 
             val parsedResponse = jsonParser.decodeFromString<ClaudeResponsePayload>(rawBody)
-            parsedResponse.content?.firstOrNull { it.type == "text" }?.text
-                ?: throw IllegalStateException("Claude response contained no text content.")
+            val responseText = parsedResponse.content?.firstOrNull { it.type == "text" }?.text
+                ?: throw IllegalStateException(getString(Res.string.error_invalid_response))
+            Result.success(responseText)
+        } catch (ex: Throwable) {
+            val userMsg = formatAiErrorMessage(ex, provider)
+            Napier.e("[$flow -> Exception] $userMsg", throwable = ex, tag = TAG)
+            Result.failure(IllegalStateException(userMsg, ex))
         }
     }
 
@@ -235,12 +253,12 @@ class ClaudeAiService(
     ): Result<List<ModelInfoDto>> = safeApiCall("Claude") {
         val targetApiKey = providedApiKey.ifBlank { defaultApiKey }.trim()
         if (targetApiKey.isBlank()) {
-            throw IllegalStateException("Claude API key is required.")
+            throw IllegalStateException(getString(Res.string.error_api_key_missing, provider.displayName))
         }
 
         val targetUrl = customUrl.ifBlank { AppConstants.CLAUDE_MODELS_ENDPOINT }.trim()
 
-        val response = httpClient.get(targetUrl) {
+        val response = httpClient.post(targetUrl) {
             headers {
                 append(AppConstants.CLAUDE_HEADER_API_KEY, targetApiKey)
                 append(AppConstants.CLAUDE_HEADER_VERSION, AppConstants.CLAUDE_API_VERSION)
@@ -250,7 +268,7 @@ class ClaudeAiService(
         val rawBody = response.bodyAsText()
         if (!response.status.isSuccess()) {
             val errorMsg = runCatching { jsonParser.decodeFromString<ClaudeResponsePayload>(rawBody).error?.message }.getOrNull()
-            throw IllegalStateException(errorMsg ?: "Failed to fetch Claude models (${response.status})")
+            throw IllegalStateException(errorMsg ?: getString(Res.string.error_no_models_found))
         }
 
         val parsedResponse = jsonParser.decodeFromString<ClaudeModelsResponse>(rawBody)
@@ -259,10 +277,9 @@ class ClaudeAiService(
         } ?: emptyList()
 
         if (modelItems.isEmpty()) {
-            throw IllegalStateException("No models returned from Claude endpoint.")
+            throw IllegalStateException(getString(Res.string.error_no_models_found))
         }
 
-        Napier.d("[$flow -> Success] Retrieved ${modelItems.size} Claude models directly from API: ${modelItems.map { it.name }}", tag = TAG)
         modelItems
     }
 

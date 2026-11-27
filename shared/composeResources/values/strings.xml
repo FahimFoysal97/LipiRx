@@ -277,6 +277,26 @@
     <string name="success_provider_verified">%1$s verified &amp; saved! (%2$d models loaded)</string>
     <string name="success_on_device_saved">On-Device SLM configuration saved.</string>
 
+    <!-- Actionable AI Pipeline Error Messages -->
+    <string name="error_analysis_stopped">Analysis stopped by user.</string>
+    <string name="error_no_internet">No internet connection or server unreachable.\n• Check your Wi-Fi or mobile data connection.\n• Or switch On-Device Strategy to \'On-Device Only\' in Settings to scan 100% offline.</string>
+    <string name="error_server_connection_failed">Server connection failed.\n• Check your internet connection or custom endpoint URL in Settings.</string>
+    <string name="error_ssl_failed">Secure connection (SSL/TLS) failed.\n• Verify your device date/time settings or network proxy configurations.</string>
+    <string name="error_network_request_timeout">Network request timed out.\n• Check your internet connection or tap \'Analyze Prescription\' to retry.</string>
+    <string name="error_quota_rate_limit_exceeded">API rate limit or daily quota exceeded for %1$s.\n• Change model or switch AI provider in Settings (e.g. Groq, OpenAI, or Gemini Pro).\n• Switch On-Device Strategy to \'On-Device Only\' in Settings to process 100% offline.\n• Or wait for your API quota to reset.</string>
+    <string name="error_model_overloaded">%1$s model is currently overloaded due to high demand.\n• Tap \'Analyze Prescription\' to retry in a moment.\n• Or select a different model in Settings.</string>
+    <string name="error_server_internal_issue">%1$s server encountered a temporary internal issue.\n• Tap \'Analyze Prescription\' to retry.</string>
+    <string name="error_api_key_invalid_details">API key for %1$s is invalid or missing.\n• Tap Settings below to enter a valid API key.\n• Or switch to On-Device SLM strategy to run locally without an API key.</string>
+    <string name="error_access_forbidden">Access forbidden for this API key (%1$s).\n• Check your API key permissions or region restrictions in Settings.</string>
+    <string name="error_payload_too_large">Prescription image payload is too large.\n• Retake the photo or select a smaller image.</string>
+    <string name="error_model_not_vision">The selected model does not support image analysis.\n• Select a vision-capable model in Settings.</string>
+    <string name="error_bad_request">Bad request or unsupported prompt format.\n• Check your API key or model parameters in Settings.</string>
+    <string name="error_model_not_found">Selected %1$s model not found or deprecated.\n• Select an available model in Settings.</string>
+    <string name="error_unprocessable_entity">Unprocessable request (422) from %1$s.\n• Verify your selected model ID in Settings.</string>
+    <string name="error_out_of_memory">Device ran out of memory processing the image.\n• Close background apps and try again with a compressed photo.</string>
+    <string name="error_no_local_slm_model">No local SLM model file (.litertlm or .tflite) found on device storage.\n• Go to Settings -&gt; On-Device Strategy to browse and select your model folder.\n• Or switch On-Device Strategy to \'Hybrid Fallback\' or \'Cloud Only\' in Settings to use Cloud AI models.</string>
+    <string name="error_service_unavailable_fallback">%1$s service is currently unavailable. Please tap \'Analyze Prescription\' to try again.</string>
+
     <!-- Prescription Results -->
     <string name="saved_prescription_record">Saved Prescription Record</string>
     <string name="results_title">Prescription Results</string>
@@ -402,6 +422,12 @@
     <string name="progress_attempt_failed">%1$s Cloud AI attempt %2$d/%3$d failed: %4$s</string>
     <string name="error_unknown">Unknown error</string>
     <string name="error_cloud_failed_max_attempts">%1$s Cloud AI failed after %2$d attempts.</string>
+
+    <!-- On-Device SLM Messages -->
+    <string name="on_device_executing">On-Device SLM executing locally on device...</string>
+    <string name="error_on_device_ocr_failed">On-Device SLM vision OCR failed.</string>
+    <string name="error_local_slm_parse_failed">Failed to parse structured JSON from local SLM model.</string>
+    <string name="error_local_slm_decode_failed">Local SLM response could not be decoded into structured prescription JSON.</string>
 
     <!-- Telemetry Confirmation Dialogs & Status Strings -->
     <string name="progress_running_benchmark">Running benchmark...</string>

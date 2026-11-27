@@ -33,6 +33,25 @@ class SelfHealingAgentExecutor(
             }
 
             lastException = result.exceptionOrNull() ?: IllegalStateException("Unknown agent execution failure")
+            val typedEx = toTypedAiException(lastException)
+
+            if (typedEx.isCancellation()) {
+                Napier.w("[$TAG] Agent '$agentName' execution cancelled. Fast returning failure.", tag = TAG)
+                return result
+            }
+
+            if (typedEx is AiRateLimitException ||
+                typedEx is AiAuthenticationException ||
+                typedEx is NetworkUnavailableException ||
+                typedEx is AiModelOverloadedException
+            ) {
+                Napier.w(
+                    "[$TAG] Agent '$agentName' encountered non-healable infrastructure error (${typedEx.message}). Skipping self-repair loop.",
+                    tag = TAG
+                )
+                return result
+            }
+
             currentAttempt++
 
             if (currentAttempt <= maxRetries) {

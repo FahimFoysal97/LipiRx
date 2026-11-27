@@ -13,6 +13,12 @@ import com.snehonir.lipirx.resources.progress_escalating_to_cloud
 import com.snehonir.lipirx.resources.progress_executing_on_device_first
 import com.snehonir.lipirx.resources.progress_falling_back
 import io.github.aakira.napier.Napier
+import com.snehonir.lipirx.domain.agent.AiAuthenticationException
+import com.snehonir.lipirx.domain.agent.AiModelOverloadedException
+import com.snehonir.lipirx.domain.agent.AiRateLimitException
+import com.snehonir.lipirx.domain.agent.NetworkUnavailableException
+import com.snehonir.lipirx.domain.agent.isCancellation
+import com.snehonir.lipirx.domain.agent.toTypedAiException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.getString
@@ -245,14 +251,15 @@ class CompositeAiService(
             }
             lastResult = result
             val ex = result.exceptionOrNull()
+            val typedEx = ex?.let { toTypedAiException(it) }
             val errMsg = ex?.message ?: unknownErr
 
-            // Fast return if user canceled or error is unrecoverable (API key, 401, 403, cancellation)
-            if (ex is CancellationException ||
-                errMsg.contains("cancel", ignoreCase = true) ||
-                errMsg.contains("401") || errMsg.contains("403") ||
-                errMsg.contains("API_KEY", ignoreCase = true) ||
-                errMsg.contains("invalid key", ignoreCase = true)
+            // Fast return if user canceled or error is unrecoverable
+            if (typedEx?.isCancellation() == true ||
+                typedEx is AiRateLimitException ||
+                typedEx is AiAuthenticationException ||
+                typedEx is NetworkUnavailableException ||
+                typedEx is AiModelOverloadedException
             ) {
                 Napier.w("[$flow -> Fast Return Error/Cancellation] $errMsg", tag = TAG)
                 return result

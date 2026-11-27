@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,6 +56,7 @@ import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
 import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_open_settings
 import com.snehonir.lipirx.resources.btn_analyze_prescription
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_change
@@ -75,6 +78,7 @@ import org.jetbrains.compose.resources.stringResource
 fun ImagePreviewAndProcessView(
     imageByteArray: ByteArray,
     errorMessage: String? = null,
+    isRetryableError: Boolean = true,
     agentConfigs: Map<RxAgentType, AgentConfig> = emptyMap(),
     onZoom: () -> Unit,
     onAnalyze: () -> Unit,
@@ -158,6 +162,24 @@ fun ImagePreviewAndProcessView(
                                 maxLines = if (isErrorExpanded) Int.MAX_VALUE else 3,
                                 overflow = TextOverflow.Ellipsis
                             )
+                        }
+                        if (!isRetryableError && onOpenSettings != null) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            androidx.compose.material3.Button(
+                                onClick = onOpenSettings,
+                                colors = ButtonDefaults.buttonColors(containerColor = Lipi.Primary),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(36.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.btn_open_settings),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
                 }

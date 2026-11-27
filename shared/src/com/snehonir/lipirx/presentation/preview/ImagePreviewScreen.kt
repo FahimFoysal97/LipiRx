@@ -30,6 +30,7 @@ fun ImagePreviewScreen(
         ImagePreviewAndProcessView(
             imageByteArray = bytes,
             errorMessage = uiState.errorMessage,
+            isRetryableError = uiState.isRetryableError,
             agentConfigs = uiState.agentConfigs,
             onOpenSettings = onOpenSettings,
             onZoom = onZoom,

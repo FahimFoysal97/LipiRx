@@ -31,6 +31,7 @@ data class SessionData(
     val isSuspendedForApproval: Boolean = false,
     val approvalReason: String? = null,
     val errorMessage: String? = null,
+    val isRetryableError: Boolean = true,
     val selectedHistoryItem: PrescriptionHistoryEntity? = null
 ) {
     override fun equals(other: Any?): Boolean {
@@ -52,6 +53,7 @@ data class SessionData(
         if (isSuspendedForApproval != other.isSuspendedForApproval) return false
         if (approvalReason != other.approvalReason) return false
         if (errorMessage != other.errorMessage) return false
+        if (isRetryableError != other.isRetryableError) return false
         if (selectedHistoryItem != other.selectedHistoryItem) return false
 
         return true
@@ -70,6 +72,7 @@ data class SessionData(
         result = 31 * result + isSuspendedForApproval.hashCode()
         result = 31 * result + approvalReason.hashCode()
         result = 31 * result + errorMessage.hashCode()
+        result = 31 * result + isRetryableError.hashCode()
         result = 31 * result + selectedHistoryItem.hashCode()
         return result
     }
@@ -163,7 +166,8 @@ class PrescriptionSessionState {
         medicines: List<MedicineItem>,
         isSuspended: Boolean = false,
         approvalReason: String? = null,
-        error: String? = null
+        error: String? = null,
+        isRetryable: Boolean = true
     ) {
         val immutableList = medicines.toImmutableList()
         _session.update {
@@ -173,7 +177,8 @@ class PrescriptionSessionState {
                 activeScanMedicines = immutableList,
                 isSuspendedForApproval = isSuspended,
                 approvalReason = approvalReason,
-                errorMessage = error
+                errorMessage = error,
+                isRetryableError = isRetryable
             )
         }
     }
