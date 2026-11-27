@@ -6,6 +6,11 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
 
+data class ScanMedicine(
+    val name: String,
+    val strength: String = ""
+)
+
 sealed interface PipelineEvent {
     data class Planning(val reasoning: String = "") : PipelineEvent
     data class Dispatched(val agents: List<RxAgentType>, val reasoning: String) : PipelineEvent
@@ -14,7 +19,9 @@ sealed interface PipelineEvent {
         val agent: RxAgentType,
         val success: Boolean,
         val itemCount: Int = 0,
-        val flaggedNames: List<String> = emptyList()
+        val flaggedNames: List<String> = emptyList(),
+        val medicines: List<ScanMedicine> = emptyList(),
+        val substituteCount: Int = 0
     ) : PipelineEvent
     data class Finalizing(val reasoning: String = "") : PipelineEvent
     data class Suspended(val reasoning: String = "") : PipelineEvent
@@ -31,7 +38,11 @@ data class WorkerProgress(
     val percent: Int? = null,
     /** The last run finished without a tool error. */
     val completedOk: Boolean = false,
-    val flaggedNames: List<String> = emptyList()
+    val flaggedNames: List<String> = emptyList(),
+    /** Items returned by the last finished run. Drives the "6 medicines found" result line. */
+    val itemCount: Int = 0,
+    /** Generic substitutes found by the last finished run (GENERIC_SUBSTITUTE only). */
+    val substituteCount: Int = 0
 )
 
 sealed interface FeedEntry {
@@ -52,7 +63,10 @@ data class PipelineProgress(
     val reasoning: String = "",
     val workers: PersistentMap<RxAgentType, WorkerProgress> = persistentMapOf(),
     val feed: PersistentList<FeedEntry> = persistentListOf(FeedEntry.Preparing),
-    val overallPercent: Int = 0
+    val overallPercent: Int = 0,
+    val medicines: PersistentList<ScanMedicine> = persistentListOf(),
+    /** How many times the supervisor has delegated work (a parallel dispatch counts once). */
+    val turn: Int = 0
 ) {
     fun worker(agent: RxAgentType): WorkerProgress = workers[agent] ?: WorkerProgress()
 
@@ -62,6 +76,10 @@ data class PipelineProgress(
     val isParallel: Boolean get() = running.size > 1
 
     val completedChecks: Int get() = WORKERS.count { worker(it).completedOk }
+
+    /** Medicine names the safety audit flagged on its latest run. */
+    val flaggedMedicineNames: List<String>
+        get() = worker(RxAgentType.SAFETY_AUDITOR).flaggedNames
 
     fun reduce(event: PipelineEvent): PipelineProgress = when (event) {
         is PipelineEvent.Planning -> copy(
@@ -111,7 +129,13 @@ data class PipelineProgress(
             )
             f = f.addBounded(FeedEntry.Started(agent, rerun = cur.runs > 0))
         }
-        return copy(phase = PipelinePhase.RUNNING, reasoning = e.reasoning, workers = w, feed = f)
+        return copy(
+            phase = PipelinePhase.RUNNING,
+            reasoning = e.reasoning,
+            workers = w,
+            feed = f,
+            turn = turn + 1
+        )
     }
 
     private fun finish(e: PipelineEvent.WorkerFinished): PipelineProgress {
@@ -128,14 +152,18 @@ data class PipelineProgress(
                 status = status,
                 percent = null,
                 completedOk = e.success,
-                flaggedNames = names
+                flaggedNames = names,
+                itemCount = e.itemCount,
+                substituteCount = e.substituteCount
             )
         )
         val othersRunning = WORKERS.any { it != e.agent && w[it]?.status == AgentStatus.RUNNING }
+        val newMeds = if (e.medicines.isNotEmpty()) e.medicines.toPersistentList() else medicines
         return copy(
             phase = if (othersRunning) PipelinePhase.RUNNING else PipelinePhase.PLANNING,
             workers = w,
-            feed = feed.addBounded(FeedEntry.Finished(e.agent, e.success, e.itemCount, names))
+            feed = feed.addBounded(FeedEntry.Finished(e.agent, e.success, e.itemCount, names)),
+            medicines = newMeds
         )
     }
 

@@ -8,6 +8,7 @@ import com.snehonir.lipirx.domain.agent.OrchestrationResult
 import com.snehonir.lipirx.domain.agent.PipelineFailureReason
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.agent.RxSupervisorAgent
+import com.snehonir.lipirx.domain.agent.ScanMedicine
 import com.snehonir.lipirx.domain.agent.SelfHealingAgentExecutor
 import com.snehonir.lipirx.domain.agent.SupervisorState
 import com.snehonir.lipirx.domain.agent.TranscriptionInput
@@ -381,11 +382,26 @@ class KoogRxSupervisorEngine(
         } else {
             emptyList()
         }
+
+        val meds = when (agent) {
+            RxAgentType.TRANSCRIPTION -> items.map { ScanMedicine(name = it.medicineName, strength = "") }
+            RxAgentType.ENTITY_PARSER -> items.map { ScanMedicine(name = it.medicineName, strength = it.formattedStrength) }
+            else -> emptyList()
+        }
+
+        val subCount = if (agent == RxAgentType.GENERIC_SUBSTITUTE) {
+            items.count { it.genericName.isNotBlank() || it.similarBrands.isNotEmpty() }
+        } else {
+            0
+        }
+
         return PipelineEvent.WorkerFinished(
             agent = agent,
             success = result.isSuccess,
             itemCount = items.size,
-            flaggedNames = flagged
+            flaggedNames = flagged,
+            medicines = meds,
+            substituteCount = subCount
         )
     }
 

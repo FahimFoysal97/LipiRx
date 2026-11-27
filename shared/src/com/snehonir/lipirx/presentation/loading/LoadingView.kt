@@ -1,6 +1,7 @@
 package com.snehonir.lipirx.presentation.loading
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -9,28 +10,22 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,48 +37,45 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.snehonir.lipirx.domain.agent.PipelineEvent
 import com.snehonir.lipirx.domain.agent.PipelinePhase
 import com.snehonir.lipirx.domain.agent.PipelineProgress
 import com.snehonir.lipirx.domain.agent.RxAgentType
+import com.snehonir.lipirx.domain.agent.ScanMedicine
 import com.snehonir.lipirx.presentation.common.LipiRxScaffold
-import com.snehonir.lipirx.presentation.common.PaperIllustration
 import com.snehonir.lipirx.presentation.common.PrimaryButton
-import com.snehonir.lipirx.presentation.common.SecondaryButton
-import com.snehonir.lipirx.presentation.loading.components.FeedCard
-import com.snehonir.lipirx.presentation.loading.components.ManagerCard
-import com.snehonir.lipirx.presentation.loading.components.WorkersCard
+import com.snehonir.lipirx.presentation.loading.components.DetailsDrawer
+import com.snehonir.lipirx.presentation.loading.components.FoundChips
+import com.snehonir.lipirx.presentation.loading.components.ResultBanner
+import com.snehonir.lipirx.presentation.loading.components.ScanHero
+import com.snehonir.lipirx.presentation.loading.components.StatusHeader
+import com.snehonir.lipirx.presentation.loading.components.StepperCard
+import com.snehonir.lipirx.presentation.loading.components.SupervisorCard
 import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.btn_continue_review
 import com.snehonir.lipirx.resources.btn_keep_waiting
 import com.snehonir.lipirx.resources.btn_stop
 import com.snehonir.lipirx.resources.btn_stop_analysis
 import com.snehonir.lipirx.resources.btn_view_results
-import com.snehonir.lipirx.resources.content_desc_prescription
 import com.snehonir.lipirx.resources.dialog_stop_message
 import com.snehonir.lipirx.resources.dialog_stop_title
 import com.snehonir.lipirx.resources.hint_taking_longer
-import com.snehonir.lipirx.resources.label_analysis_progress
+import com.snehonir.lipirx.resources.title_analyzing
+import com.snehonir.lipirx.resources.title_complete
+import com.snehonir.lipirx.resources.title_review_needed
 import com.snehonir.lipirx.ui.BackHandler
+import com.snehonir.lipirx.ui.rememberReduceMotion
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import kotlinx.coroutines.delay
@@ -92,11 +84,25 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private const val FEED_VISIBLE = 5
 
+/**
+ * Layout, top to bottom:
+ *  1. ScanHero        – the prescription, scanning (or checked off when done)
+ *  2. StatusHeader    – the single progress bar + "2 of 4 checks"
+ *  3. ResultBanner    – outcome summary, only once finished
+ *  4. SupervisorCard  – who is orchestrating, its status, its current decision and who it delegated to
+ *  5. StepperCard     – the four steps with a result line each
+ *  6. FoundChips      – medicines as they are discovered
+ *  7. DetailsDrawer   – the full play-by-play, collapsed by default
+ *
+ * @param reduceMotion Defaults to the platform's "reduce motion" / zero-animation setting. When true the
+ *   scanner, supervisor avatar, agent icons and indeterminate bars stop moving.
+ */
 @Composable
 fun LoadingView(
     imageByteArray: ByteArray? = null,
     progress: PipelineProgress = PipelineProgress(),
     isLoading: Boolean = true,
+    reduceMotion: Boolean = rememberReduceMotion(),
     onStopAnalysis: () -> Unit = {},
     onViewResults: () -> Unit = {},
 ) {
@@ -105,6 +111,7 @@ fun LoadingView(
 
     val isComplete =
         !isLoading && (progress.phase == PipelinePhase.FINALIZING || progress.phase == PipelinePhase.WAITING_FOR_PHARMACIST)
+    val isSuspended = isComplete && progress.phase == PipelinePhase.WAITING_FOR_PHARMACIST
 
     val animatedOverall by animateFloatAsState(
         targetValue = progress.overallPercent / 100f,
@@ -113,7 +120,7 @@ fun LoadingView(
     )
 
     val infinite = rememberInfiniteTransition(label = "loading")
-    val scan = infinite.animateFloat(
+    val animatedScan = infinite.animateFloat(
         initialValue = 0.05f,
         targetValue = 0.95f,
         animationSpec = infiniteRepeatable(
@@ -122,16 +129,24 @@ fun LoadingView(
         ),
         label = "scanY",
     )
-    val pulse = infinite.animateFloat(
+    val animatedPulse = infinite.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
         label = "pulse",
     )
+    val frozenScan = remember { mutableStateOf(0.5f) }
+    val frozenPulse = remember { mutableStateOf(0f) }
+    val scan: State<Float> = if (reduceMotion) frozenScan else animatedScan
+    val pulse: State<Float> = if (reduceMotion) frozenPulse else animatedPulse
 
     // Haptic tick when a required check completes
     LaunchedEffect(progress.completedChecks) {
         if (progress.completedChecks > 0) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+    // A firmer tap when the whole analysis is finished
+    LaunchedEffect(isComplete) {
+        if (isComplete) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
     }
 
     // Reassurance if nothing new has happened for a while
@@ -144,7 +159,7 @@ fun LoadingView(
         }
     }
 
-    // Stop confirmation (button + system Back)
+    // Stop confirmation (button, top-bar close, and system Back)
     var confirmStop by remember { mutableStateOf(false) }
     BackHandler {
         if (isComplete) {
@@ -188,6 +203,12 @@ fun LoadingView(
                     )
                 },
         ) {
+            LoadingTopBar(
+                isComplete = isComplete,
+                isSuspended = isSuspended,
+                onClose = { confirmStop = true },
+            )
+
             BoxWithConstraints(
                 Modifier
                     .weight(1f)
@@ -198,21 +219,34 @@ fun LoadingView(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-                        .heightIn(min = minHeight - 32.dp),
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
+                        .heightIn(min = minHeight - 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
                 ) {
-                    SegScannerCard(
+                    ScanHero(
                         imageByteArray = imageByteArray,
                         scan = scan,
                         pulse = pulse,
-                        isScanning = !isComplete
+                        isScanning = !isComplete,
                     )
-                    OverallHeader(animatedOverall)
-                    ManagerCard(progress)
-                    WorkersCard(progress)
-                    FeedCard(progress.feed.takeLast(FEED_VISIBLE))
+                    StatusHeader(
+                        fraction = animatedOverall,
+                        completedChecks = progress.completedChecks,
+                        totalChecks = PipelineProgress.WORKERS.size,
+                    )
+                    ResultBanner(
+                        visible = isComplete,
+                        progress = progress,
+                        isSuspended = isSuspended,
+                    )
+                    SupervisorCard(progress, reduceMotion = reduceMotion)
+                    StepperCard(progress, reduceMotion = reduceMotion)
+                    FoundChips(
+                        medicines = progress.medicines,
+                        flaggedNames = progress.flaggedMedicineNames,
+                    )
+                    DetailsDrawer(progress.feed.takeLast(FEED_VISIBLE))
 
                     AnimatedVisibility(visible = slow && isLoading) {
                         Text(
@@ -227,7 +261,9 @@ fun LoadingView(
 
             if (isComplete) {
                 PrimaryButton(
-                    text = stringResource(Res.string.btn_view_results),
+                    text = stringResource(
+                        if (isSuspended) Res.string.btn_continue_review else Res.string.btn_view_results
+                    ),
                     icon = Icons.AutoMirrored.Filled.ArrowForward,
                     onClick = onViewResults,
                     modifier = Modifier
@@ -235,200 +271,123 @@ fun LoadingView(
                         .padding(horizontal = 20.dp, vertical = 16.dp),
                 )
             } else {
-                SecondaryButton(
-                    text = stringResource(Res.string.btn_stop_analysis),
-                    icon = Icons.Default.Close,
+                TextButton(
                     onClick = { confirmStop = true },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                    height = 52.dp,
-                    contentColor = Lipi.Error,
-                    fontSize = 15,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OverallHeader(fraction: Float) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
-                progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
-            },
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = stringResource(Res.string.label_analysis_progress),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = Lipi.Ink,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = "${(fraction * 100).toInt()}%",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Lipi.Primary,
-            )
-        }
-        LinearProgressIndicator(
-            progress = { fraction },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(CircleShape),
-            color = Lipi.Primary,
-            trackColor = Lipi.PrimaryContainer,
-            strokeCap = StrokeCap.Round,
-        )
-    }
-}
-
-@Composable
-private fun SegScannerCard(
-    imageByteArray: ByteArray?,
-    scan: State<Float>,
-    pulse: State<Float>,
-    isScanning: Boolean = true,
-) {
-    val primaryColor = Lipi.Primary
-    val shape = RoundedCornerShape(22.dp)
-
-    Box(contentAlignment = Alignment.Center) {
-        if (isScanning) {
-            Canvas(modifier = Modifier.size(230.dp, 260.dp)) {
-                val strength = 0.14f + 0.10f * (1f - pulse.value)
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(primaryColor.copy(alpha = strength), Color.Transparent),
-                        center = center,
-                        radius = size.minDimension * 0.62f,
+                        .align(Alignment.CenterHorizontally)
+                        .padding(vertical = 8.dp),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.btn_stop_analysis),
+                        color = Lipi.Error,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
                     )
-                )
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .size(200.dp, 240.dp)
-                .shadow(
-                    elevation = if (isScanning) 20.dp else 6.dp,
-                    shape = shape,
-                    ambientColor = primaryColor.copy(alpha = if (isScanning) 0.25f else 0.08f),
-                    spotColor = primaryColor.copy(alpha = if (isScanning) 0.35f else 0.12f),
-                )
-                .clip(shape)
-                .background(Color.White),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (imageByteArray != null && imageByteArray.isNotEmpty()) {
-                AsyncImage(
-                    model = imageByteArray,
-                    contentDescription = stringResource(Res.string.content_desc_prescription),
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                )
-            } else {
-                PaperIllustration(124.dp, 166.dp)
-            }
-
-            if (isScanning) {
-                Canvas(modifier = Modifier.matchParentSize()) {
-                    val y = size.height * scan.value
-                    val glow = 44.dp.toPx()
-
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                primaryColor.copy(alpha = 0.32f),
-                                Color.Transparent,
-                            ),
-                            startY = y - glow,
-                            endY = y + glow,
-                        ),
-                        topLeft = Offset(0f, y - glow),
-                        size = Size(size.width, glow * 2f),
-                    )
-                    drawLine(
-                        brush = Brush.horizontalGradient(
-                            listOf(Color.Transparent, primaryColor, primaryColor, Color.Transparent)
-                        ),
-                        start = Offset(0f, y),
-                        end = Offset(size.width, y),
-                        strokeWidth = 3.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-
-                    val inset = 12.dp.toPx()
-                    val len = 22.dp.toPx()
-                    val sw = 3.dp.toPx()
-                    val r = size.width - inset
-                    val b = size.height - inset
-
-                    drawLine(
-                        primaryColor,
-                        Offset(inset, inset),
-                        Offset(inset + len, inset),
-                        sw,
-                        StrokeCap.Round
-                    )
-                    drawLine(
-                        primaryColor,
-                        Offset(inset, inset),
-                        Offset(inset, inset + len),
-                        sw,
-                        StrokeCap.Round
-                    )
-                    drawLine(
-                        primaryColor,
-                        Offset(r, inset),
-                        Offset(r - len, inset),
-                        sw,
-                        StrokeCap.Round
-                    )
-                    drawLine(
-                        primaryColor,
-                        Offset(r, inset),
-                        Offset(r, inset + len),
-                        sw,
-                        StrokeCap.Round
-                    )
-                    drawLine(
-                        primaryColor,
-                        Offset(inset, b),
-                        Offset(inset + len, b),
-                        sw,
-                        StrokeCap.Round
-                    )
-                    drawLine(
-                        primaryColor,
-                        Offset(inset, b),
-                        Offset(inset, b - len),
-                        sw,
-                        StrokeCap.Round
-                    )
-                    drawLine(primaryColor, Offset(r, b), Offset(r - len, b), sw, StrokeCap.Round)
-                    drawLine(primaryColor, Offset(r, b), Offset(r, b - len), sw, StrokeCap.Round)
                 }
             }
         }
     }
 }
 
+@Composable
+private fun LoadingTopBar(
+    isComplete: Boolean,
+    isSuspended: Boolean,
+    onClose: () -> Unit,
+) {
+    val title = stringResource(
+        when {
+            isSuspended -> Res.string.title_review_needed
+            isComplete -> Res.string.title_complete
+            else -> Res.string.title_analyzing
+        }
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 8.dp, top = 8.dp)
+            .heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Crossfade(
+            targetState = title,
+            animationSpec = tween(300),
+            label = "title",
+            modifier = Modifier.weight(1f),
+        ) { text ->
+            Text(
+                text = text,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = Lipi.Ink,
+            )
+        }
+        AnimatedVisibility(visible = !isComplete) {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(Res.string.btn_stop_analysis),
+                    tint = Lipi.Muted,
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Previews
+// ---------------------------------------------------------------------------------------------
+
 private fun previewProgress(vararg events: PipelineEvent): PipelineProgress =
     events.fold(PipelineProgress()) { acc, e -> acc.reduce(e) }
+
+private val previewMedicines = listOf(
+    ScanMedicine("Napa Extra"),
+    ScanMedicine("Seclo"),
+    ScanMedicine("Monas"),
+    ScanMedicine("Ace Plus"),
+    ScanMedicine("Fexo"),
+    ScanMedicine("Maxpro"),
+)
+
+private val previewMedicinesWithStrength = listOf(
+    ScanMedicine("Napa Extra", "500 mg"),
+    ScanMedicine("Seclo", "20 mg"),
+    ScanMedicine("Monas", "10 mg"),
+    ScanMedicine("Ace Plus", "500 mg"),
+    ScanMedicine("Fexo", "120 mg"),
+    ScanMedicine("Maxpro", "20 mg"),
+)
+
+private fun readAndParse(): Array<PipelineEvent> = arrayOf(
+    PipelineEvent.Dispatched(listOf(RxAgentType.TRANSCRIPTION), "Image first, so the rest has text to work with."),
+    PipelineEvent.WorkerFinished(
+        RxAgentType.TRANSCRIPTION, true, 6, medicines = previewMedicines
+    ),
+    PipelineEvent.Dispatched(listOf(RxAgentType.ENTITY_PARSER), "Normalize names and strengths."),
+    PipelineEvent.WorkerFinished(
+        RxAgentType.ENTITY_PARSER, true, 6, medicines = previewMedicinesWithStrength
+    ),
+)
 
 @Preview(name = "Start")
 @Composable
 fun LoadingViewStartPreview() {
     LipiRxTheme {
-        LoadingView(progress = previewProgress(PipelineEvent.Planning()))
+        LoadingView(progress = previewProgress(PipelineEvent.Planning("Looking at the photo first.")))
+    }
+}
+
+@Preview(name = "Reading")
+@Composable
+fun LoadingViewReadingPreview() {
+    LipiRxTheme {
+        LoadingView(
+            progress = previewProgress(
+                PipelineEvent.Dispatched(listOf(RxAgentType.TRANSCRIPTION), "Image first."),
+                PipelineEvent.WorkerPercent(RxAgentType.TRANSCRIPTION, 55),
+            )
+        )
     }
 }
 
@@ -438,13 +397,10 @@ fun LoadingViewParallelPreview() {
     LipiRxTheme {
         LoadingView(
             progress = previewProgress(
-                PipelineEvent.Dispatched(listOf(RxAgentType.TRANSCRIPTION), "Image first."),
-                PipelineEvent.WorkerFinished(RxAgentType.TRANSCRIPTION, true, 6),
-                PipelineEvent.Dispatched(listOf(RxAgentType.ENTITY_PARSER), "Normalize the rows."),
-                PipelineEvent.WorkerFinished(RxAgentType.ENTITY_PARSER, true, 6),
+                *readAndParse(),
                 PipelineEvent.Dispatched(
                     listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR),
-                    "Substitutes and audit are independent."
+                    "Substitutes and the audit are independent, so I'm running them together."
                 ),
             )
         )
@@ -457,8 +413,7 @@ fun LoadingViewReworkPreview() {
     LipiRxTheme {
         LoadingView(
             progress = previewProgress(
-                PipelineEvent.Dispatched(listOf(RxAgentType.ENTITY_PARSER), "Normalize."),
-                PipelineEvent.WorkerFinished(RxAgentType.ENTITY_PARSER, true, 6),
+                *readAndParse(),
                 PipelineEvent.Dispatched(listOf(RxAgentType.SAFETY_AUDITOR), "Audit."),
                 PipelineEvent.WorkerFinished(
                     RxAgentType.SAFETY_AUDITOR,
@@ -481,7 +436,38 @@ fun LoadingViewCompletePreview() {
     LipiRxTheme {
         LoadingView(
             isLoading = false,
-            progress = previewProgress(PipelineEvent.Finalizing())
+            progress = previewProgress(
+                *readAndParse(),
+                PipelineEvent.Dispatched(
+                    listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR),
+                    "Running both together."
+                ),
+                PipelineEvent.WorkerFinished(RxAgentType.GENERIC_SUBSTITUTE, true, 6, substituteCount = 4),
+                PipelineEvent.WorkerFinished(RxAgentType.SAFETY_AUDITOR, true, 6),
+                PipelineEvent.Finalizing("All checks passed."),
+            )
+        )
+    }
+}
+
+@Preview(name = "Needs pharmacist")
+@Composable
+fun LoadingViewPharmacistPreview() {
+    LipiRxTheme {
+        LoadingView(
+            isLoading = false,
+            progress = previewProgress(
+                *readAndParse(),
+                PipelineEvent.Dispatched(
+                    listOf(RxAgentType.GENERIC_SUBSTITUTE, RxAgentType.SAFETY_AUDITOR),
+                    "Running both together."
+                ),
+                PipelineEvent.WorkerFinished(RxAgentType.GENERIC_SUBSTITUTE, true, 6, substituteCount = 4),
+                PipelineEvent.WorkerFinished(
+                    RxAgentType.SAFETY_AUDITOR, true, 6, listOf("Napa Extra", "Ace Plus")
+                ),
+                PipelineEvent.Suspended("Two items need a pharmacist before I can continue."),
+            )
         )
     }
 }

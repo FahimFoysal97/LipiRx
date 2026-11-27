@@ -104,9 +104,18 @@ class PrescriptionSessionState {
         }
     }
 
-    /** Entry point for the engine's onEvent callback. */
+    /**
+     * Entry point for the engine's onEvent callback.
+     *
+     * Events are dropped when no analysis is running. [cancelActiveAnalysis] resets progress and sets
+     * isLoading = false, so a straggler event from the cancelled run can't repopulate the fresh state
+     * (or leak into the next run). Finalizing / Suspended still arrive while isLoading is true,
+     * because [setResults] only runs after the engine returns.
+     */
     fun applyProgress(event: PipelineEvent) {
-        _session.update { it.copy(progress = it.progress.reduce(event)) }
+        _session.update {
+            if (!it.isLoading) it else it.copy(progress = it.progress.reduce(event))
+        }
     }
 
     fun setImageBytes(bytes: ByteArray?) {
@@ -129,13 +138,24 @@ class PrescriptionSessionState {
         agent: RxAgentType = RxAgentType.SUPERVISOR
     ) {
         _session.update {
-            it.copy(
+            val next = it.copy(
                 isLoading = isLoading,
                 loadingStep = step,
                 loadingStatusText = statusText,
                 activeAgentProgressPercent = progressPercent,
                 currentAgent = agent
             )
+            // Feeds "Reading handwriting... N%" in the stepper. The reducer ignores it unless the
+            // transcription worker is currently RUNNING, so stale values are harmless.
+            if (isLoading && agent == RxAgentType.TRANSCRIPTION && progressPercent in 1..100) {
+                next.copy(
+                    progress = next.progress.reduce(
+                        PipelineEvent.WorkerPercent(RxAgentType.TRANSCRIPTION, progressPercent)
+                    )
+                )
+            } else {
+                next
+            }
         }
     }
 

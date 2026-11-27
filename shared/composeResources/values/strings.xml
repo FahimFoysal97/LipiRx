@@ -132,6 +132,76 @@
     <string name="btn_stop">Stop</string>
     <string name="btn_keep_waiting">Keep waiting</string>
     <string name="hint_taking_longer">Taking a bit longer than usual. Hang tight.</string>
+    <string name="scan_status_planning">Preparing your scan…</string>
+    <string name="scan_status_reading">Reading handwriting…</string>
+    <string name="scan_status_understanding">Understanding doses and frequency…</string>
+    <string name="scan_status_substitutes">Finding Bangladesh brands…</string>
+    <string name="scan_status_safety">Checking safety…</string>
+    <string name="scan_status_checking">Finding brands and checking safety…</string>
+    <string name="scan_status_rechecking">Double-checking flagged items…</string>
+    <string name="scan_status_finalizing">Final review…</string>
+    <string name="scan_status_complete">Scan complete</string>
+    <string name="scan_status_waiting_pharmacist">Ready for pharmacist review</string>
+    <string name="scan_status_failed">%1$s couldn\'t finish</string>
+    <string name="scan_step_of">Step %1$d of %2$d</string>
+    <string name="scan_typical_time">Usually 40–90 seconds</string>
+    <string name="scan_stage_review">Final review</string>
+    <string name="scan_stage_recheck">Re-checking</string>
+    <string name="scan_flagged_count">%1$d flagged</string>
+    <string name="scan_summary_review">Needs review: %1$d</string>
+    <string name="scan_more_count">+%1$d more</string>
+    <string name="btn_show_details">Show details</string>
+    <string name="btn_hide_details">Hide details</string>
+    <string name="btn_try_again">Try again</string>
+    <!--
+      Add these inside <resources> in composeResources/values/strings.xml
+      (and translate them in your other locale folders, e.g. values-bn/).
+
+      ALSO CHANGE the existing value:
+        manager_title  ->  "Supervisor"      (this is now the supervisor card's title)
+    -->
+
+    <!-- Top bar -->
+    <string name="title_analyzing">Analyzing prescription</string>
+    <string name="title_complete">Analysis complete</string>
+    <string name="title_review_needed">Review needed</string>
+    <string name="btn_continue_review">Continue to review</string>
+    <string name="cd_scan_complete">Scan complete</string>
+
+    <!-- Supervisor card -->
+    <string name="label_turn">Turn %1$d</string>
+    <string name="label_current_decision">Current decision</string>
+    <string name="label_delegated_to">Working on it now</string>
+
+    <!-- Stepper: description shown before a step starts -->
+    <string name="step_desc_transcription">Reads the handwriting from the photo</string>
+    <string name="step_desc_entity">Matches names, doses and strengths</string>
+    <string name="step_desc_generic">Finds equivalent alternatives</string>
+    <string name="step_desc_safety">Checks for mistakes and interactions</string>
+
+    <!-- Stepper: live status -->
+    <string name="step_running">In progress…</string>
+    <string name="step_checking_again">Checking again…</string>
+    <string name="step_reading_percent">Reading handwriting… %1$d%%</string>
+    <string name="chip_recheck">Re-check</string>
+
+    <!-- Stepper: result line after a step finishes -->
+    <string name="step_result_medicines">%1$d medicines found</string>
+    <string name="step_result_entity">Names and doses cleaned up</string>
+    <string name="step_result_generic">%1$d generic options found</string>
+    <string name="step_result_safe">No problems found</string>
+    <string name="step_result_flagged">Needs review: %1$s</string>
+    <string name="step_failed">Couldn\'t finish this check</string>
+
+    <!-- Found chips + details drawer -->
+    <string name="label_found_so_far">Found so far</string>
+    <string name="label_details">Details</string>
+
+    <!-- Result banner -->
+    <string name="summary_ok">%1$d medicines · %2$d generic options · no problems</string>
+    <string name="summary_counts">%1$d medicines · %2$d generic options</string>
+    <string name="summary_flagged">%1$d medicines · %2$d generic options · %3$d to review</string>
+    <string name="summary_pharmacist">A pharmacist needs to confirm before you continue.</string>
 
     <!-- Status & Progress Messages -->
     <string name="status_encoding_payload">Encoding image &amp; payload...</string>
