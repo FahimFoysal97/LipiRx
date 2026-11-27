@@ -82,8 +82,6 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
-private const val FEED_VISIBLE = 5
-
 /**
  * Layout, top to bottom:
  *  1. ScanHero        – the prescription, scanning (or checked off when done)

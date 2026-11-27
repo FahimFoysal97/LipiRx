@@ -181,12 +181,16 @@ class RxAgentTools(
             return null
         }
         Napier.d("Invoking $toolName for ${items.size} items...", tag = TAG)
+        params.onProgress?.invoke(15)
 
         val strategy = OnDeviceStrategy.fromId(params.strategy)
         val fallbackProvider = AiProvider.fromId(params.fallbackProvider)
         var currentPrompt = prompt
+        var maxProgress = 15
 
         for (attempt in 1..MAX_ATTEMPTS) {
+            maxProgress = maxOf(maxProgress, 35)
+            params.onProgress?.invoke(maxProgress)
             val raw = aiService.processTextPrompt(
                 promptText = currentPrompt,
                 selectedModel = params.model,
@@ -202,14 +206,24 @@ class RxAgentTools(
                 return null
             }
 
+            maxProgress = maxOf(maxProgress, 70)
+            params.onProgress?.invoke(maxProgress)
             val decoded = runCatching {
                 jsonParser.decodeFromString(serializer, extractJsonArray(raw))
             }
             decoded.onSuccess { dtos ->
                 val byId = dtos.mapNotNull { d -> idOf(d)?.let { it to d } }.toMap()
-                return items.mapIndexed { index, item ->
-                    byId[index + 1]?.let { merge(item, it) } ?: item
+                val total = items.size.coerceAtLeast(1)
+                val mergedList = items.mapIndexed { index, item ->
+                    val mergedItem = byId[index + 1]?.let { merge(item, it) } ?: item
+                    val itemProgress = 70 + ((index + 1) * 25 / total)
+                    maxProgress = maxOf(maxProgress, itemProgress.coerceAtMost(95))
+                    params.onProgress?.invoke(maxProgress)
+                    mergedItem
                 }
+                maxProgress = maxOf(maxProgress, 100)
+                params.onProgress?.invoke(maxProgress)
+                return mergedList
             }
             val error = decoded.exceptionOrNull()?.message ?: "JSON parse error"
             Napier.w("$toolName parse failed (attempt $attempt): $error", tag = TAG)

@@ -142,7 +142,7 @@
     <string name="scan_status_finalizing">Final review…</string>
     <string name="scan_status_complete">Scan complete</string>
     <string name="scan_status_waiting_pharmacist">Ready for pharmacist review</string>
-    <string name="scan_status_failed">%1$s couldn\'t finish</string>
+    <string name="scan_status_failed">%1$s couldn't finish</string>
     <string name="scan_step_of">Step %1$d of %2$d</string>
     <string name="scan_typical_time">Usually 40–90 seconds</string>
     <string name="scan_stage_review">Final review</string>
@@ -181,8 +181,9 @@
 
     <!-- Stepper: live status -->
     <string name="step_running">In progress…</string>
+    <string name="step_running_percent">In progress… %1$d%</string>
     <string name="step_checking_again">Checking again…</string>
-    <string name="step_reading_percent">Reading handwriting… %1$d%%</string>
+    <string name="step_reading_percent">Reading handwriting… %1$d%</string>
     <string name="chip_recheck">Re-check</string>
 
     <!-- Stepper: result line after a step finishes -->
@@ -191,7 +192,7 @@
     <string name="step_result_generic">%1$d generic options found</string>
     <string name="step_result_safe">No problems found</string>
     <string name="step_result_flagged">Needs review: %1$s</string>
-    <string name="step_failed">Couldn\'t finish this check</string>
+    <string name="step_failed">Couldn't finish this check</string>
 
     <!-- Found chips + details drawer -->
     <string name="label_found_so_far">Found so far</string>

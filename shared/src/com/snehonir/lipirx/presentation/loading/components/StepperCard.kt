@@ -5,32 +5,20 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -58,6 +46,7 @@ import com.snehonir.lipirx.resources.step_result_generic
 import com.snehonir.lipirx.resources.step_result_medicines
 import com.snehonir.lipirx.resources.step_result_safe
 import com.snehonir.lipirx.resources.step_running
+import com.snehonir.lipirx.resources.step_running_percent
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.AgentIcon
 import org.jetbrains.compose.resources.stringResource
@@ -258,7 +247,8 @@ private fun stepSubtitle(agent: RxAgentType, worker: WorkerProgress): String = w
         val percent = worker.percent
         when {
             worker.runs > 1 -> stringResource(Res.string.step_checking_again)
-            percent != null -> stringResource(Res.string.step_reading_percent, percent)
+            percent != null && agent == RxAgentType.TRANSCRIPTION -> stringResource(Res.string.step_reading_percent, percent)
+            percent != null -> stringResource(Res.string.step_running_percent, percent)
             else -> stringResource(Res.string.step_running)
         }
     }

@@ -167,7 +167,8 @@ class KoogRxSupervisorEngine(
                                 memoryContext = state.episodicMemory,
                                 strategy = input.strategy.id,
                                 fallbackProvider = workerRuntime.fallbackProvider.id,
-                                fallbackModel = workerRuntime.fallbackModel
+                                fallbackModel = workerRuntime.fallbackModel,
+                                onProgress = { pct -> onEvent(PipelineEvent.WorkerPercent(agentType, pct)) }
                             )
                             val res = executeToolForAgent(agentType, input, state.items, toolParams)
                             val workerTimeMs = getPlatformEpochMillis() - workerStart
@@ -266,7 +267,8 @@ class KoogRxSupervisorEngine(
                 memoryContext = state.episodicMemory,
                 strategy = input.strategy.id,
                 fallbackProvider = workerRuntime.fallbackProvider.id,
-                fallbackModel = workerRuntime.fallbackModel
+                fallbackModel = workerRuntime.fallbackModel,
+                onProgress = { pct -> onEvent(PipelineEvent.WorkerPercent(targetAgentType, pct)) }
             )
 
             val agentStartTime = getPlatformEpochMillis()

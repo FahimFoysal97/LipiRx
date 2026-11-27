@@ -1,6 +1,7 @@
 package com.snehonir.lipirx.domain.agent.koog.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 data class ToolExecutionParams(
@@ -12,5 +13,6 @@ data class ToolExecutionParams(
     val memoryContext: String = "",
     val strategy: String = "hybrid_fallback",
     val fallbackProvider: String = "",
-    val fallbackModel: String = ""
+    val fallbackModel: String = "",
+    @Transient val onProgress: ((percent: Int) -> Unit)? = null
 )
