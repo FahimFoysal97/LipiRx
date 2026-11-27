@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -139,9 +140,10 @@ internal fun ScanHero(
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(Lipi.PrimaryContainer.copy(alpha = 0.88f)),
-                    contentAlignment = Alignment.Center,
+                        .padding(12.dp)
+                        .fillMaxSize(),
+                        //.background(Lipi.PrimaryContainer.copy(alpha = 0.88f)),
+                    contentAlignment = Alignment.BottomCenter,
                 ) {
                     AnimatedVisibility(
                         visible = !isScanning,

@@ -93,21 +93,22 @@ internal fun StepperCard(
                 upDone = transcription.completedOk,
             )
             ParallelGroup(active = progress.isParallel) {
+                val genericWorker = progress.worker(RxAgentType.GENERIC_SUBSTITUTE)
                 StepRow(
                     agent = RxAgentType.GENERIC_SUBSTITUTE,
                     reduceMotion = reduceMotion,
-                    worker = progress.worker(RxAgentType.GENERIC_SUBSTITUTE),
+                    worker = genericWorker,
                     hasUp = true,
-                    hasDown = false,
+                    hasDown = true,
                     upDone = entity.completedOk,
                 )
                 StepRow(
                     agent = RxAgentType.SAFETY_AUDITOR,
                     reduceMotion = reduceMotion,
                     worker = progress.worker(RxAgentType.SAFETY_AUDITOR),
-                    hasUp = false,
+                    hasUp = true,
                     hasDown = false,
-                    upDone = false,
+                    upDone = genericWorker.completedOk,
                 )
             }
         }
