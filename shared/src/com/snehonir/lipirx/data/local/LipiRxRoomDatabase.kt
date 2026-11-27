@@ -22,7 +22,7 @@ import com.snehonir.lipirx.data.local.entity.ProviderConfigEntity
         AgentExecutionTraceEntity::class,
         ProviderConfigEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @ConstructedBy(LipiRxRoomDatabaseConstructor::class)

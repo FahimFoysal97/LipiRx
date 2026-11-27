@@ -317,12 +317,14 @@ class LipiRxRoomRepository(
         executionTimeMs: Long,
         isSuccess: Boolean,
         errorMessage: String,
-        flow: String
+        flow: String,
+        sessionId: String
     ) {
         safeDbCall(flow) {
             val currentTime = getPlatformEpochMillis()
             traceDao.insertTrace(
                 AgentExecutionTraceEntity(
+                    sessionId = sessionId,
                     timestamp = currentTime,
                     turnNumber = turnNumber,
                     agentType = agentType,

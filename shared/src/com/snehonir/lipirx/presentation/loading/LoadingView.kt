@@ -246,7 +246,7 @@ fun LoadingView(
                         medicines = progress.medicines,
                         flaggedNames = progress.flaggedMedicineNames,
                     )
-                    DetailsDrawer(progress.feed.takeLast(FEED_VISIBLE))
+                    DetailsDrawer(progress.feed)
 
                     AnimatedVisibility(visible = slow && isLoading) {
                         Text(

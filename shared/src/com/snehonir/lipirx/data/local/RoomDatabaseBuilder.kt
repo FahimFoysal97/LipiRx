@@ -9,5 +9,6 @@ fun getRoomDatabase(builder: RoomDatabase.Builder<LipiRxRoomDatabase>): LipiRxRo
     return builder
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.IO)
+        .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
 }

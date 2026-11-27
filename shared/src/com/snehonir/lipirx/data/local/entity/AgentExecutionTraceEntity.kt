@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 @Entity(tableName = "AgentExecutionTrace")
 data class AgentExecutionTraceEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val sessionId: String = "",
     val timestamp: Long,
     val turnNumber: Int,
     val agentType: String,

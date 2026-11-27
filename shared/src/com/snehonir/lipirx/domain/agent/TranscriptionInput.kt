@@ -15,7 +15,8 @@ data class TranscriptionInput(
     val fallbackProvider: AiProvider? = null,
     val fallbackModel: String = "",
     val fallbackApiKey: String = "",
-    val onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> }
+    val onProgress: (step: Int, statusText: String) -> Unit = { _, _ -> },
+    val sessionId: String = ""
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -29,7 +30,8 @@ data class TranscriptionInput(
                 strategy == otherInput.strategy &&
                 fallbackProvider == otherInput.fallbackProvider &&
                 fallbackModel == otherInput.fallbackModel &&
-                fallbackApiKey == otherInput.fallbackApiKey
+                fallbackApiKey == otherInput.fallbackApiKey &&
+                sessionId == otherInput.sessionId
     }
 
     override fun hashCode(): Int {
@@ -40,9 +42,10 @@ data class TranscriptionInput(
         result = 31 * result + customUrl.hashCode()
         result = 31 * result + mimeType.hashCode()
         result = 31 * result + strategy.hashCode()
-        result = 31 * result + fallbackProvider.hashCode()
+        result = 31 * result + (fallbackProvider?.hashCode() ?: 0)
         result = 31 * result + fallbackModel.hashCode()
         result = 31 * result + fallbackApiKey.hashCode()
+        result = 31 * result + sessionId.hashCode()
         return result
     }
 }

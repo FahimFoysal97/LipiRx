@@ -41,7 +41,7 @@ interface PrescriptionRepository : LipiRxRepository {
     suspend fun saveProviderModels(providerType: String, models: List<String>, flow: String = "")
     suspend fun getProviderModels(providerType: String): List<String>
     suspend fun getAllProviderModelsMap(): Map<String, List<String>>
-    suspend fun saveAgentTrace(turnNumber: Int, agentType: String, provider: String, modelName: String, reasoning: String, feedbackPrompt: String = "", itemCount: Int, executionTimeMs: Long, isSuccess: Boolean, errorMessage: String = "", flow: String = "")
+    suspend fun saveAgentTrace(turnNumber: Int, agentType: String, provider: String, modelName: String, reasoning: String, feedbackPrompt: String = "", itemCount: Int, executionTimeMs: Long, isSuccess: Boolean, errorMessage: String = "", flow: String = "", sessionId: String = "")
     suspend fun getAgentTraces(limit: Int = 100, flow: String = ""): List<AgentExecutionTraceEntity>
     fun getAgentTracesFlow(limit: Int = 100, flow: String = ""): Flow<List<AgentExecutionTraceEntity>>
     suspend fun deleteAgentTraces(traceIds: List<Long>, flow: String = "")

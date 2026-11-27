@@ -27,22 +27,32 @@ internal fun groupTracesIntoScanSessions(rawTraces: List<AgentExecutionTraceEnti
     if (rawTraces.isEmpty()) return emptyList()
 
     val chronologicalTraces = rawTraces.sortedBy { it.id }
-    val sessionGroups = mutableListOf<MutableList<AgentExecutionTraceEntity>>()
-    var currentGroup: MutableList<AgentExecutionTraceEntity>? = null
+    val tracesBySessionId = chronologicalTraces.groupBy { it.sessionId }
+    val sessionGroups = mutableListOf<List<AgentExecutionTraceEntity>>()
 
-    for (trace in chronologicalTraces) {
-        val lastTrace = currentGroup?.lastOrNull()
-        val isNewScan = currentGroup == null ||
-                (trace.turnNumber == 1 && trace.agentType.equals(RxAgentType.SUPERVISOR.id, ignoreCase = true)) ||
-                (trace.turnNumber == 1 && lastTrace?.turnNumber != 1) ||
-                (lastTrace != null && trace.turnNumber < lastTrace.turnNumber) ||
-                (lastTrace != null && (trace.timestamp - lastTrace.timestamp) > 30_000L)
+    for ((sessionId, traces) in tracesBySessionId) {
+        var currentGroup: MutableList<AgentExecutionTraceEntity>? = null
+        for (trace in traces) {
+            val lastTrace = currentGroup?.lastOrNull()
+            val isNewScan = if (sessionId.isNotBlank()) {
+                currentGroup == null ||
+                        (lastTrace != null && trace.turnNumber == 1 && trace.agentType.equals(RxAgentType.SUPERVISOR.id, ignoreCase = true)) ||
+                        (lastTrace != null && trace.turnNumber < lastTrace.turnNumber)
+            } else {
+                currentGroup == null ||
+                        (trace.turnNumber == 1 && trace.agentType.equals(RxAgentType.SUPERVISOR.id, ignoreCase = true)) ||
+                        (trace.turnNumber == 1 && lastTrace?.turnNumber != 1) ||
+                        (lastTrace != null && trace.turnNumber < lastTrace.turnNumber) ||
+                        (lastTrace != null && (trace.timestamp - lastTrace.timestamp) > 30_000L)
+            }
 
-        if (isNewScan) {
-            currentGroup = mutableListOf()
-            sessionGroups.add(currentGroup)
+            if (isNewScan) {
+                val newGroup = mutableListOf<AgentExecutionTraceEntity>()
+                currentGroup = newGroup
+                sessionGroups.add(newGroup)
+            }
+            currentGroup?.add(trace)
         }
-        currentGroup.add(trace)
     }
 
     return sessionGroups.mapIndexed { idx, sessionTraces ->
@@ -69,9 +79,16 @@ internal fun groupTracesIntoScanSessions(rawTraces: List<AgentExecutionTraceEnti
         }
 
         val finalItemCount = sessionTraces.lastOrNull { it.itemCount > 0 }?.itemCount ?: lastTrace.itemCount
+        val rawSessionId = firstTrace.sessionId.ifBlank { "scan_${firstTrace.id}" }
+        val hasDuplicateSessionId = sessionGroups.count { it.first().sessionId == firstTrace.sessionId } > 1
+        val effectiveSessionId = if (hasDuplicateSessionId || firstTrace.sessionId.isBlank()) {
+            "${rawSessionId}_${firstTrace.id}_$idx"
+        } else {
+            firstTrace.sessionId
+        }
 
         TelemetryScanSession(
-            sessionId = "scan_${firstTrace.id}_$idx",
+            sessionId = effectiveSessionId,
             timestamp = lastTrace.timestamp,
             formattedDateTime = lastTrace.formattedDateTime,
             totalTimeMs = totalTime,
