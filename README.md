@@ -6,7 +6,7 @@
 [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](https://developer.apple.com/ios/)
 [![Koog Multi-Agent](https://img.shields.io/badge/Koog_Multi--Agent-000000?style=flat&logo=jetbrains&logoColor=white)](https://github.com/JetBrains)
 [![MCP Protocol](https://img.shields.io/badge/MCP_Protocol-8A2BE2?style=flat&logo=json&logoColor=white)](https://modelcontextprotocol.io/)
-[![Release v0.6.4](https://img.shields.io/badge/Release_v0.6.4-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
+[![Release v0.6.5](https://img.shields.io/badge/Release_v0.6.5-0B7A6E?style=flat&logo=github&logoColor=white)](https://github.com/FahimFoysal97/LipiRx/releases)
 [![MIT License](https://img.shields.io/badge/License-MIT-482880?style=flat&logo=open-source-initiative&logoColor=white)](LICENSE)
 
 **LipiRx** is a modern Kotlin Multiplatform (KMP) and Compose Multiplatform mobile application designed for retail pharmacies in Bangladesh. It leverages a **Supervisor-Driven Multi-Agent AI System** built with **JetBrains Koog Architecture** to scan handwritten doctor prescriptions and automatically extract, normalize, enrich, and safety-audit medicine brand names, generic compositions, dosage schedules, and calculated quantities.
@@ -41,10 +41,10 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 1. **Supervisor-Driven Multi-Agent Orchestration (JetBrains Koog)**:
     - Configurable **Per-Agent AI Assignments Matrix** allowing developers and pharmacists to assign specific primary providers/models AND dedicated fallback providers/models for every agent (including `📱 On-Device SLM`).
     - Single-expanded **accordion card behavior** in Settings preventing visual clutter.
-    - Dynamic 5-stage analysis UI (`LoadingView`) showing live Supervisor reasoning (`progress.reasoning` 100% localized via `Res.string.reason_*`), per-agent task completion percentages (`0% → 100%`), active agent name banners, animated feed card expansion (`animateContentSize`), and turn-by-turn planning updates.
+    - Unified **Merged Analysis & Scan Results Screen (`ScanResultsScreen`)**: Renders live Supervisor turns, progress bars (`AnalysisHeader`), dedicated supervisor status row (`SupervisorLine`), per-agent status strips, and real-time streaming medicine cards with progressive field-level shimmer placeholders (`MedicineCardProgress`) as worker agents execute.
     - **Configurable Parallel / Sequential Strategy (`allowParallel`)**: `KoogRxSupervisorEngine` supports dispatching independent worker agents (`GENERIC_SUBSTITUTE` and `SAFETY_AUDITOR`) concurrently on Cloud AI, or sequentially step-by-step on mobile networks and On-Device SLM to prevent GPU/NPU memory limits and socket aborts.
     - **Smart Sequential Safety Retry**: If a parallel safety audit fails due to network socket drop, generic substitutes are preserved in workspace memory, and the Manager schedules a sequential `SAFETY_AUDITOR` retry turn before suspending for pharmacist review.
-    - **Explicit "View Results" Completion UX**: Replaced automatic completion transitions with an explicit "View Results" primary action on `LoadingView`, allowing pharmacists and developers to inspect the full multi-agent progress and reasoning feed prior to navigating to results.
+    - **Real-Time Streaming (`PipelineEvent.ItemsUpdated`)**: Emits intermediate parsed medicine lists from worker tools directly to `PrescriptionSessionState` during analysis turns, allowing cards to populate dynamically.
 
 2. **Per-Agent Attempt Cap & JSON Self-Healing Wrappers**:
     - **`SupervisorConstants.MAX_PER_AGENT_ATTEMPTS = 3` Cap**: The Supervisor Manager enforces a strict cap of 3 attempts per worker agent across turns. If an agent fails 3 times, the pipeline cleanly suspends for Pharmacist Review Gate rather than looping indefinitely.
@@ -52,13 +52,14 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **JSON Self-Healing Wrapper (`SelfHealingAgentExecutor`)**: Automatically catches `SerializationException` and JSON formatting errors, generates targeted schema repair prompts, and retries execution up to 2 times within each turn.
 
 3. **Pure MVVM & 1-Declaration-per-File Architecture**:
-    - **100% Extracted UI States**: All ViewModels expose a single immutable `StateFlow<UiState>` backed by dedicated UI state files (`AnalysisLoadingUiState`, `ScanResultsUiState`, `HistoryUiState`, `TelemetryUiState`, `SettingsUiState`, `HomeUiState`, `ImagePreviewUiState`).
-    - **Modular Component Sub-Packages**: Monolithic view files decomposed into feature-private `components/` sub-packages (`presentation/loading/components/` with `ManagerCard`, `WorkersCard`, `FeedCard`; `presentation/results/components/` with `MedicineItemCard`; `presentation/telemetry/components/` with `MetricCard`, `TelemetryEmptyState`).
+    - **100% Extracted UI States**: All ViewModels expose a single immutable `StateFlow<UiState>` backed by dedicated UI state files (`ScanResultsUiState`, `HistoryUiState`, `TelemetryUiState`, `SettingsUiState`, `HomeUiState`, `ImagePreviewUiState`).
+    - **Modular Component Sub-Packages**: Monolithic view files decomposed into feature-private `components/` sub-packages (`presentation/results/components/` with `AnalysisHeader`, `MedicineItemCard`, `SupervisorCard`, `StepperCard`, `DetailsDrawer`; `presentation/telemetry/components/` with `MetricCard`, `TelemetryEmptyState`).
     - **100% Compose Resources Localization (`Res.string`)**: All reasoning strings, status labels, phase text, and feedback prompts resolve via Compose Resources (`Res.string.reason_*`, `Res.string.status_*`). Zero hardcoded reasoning strings.
 
 4. **Jetpack Navigation 3 Architecture & Feature ViewModels**:
-    - **Navigation 3 Destination Architecture**: Type-safe destination state management via `AppNavKey` and `AppNavigator`. Back-stack state survives Android screen rotations and configuration changes using Compose `rememberSaveable` with a custom `Saver`.
-    - **Dedicated Feature ViewModels & Koin DI**: Testable, feature-aligned ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`), bound in Koin dependency injection modules and isolated within modular package hierarchies (`presentation/home`, `preview`, `loading`, `results`, `history`, `settings`, `common`).
+    - **Navigation 3 Destination Architecture**: Type-safe destination state management via `AppNavKey` and `AppNavigator`. Back-stack state survives Android screen rotations and configuration changes using Compose `rememberSaveable` with a custom `Saver`. Direct route from image preview to results (`AppNavKey.Results`).
+    - **Dedicated Feature ViewModels & Koin DI**: Testable, feature-aligned ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`), bound in Koin dependency injection modules and isolated within modular package hierarchies (`presentation/home`, `preview`, `results`, `history`, `settings`, `common`).
+    - **Consolidated Pipeline Runner (`LaunchPrescriptionPipelineUseCase`)**: Consolidated pipeline initialization, provider config resolution, API key validation, session state management, and scan summary persistence into a single shared use case consumed across ViewModels.
     - **60/120 FPS Smooth Theme Transition Engine**: Single-driver linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme`, animating all 22 custom design tokens and Material 3 color schemes seamlessly without recomposition lag.
     - **System Bar Sync & Emerald Green Palette**: Refactored theme engine with a vibrant Emerald Green palette (`Color(0xFF0B7A6E)`), paper illustration tokens, launcher graphics, and system status/navigation bar appearance synchronization across platforms.
     - **3-Way Animated Theme Switcher**: 3-segment theme control in Settings featuring a spring-physics sliding highlight pill (`animateDpAsState` + `spring`) and smooth text/icon color transitions.
@@ -96,6 +97,7 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
 10. **Scan History & Reactive Local Storage Management**:
     - Room 3 KMP SQLite storage observed via `Flow<List<PrescriptionHistoryEntity>>`, saving full JSON prescription scan history (preserving brand alternatives, generic compositions, schedules, dosage forms, instructions, and review notes) and cross-session episodic dispensing memory.
     - Interactive `HistoryScreen` displaying medicine count & review requirement chips, supporting single-item deletion (with confirmation dialog) and bulk **Clear History** removal.
+    - Guaranteed history record isolation: viewing historical scan details preserves saved items without interference from active background scans.
 
 11. **In-App Self-Update Engine (`UpdateManager`, `PlatformUpdater` & `UpdateHeroIcon`)**:
     - **`UpdateHeroIcon` Animation Suite**: Custom Compose Canvas-based vector illustrations featuring spinning loading rings, floating clouds, pulsing download arrows, checkmark reveals, and error shakes for all update lifecycle states.
@@ -107,8 +109,10 @@ It features a **Multi-Provider AI Architecture** supporting **Google Gemini**, *
     - **Download Progress & SHA-256 Checksum**: Streams APK downloads with live MB counters, percentage progress, and optional SHA-256 checksum verification.
     - **Automatic Android Installer**: Integrates `FileProvider` (`${applicationId}.fileprovider`) and `REQUEST_INSTALL_PACKAGES` permission, smoothly launching the system package installer.
 
-12. **Safety, UX Controls & Interactive Medicine Editing**:
-    - **Interactive Medicine Item Editing**: Edit scanned brand names, generic compositions, strength values/units, dosage schedules, duration, quantities, instructions, and review flags via modal `EditMedicineDialog`. Edits automatically persist to SQLite history and update POS copy summaries (read-only in audit history mode).
+12. **Safety, UX Controls, Compact View & Interactive Medicine Editing**:
+    - **Compact vs. Detailed View Mode**: Filter pill (`Compact` / `Detailed`) on `MedicineListView` enabling users to collapse completed cards into one-line summaries with inline review notes for flagged items.
+    - **Custom Canvas Metadata Glyphs & Pill Badges**: Refactored `MedicineItemCard` featuring custom canvas-drawn metadata glyphs (`MetaGlyph`, `SlotGlyph`), status pill badges (`StatusCorner`, `StatusBadge`), and brand/strength title splitting.
+    - **Interactive Medicine Item Editing**: Edit scanned brand names, generic compositions, strength values/units, dosage schedules, duration, quantities, instructions, and review flags via modal `EditMedicineDialog` with direct card action (`btn_edit`). Edits automatically persist to SQLite history and update POS copy summaries.
     - **API Key Visibility Toggle & Tap-Outside Focus Dismissal**: Mask/unmask API keys using inline eye toggle buttons (`EyeShowVectorIcon` / `EyeHideVectorIcon`), and tap anywhere outside input fields to clear keyboard focus.
     - **Compose LinkAnnotation Markdown Parser**: Migrated markdown link rendering across description views to Compose `LinkAnnotation` with refined link parsing logic.
     - **Pharmacist Review Flags**: Visual review cards for low confidence, unreadable text, or dosage anomalies.
@@ -215,8 +219,8 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
 - **Multi-Agent Pipeline**: `KoogRxSupervisorEngine` + `RxSupervisorAgent` supporting parallel worker tool dispatching to type-safe `RxAgentTools`
 - **Android Integration**: Android AppFunctions (`androidx.appfunctions`), launcher shortcuts (`shortcuts.xml`), and App Actions deep linking
 - **Navigation**: Jetpack Navigation 3 destination state management (`AppNavKey`, `AppNavigator`) with `rememberSaveable` back-stack state persistence across orientation changes
-- **Architecture**: Pure MVVM + Feature-based ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `AnalysisLoadingViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`, `AgentTraceViewModel`)
-- **Reactive State Flow**: 100% immutable `StateFlow<UiState>` pattern (`AnalysisLoadingUiState`, `ScanResultsUiState`, `HistoryUiState`, `TelemetryUiState`, `SettingsUiState`, `HomeUiState`, `ImagePreviewUiState`)
+- **Architecture**: Pure MVVM + Feature-based ViewModels (`HomeViewModel`, `ImagePreviewViewModel`, `ScanResultsViewModel`, `HistoryViewModel`, `SettingsViewModel`, `AgentTraceViewModel`)
+- **Reactive State Flow**: 100% immutable `StateFlow<UiState>` pattern (`ScanResultsUiState`, `HistoryUiState`, `TelemetryUiState`, `SettingsUiState`, `HomeUiState`, `ImagePreviewUiState`)
 - **Session State Management**: Centralized `PrescriptionSessionState` managing active scan sessions, isolating history record inspection (`activeScanMedicines`)
 - **Theme Animation System**: Single-driver 60/120 FPS linear color interpolation (`LipiColors.lerp`) in `LipiRxTheme.kt` with spring-animated segmented theme controls
 - **Local Database**: Room 3.0.3 (`androidx.room3`) KMP SQLite database with `BundledSQLiteDriver` observing reactive `Flow` streams for prescription history and AgentOps execution traces
@@ -300,7 +304,8 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   ├── session/
             │   │   └── PrescriptionSessionState.kt  # Centralized session state (activeScanMedicines isolation)
             │   └── usecase/
-            │       └── ProcessPrescriptionUseCase.kt # Pipeline execution use case
+            │       ├── ProcessPrescriptionUseCase.kt # Pipeline execution use case
+            │       └── LaunchPrescriptionPipelineUseCase.kt # Consolidated pipeline runner use case
             ├── navigation/
             │   ├── AppNavKey.kt                     # Type-safe Navigation 3 destination key serializations
             │   └── AppNavigator.kt                  # AppNavigator with rememberSaveable back-stack Saver
@@ -320,15 +325,6 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   ├── HomeUiState.kt               # Extracted Home UI State
             │   │   ├── HomeScreen.kt                # Home screen container composable
             │   │   └── EmptyStateView.kt            # Home scan upload & viewfinder UI
-            │   ├── loading/                         # Analysis Loading feature
-            │   │   ├── AnalysisLoadingViewModel.kt  # Loading ViewModel
-            │   │   ├── AnalysisLoadingUiState.kt    # Extracted Loading UI State
-            │   │   ├── AnalysisLoadingScreen.kt     # Loading screen container composable
-            │   │   ├── LoadingView.kt               # Multi-agent live analysis UI
-            │   │   └── components/                  # Extracted Loading components
-            │   │       ├── ManagerCard.kt           # Supervisor phase & reasoning card
-            │   │       ├── WorkersCard.kt           # Worker agent execution rows
-            │   │       └── FeedCard.kt              # Live event feed card
             │   ├── preview/                         # Image Preview feature
             │   │   ├── ImagePreviewViewModel.kt     # Preview ViewModel
             │   │   ├── ImagePreviewUiState.kt       # Extracted Preview UI State
@@ -341,7 +337,11 @@ LipiRx includes native **On-Device SLM** execution using Google's **LiteRT-LM** 
             │   │   ├── MedicineListView.kt          # Medicine list & pharmacist sign-off
             │   │   ├── EditMedicineDialog.kt        # Interactive medicine item editing dialog
             │   │   └── components/                  # Extracted Results components
-            │   │       └── MedicineItemCard.kt      # Dosage, schedule, and brand substitutes card
+            │   │       ├── AnalysisHeader.kt        # Pinned pipeline progress & strip header
+            │   │       ├── MedicineItemCard.kt      # Progressive dose, generic & safety card
+            │   │       ├── SupervisorCard.kt        # Supervisor manager reasoning card
+            │   │       ├── StepperCard.kt           # Step rows card
+            │   │       └── DetailsDrawer.kt         # Play-by-play event log drawer
             │   ├── settings/                        # Settings feature
             │   │   ├── SettingsViewModel.kt         # Settings ViewModel
             │   │   ├── SettingsUiState.kt           # Extracted Settings UI State
