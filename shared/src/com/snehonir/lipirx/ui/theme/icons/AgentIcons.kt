@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.snehonir.lipirx.domain.agent.AgentStatus
 import com.snehonir.lipirx.domain.agent.RxAgentType
-import com.snehonir.lipirx.presentation.loading.components.LoadingWarning
+import com.snehonir.lipirx.presentation.results.components.LoadingWarning
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.LipiRxTheme
 import kotlin.math.abs

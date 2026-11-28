@@ -9,7 +9,6 @@ sealed interface AppNavKey : NavKey {
     fun toRouteString(): String = when (this) {
         Home -> "home"
         ImagePreview -> "image_preview"
-        AnalysisLoading -> "analysis_loading"
         Results -> "results"
         History -> "history"
         Telemetry -> "telemetry"
@@ -19,7 +18,6 @@ sealed interface AppNavKey : NavKey {
     companion object {
         fun fromRouteString(route: String): AppNavKey = when (route) {
             "image_preview" -> ImagePreview
-            "analysis_loading" -> AnalysisLoading
             "results" -> Results
             "history" -> History
             "telemetry" -> Telemetry
@@ -33,9 +31,6 @@ sealed interface AppNavKey : NavKey {
 
     @Serializable
     data object ImagePreview : AppNavKey
-
-    @Serializable
-    data object AnalysisLoading : AppNavKey
 
     @Serializable
     data object Results : AppNavKey

@@ -1,5 +1,6 @@
 package com.snehonir.lipirx.domain.agent
 
+import com.snehonir.lipirx.domain.model.MedicineItem
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -23,6 +24,8 @@ sealed interface PipelineEvent {
         val medicines: List<ScanMedicine> = emptyList(),
         val substituteCount: Int = 0
     ) : PipelineEvent
+    /** Latest full item list after a worker (or parallel merge) finished. Not reduced into progress. */
+    data class ItemsUpdated(val items: List<MedicineItem>) : PipelineEvent
     data class Finalizing(val reasoning: String = "") : PipelineEvent
     data class Suspended(val reasoning: String = "") : PipelineEvent
 }
@@ -99,6 +102,7 @@ data class PipelineProgress(
             } else this
         }
         is PipelineEvent.WorkerFinished -> finish(event)
+        is PipelineEvent.ItemsUpdated -> this
         is PipelineEvent.Finalizing -> copy(
             phase = PipelinePhase.FINALIZING,
             reasoning = event.reasoning.ifBlank { reasoning },

@@ -44,8 +44,7 @@ class KoogRxSupervisorEngine(
         onProgress: (agentType: RxAgentType, reasoning: String) -> Unit = { _, _ -> },
         onEvent: (PipelineEvent) -> Unit = {}
     ): Result<OrchestrationResult> {
-        val sessionId = input.sessionId.ifBlank { "scan_${getPlatformEpochMillis()}_${(1000..9999).random()}" }
-        Napier.d("[$TAG] Starting JetBrains Koog Multi-Agent Supervisor Engine (Session: $sessionId)...", tag = TAG)
+        Napier.d("[$TAG] Starting JetBrains Koog Multi-Agent Supervisor Engine...", tag = TAG)
         onProgress(RxAgentType.SUPERVISOR, getString(Res.string.status_evaluating_workspace))
 
         val supervisorRuntime = resolveRuntimeConfig(
@@ -87,8 +86,7 @@ class KoogRxSupervisorEngine(
                     executionTimeMs = supervisorTimeMs,
                     isSuccess = true,
                     errorMessage = "",
-                    flow = "KoogEngine -> SupervisorSuspendedTrace",
-                    sessionId = sessionId
+                    flow = "KoogEngine -> SupervisorSuspendedTrace"
                 )
                 state = state.copy(
                     isSuspendedForApproval = true,
@@ -110,8 +108,7 @@ class KoogRxSupervisorEngine(
                     executionTimeMs = supervisorTimeMs,
                     isSuccess = true,
                     errorMessage = "",
-                    flow = "KoogEngine -> SupervisorFinishTrace",
-                    sessionId = sessionId
+                    flow = "KoogEngine -> SupervisorFinishTrace"
                 )
                 break
             }
@@ -142,8 +139,7 @@ class KoogRxSupervisorEngine(
                     executionTimeMs = supervisorTimeMs,
                     isSuccess = true,
                     errorMessage = "",
-                    flow = "KoogEngine -> ParallelSupervisorTrace",
-                    sessionId = sessionId
+                    flow = "KoogEngine -> ParallelSupervisorTrace"
                 )
 
                 state = updateEpisodicMemoryIfNeeded(state)
@@ -167,8 +163,7 @@ class KoogRxSupervisorEngine(
                                 memoryContext = state.episodicMemory,
                                 strategy = input.strategy.id,
                                 fallbackProvider = workerRuntime.fallbackProvider.id,
-                                fallbackModel = workerRuntime.fallbackModel,
-                                onProgress = { pct -> onEvent(PipelineEvent.WorkerPercent(agentType, pct)) }
+                                fallbackModel = workerRuntime.fallbackModel
                             )
                             val res = executeToolForAgent(agentType, input, state.items, toolParams)
                             val workerTimeMs = getPlatformEpochMillis() - workerStart
@@ -176,6 +171,9 @@ class KoogRxSupervisorEngine(
                         }
                     }.awaitAll()
                 }
+
+                // Publish the merged items first so the UI never shows a finished agent with stale data.
+                onEvent(PipelineEvent.ItemsUpdated(rxAgentTools.mergeParallelResults(state.items, parallelResults.map { it.result })))
 
                 parallelResults.forEach { workerRes ->
                     repository.saveAgentTrace(
@@ -189,8 +187,7 @@ class KoogRxSupervisorEngine(
                         executionTimeMs = workerRes.executionTimeMs,
                         isSuccess = workerRes.result.isSuccess,
                         errorMessage = workerRes.result.exceptionOrNull()?.message ?: "",
-                        flow = "KoogEngine -> ParallelToolTrace",
-                        sessionId = sessionId
+                        flow = "KoogEngine -> ParallelToolTrace"
                     )
                     onEvent(finishedEvent(workerRes.agentType, workerRes.result))
                 }
@@ -245,8 +242,7 @@ class KoogRxSupervisorEngine(
                 executionTimeMs = supervisorTimeMs,
                 isSuccess = true,
                 errorMessage = "",
-                flow = "KoogEngine -> SupervisorTrace",
-                sessionId = sessionId
+                flow = "KoogEngine -> SupervisorTrace"
             )
 
             val workerRuntime = resolveRuntimeConfig(
@@ -267,8 +263,7 @@ class KoogRxSupervisorEngine(
                 memoryContext = state.episodicMemory,
                 strategy = input.strategy.id,
                 fallbackProvider = workerRuntime.fallbackProvider.id,
-                fallbackModel = workerRuntime.fallbackModel,
-                onProgress = { pct -> onEvent(PipelineEvent.WorkerPercent(targetAgentType, pct)) }
+                fallbackModel = workerRuntime.fallbackModel
             )
 
             val agentStartTime = getPlatformEpochMillis()
@@ -300,9 +295,9 @@ class KoogRxSupervisorEngine(
                 executionTimeMs = agentTimeMs,
                 isSuccess = newItemsResult.isSuccess,
                 errorMessage = newItemsResult.exceptionOrNull()?.message ?: "",
-                flow = "KoogEngine -> ToolTrace",
-                sessionId = sessionId
+                flow = "KoogEngine -> ToolTrace"
             )
+            newItemsResult.getOrNull()?.let { onEvent(PipelineEvent.ItemsUpdated(it)) }
             onEvent(finishedEvent(targetAgentType, newItemsResult))
 
             if (newItemsResult.isFailure) {

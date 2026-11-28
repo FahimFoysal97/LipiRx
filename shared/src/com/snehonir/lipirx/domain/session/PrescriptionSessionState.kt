@@ -31,7 +31,6 @@ data class SessionData(
     val isSuspendedForApproval: Boolean = false,
     val approvalReason: String? = null,
     val errorMessage: String? = null,
-    val isRetryableError: Boolean = true,
     val selectedHistoryItem: PrescriptionHistoryEntity? = null
 ) {
     override fun equals(other: Any?): Boolean {
@@ -53,7 +52,6 @@ data class SessionData(
         if (isSuspendedForApproval != other.isSuspendedForApproval) return false
         if (approvalReason != other.approvalReason) return false
         if (errorMessage != other.errorMessage) return false
-        if (isRetryableError != other.isRetryableError) return false
         if (selectedHistoryItem != other.selectedHistoryItem) return false
 
         return true
@@ -72,7 +70,6 @@ data class SessionData(
         result = 31 * result + isSuspendedForApproval.hashCode()
         result = 31 * result + approvalReason.hashCode()
         result = 31 * result + errorMessage.hashCode()
-        result = 31 * result + isRetryableError.hashCode()
         result = 31 * result + selectedHistoryItem.hashCode()
         return result
     }
@@ -87,7 +84,14 @@ class PrescriptionSessionState {
 
     fun startPipelineAnalysis(block: suspend () -> Unit) {
         cancelActiveAnalysis()
-        _session.update { it.copy(isLoading = true, errorMessage = null) }
+        _session.update {
+            it.copy(
+                isLoading = true,
+                errorMessage = null,
+                medicines = persistentListOf(),
+                activeScanMedicines = persistentListOf()
+            )
+        }
         activeAnalysisJob = scope.launch {
             block()
         }
@@ -117,7 +121,19 @@ class PrescriptionSessionState {
      */
     fun applyProgress(event: PipelineEvent) {
         _session.update {
-            if (!it.isLoading) it else it.copy(progress = it.progress.reduce(event))
+            when {
+                !it.isLoading -> it
+                // Real items stream in while agents work, so the list screen can fill card by card.
+                event is PipelineEvent.ItemsUpdated -> {
+                    val newItems = event.items.toImmutableList()
+                    if (it.selectedHistoryItem == null) {
+                        it.copy(medicines = newItems, activeScanMedicines = newItems)
+                    } else {
+                        it.copy(activeScanMedicines = newItems)
+                    }
+                }
+                else -> it.copy(progress = it.progress.reduce(event))
+            }
         }
     }
 
@@ -166,19 +182,17 @@ class PrescriptionSessionState {
         medicines: List<MedicineItem>,
         isSuspended: Boolean = false,
         approvalReason: String? = null,
-        error: String? = null,
-        isRetryable: Boolean = true
+        error: String? = null
     ) {
         val immutableList = medicines.toImmutableList()
         _session.update {
             it.copy(
                 isLoading = false,
-                medicines = immutableList,
+                medicines = if (it.selectedHistoryItem == null) immutableList else it.medicines,
                 activeScanMedicines = immutableList,
                 isSuspendedForApproval = isSuspended,
                 approvalReason = approvalReason,
-                errorMessage = error,
-                isRetryableError = isRetryable
+                errorMessage = error
             )
         }
     }

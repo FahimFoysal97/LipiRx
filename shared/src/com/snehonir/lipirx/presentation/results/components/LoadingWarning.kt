@@ -1,4 +1,4 @@
-package com.snehonir.lipirx.presentation.loading.components
+package com.snehonir.lipirx.presentation.results.components
 
 import androidx.compose.ui.graphics.Color
 import com.snehonir.lipirx.domain.agent.RxAgentType

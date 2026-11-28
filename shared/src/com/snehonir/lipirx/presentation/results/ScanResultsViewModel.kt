@@ -4,11 +4,12 @@ import com.snehonir.lipirx.data.local.getPlatformEpochMillis
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.domain.session.PrescriptionSessionState
 import com.snehonir.lipirx.domain.usecase.FormatMedicineSummaryUseCase
+import com.snehonir.lipirx.domain.usecase.LaunchPipelineParams
+import com.snehonir.lipirx.domain.usecase.LaunchPrescriptionPipelineUseCase
 import com.snehonir.lipirx.domain.usecase.SaveScanSummaryParams
 import com.snehonir.lipirx.domain.usecase.SaveScanSummaryUseCase
 import com.snehonir.lipirx.presentation.common.LipiRxViewModel
 import io.github.aakira.napier.Napier
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 
@@ -16,6 +17,7 @@ class ScanResultsViewModel(
     private val sessionState: PrescriptionSessionState,
     private val saveScanSummaryUseCase: SaveScanSummaryUseCase,
     private val formatMedicineSummaryUseCase: FormatMedicineSummaryUseCase = FormatMedicineSummaryUseCase(),
+    private val launchPrescriptionPipelineUseCase: LaunchPrescriptionPipelineUseCase,
     private val jsonParser: Json
 ) : LipiRxViewModel<ScanResultsUiState>(ScanResultsUiState()) {
 
@@ -28,10 +30,31 @@ class ScanResultsViewModel(
                         medicines = data.medicines,
                         isSuspendedForApproval = data.isSuspendedForApproval,
                         approvalReason = data.approvalReason,
-                        selectedHistoryItem = data.selectedHistoryItem
+                        selectedHistoryItem = data.selectedHistoryItem,
+                        isLoading = data.isLoading,
+                        progress = data.progress,
+                        errorMessage = data.errorMessage
                     )
                 }
             }
+        }
+    }
+
+    fun restartAnalysis(flow: String = "App -> $TAG.restartAnalysis") {
+        val bytes = sessionState.session.value.imageByteArray
+        if (bytes == null || bytes.isEmpty()) {
+            Napier.w("[$flow] Cannot restart analysis: image bytes are empty.", tag = TAG)
+            return
+        }
+
+        launchSafe {
+            launchPrescriptionPipelineUseCase(
+                LaunchPipelineParams(
+                    imageByteArray = bytes,
+                    flow = flow,
+                    tag = TAG ?: "ScanResultsViewModel"
+                )
+            )
         }
     }
 
@@ -87,6 +110,11 @@ class ScanResultsViewModel(
                 )
             )
         }
+    }
+
+    /** Stops a running analysis. */
+    fun stopAnalysis() {
+        sessionState.cancelActiveAnalysis()
     }
 
     fun clearResults() {

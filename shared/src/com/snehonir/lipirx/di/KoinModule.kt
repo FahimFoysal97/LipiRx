@@ -29,6 +29,7 @@ import com.snehonir.lipirx.domain.usecase.FormatMedicineSummaryUseCase
 import com.snehonir.lipirx.domain.usecase.GetAgentConfigsUseCase
 import com.snehonir.lipirx.domain.usecase.GetProviderConfigUseCase
 import com.snehonir.lipirx.domain.usecase.GetScanHistoryUseCase
+import com.snehonir.lipirx.domain.usecase.LaunchPrescriptionPipelineUseCase
 import com.snehonir.lipirx.domain.usecase.ManageMcpServerUseCase
 import com.snehonir.lipirx.domain.usecase.ManageOnDeviceStrategyUseCase
 import com.snehonir.lipirx.domain.usecase.ProcessPrescriptionUseCase
@@ -38,7 +39,6 @@ import com.snehonir.lipirx.domain.usecase.SaveScanSummaryUseCase
 import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.presentation.history.HistoryViewModel
 import com.snehonir.lipirx.presentation.home.HomeViewModel
-import com.snehonir.lipirx.presentation.loading.AnalysisLoadingViewModel
 import com.snehonir.lipirx.presentation.preview.ImagePreviewViewModel
 import com.snehonir.lipirx.presentation.results.ScanResultsViewModel
 import com.snehonir.lipirx.presentation.settings.SettingsViewModel
@@ -175,6 +175,17 @@ private val domainModule = module {
     single { FormatMedicineSummaryUseCase() }
     single { PrescriptionSessionState() }
     single {
+        LaunchPrescriptionPipelineUseCase(
+            sessionState = get(),
+            processPrescriptionUseCase = get(),
+            getAgentConfigsUseCase = get(),
+            getProviderConfigUseCase = get(),
+            saveScanSummaryUseCase = get(),
+            repository = get(),
+            jsonParser = get()
+        )
+    }
+    single {
         UpdateManager(
             httpClient = get(),
             platformUpdater = get(),
@@ -189,20 +200,16 @@ private val presentationModule = module {
     factory {
         ImagePreviewViewModel(
             sessionState = get(),
-            processPrescriptionUseCase = get(),
             getAgentConfigsUseCase = get(),
-            getProviderConfigUseCase = get(),
-            saveScanSummaryUseCase = get(),
-            repository = get(),
-            jsonParser = get()
+            launchPrescriptionPipelineUseCase = get()
         )
     }
-    factory { AnalysisLoadingViewModel(sessionState = get()) }
     factory {
         ScanResultsViewModel(
             sessionState = get(),
             saveScanSummaryUseCase = get(),
             formatMedicineSummaryUseCase = get(),
+            launchPrescriptionPipelineUseCase = get(),
             jsonParser = get()
         )
     }

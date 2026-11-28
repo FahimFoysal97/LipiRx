@@ -308,6 +308,14 @@
     <string name="btn_sign_off">Sign Off &amp; Confirm Dispensing</string>
     <string name="prescription_scanned">Prescription scanned</string>
     <string name="tap_to_zoom">Tap to zoom</string>
+    <string name="field_dose_pending">Reading dose and schedule…</string>
+    <string name="field_generic_pending">Finding generic name…</string>
+    <string name="field_safety_pending">Safety check…</string>
+    <string name="field_waiting">Waiting</string>
+    <string name="label_checked">Checked</string>
+    <string name="label_rereading">Re-reading dose</string>
+    <string name="field_reading_pending">Reading the handwriting…</string>
+    <string name="error_read_failed_title">Couldn't read this prescription</string>
 
     <!-- History Screen -->
     <string name="history_title">Prescription History</string>

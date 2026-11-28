@@ -1,4 +1,4 @@
-package com.snehonir.lipirx.presentation.loading.components
+package com.snehonir.lipirx.presentation.results.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade

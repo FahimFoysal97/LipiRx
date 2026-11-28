@@ -51,20 +51,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.snehonir.lipirx.data.local.entity.PrescriptionHistoryEntity
+import com.snehonir.lipirx.domain.agent.AgentStatus
+import com.snehonir.lipirx.domain.agent.PipelineProgress
+import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.presentation.common.HistoryChip
 import com.snehonir.lipirx.presentation.common.LipiRxScaffold
 import com.snehonir.lipirx.presentation.common.PrimaryButton
 import com.snehonir.lipirx.presentation.common.SecondaryButton
+import com.snehonir.lipirx.presentation.results.components.AnalysisHeader
 import com.snehonir.lipirx.presentation.results.components.MedicineItemCard
+import com.snehonir.lipirx.presentation.results.components.toCardProgress
 import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.banner_items_flagged
 import com.snehonir.lipirx.resources.btn_cancel
 import com.snehonir.lipirx.resources.btn_copied
 import com.snehonir.lipirx.resources.btn_copy_summary
 import com.snehonir.lipirx.resources.btn_done
+import com.snehonir.lipirx.resources.btn_keep_waiting
 import com.snehonir.lipirx.resources.btn_scan_again
 import com.snehonir.lipirx.resources.btn_sign_off
+import com.snehonir.lipirx.resources.btn_stop
+import com.snehonir.lipirx.resources.btn_stop_analysis
 import com.snehonir.lipirx.resources.cd_back_to_history
 import com.snehonir.lipirx.resources.content_desc_prescription
 import com.snehonir.lipirx.resources.dialog_leave_body
@@ -73,8 +81,12 @@ import com.snehonir.lipirx.resources.dialog_leave_title
 import com.snehonir.lipirx.resources.dialog_signoff_body
 import com.snehonir.lipirx.resources.dialog_signoff_confirm
 import com.snehonir.lipirx.resources.dialog_signoff_title
+import com.snehonir.lipirx.resources.dialog_stop_message
+import com.snehonir.lipirx.resources.dialog_stop_title
 import com.snehonir.lipirx.resources.dialog_stay
 import com.snehonir.lipirx.resources.disclaimer_text
+import com.snehonir.lipirx.resources.error_read_failed_title
+import com.snehonir.lipirx.resources.field_reading_pending
 import com.snehonir.lipirx.resources.filter_all_count
 import com.snehonir.lipirx.resources.filter_needs_review_count
 import com.snehonir.lipirx.resources.label_medicines_found
@@ -87,11 +99,15 @@ import com.snehonir.lipirx.resources.prescription_scanned
 import com.snehonir.lipirx.resources.results_title
 import com.snehonir.lipirx.resources.saved_prescription_record
 import com.snehonir.lipirx.resources.tap_to_zoom
+import com.snehonir.lipirx.ui.BackHandler
+import com.snehonir.lipirx.ui.rememberReduceMotion
 import com.snehonir.lipirx.ui.theme.Lipi
+import com.snehonir.lipirx.ui.theme.icons.AgentIcon
 import com.snehonir.lipirx.ui.theme.icons.CopyVectorIcon
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.material3.TextButton as StopTextButton
 
 /** How long the Copy button shows "Copied" before going back to normal. */
 private const val COPIED_FEEDBACK_MS = 2_000L
@@ -105,24 +121,33 @@ fun MedicineListView(
     selectedHistoryItem: PrescriptionHistoryEntity? = null,
     onZoom: () -> Unit,
     onCopySummary: () -> Unit,
-    onRescan: () -> Unit,
+    onDone: () -> Unit = {},
+    onRescan: () -> Unit = {},
     onApproveAndConfirm: () -> Unit = {},
     onUpdateMedicineItem: ((index: Int, updatedItem: MedicineItem) -> Unit)? = null,
     onHistoryClick: (() -> Unit)? = null,
-    onBackFromHistory: (() -> Unit)? = null
+    onBackFromHistory: (() -> Unit)? = null,
+    isLoading: Boolean = false,
+    progress: PipelineProgress = PipelineProgress(),
+    errorMessage: String? = null,
+    onStopAnalysis: () -> Unit = {},
 ) {
-    val reviewCount = remember(medicines) { medicines.count { it.needsReview } }
+    val isHistory = selectedHistoryItem != null
+    val reduceMotion = rememberReduceMotion()
+    // Flags are only trustworthy once the safety agent has finished, so no counts while running.
+    val reviewCount = remember(medicines, isLoading) {
+        if (isLoading) 0 else medicines.count { it.needsReview }
+    }
+    val cardProgress = remember(progress, isLoading) { progress.toCardProgress(isLoading) }
+    var confirmStop by remember { mutableStateOf(false) }
 
     var showOnlyReview by rememberSaveable { mutableStateOf(false) }
     val filterActive = showOnlyReview && reviewCount > 0
 
-    // Flagged items come first so they are never buried under clean ones.
-    // sortedByDescending is stable, and the card number still uses the original index,
-    // so numbering keeps matching the paper prescription.
+    // Order never changes (numbers keep matching the paper prescription and cards do not jump
+    // while agents work). The "Needs review" filter is how flagged items are surfaced.
     val visibleItems = remember(medicines, filterActive) {
-        medicines.withIndex()
-            .filter { !filterActive || it.value.needsReview }
-            .sortedByDescending { it.value.needsReview }
+        medicines.withIndex().filter { !filterActive || it.value.needsReview }.toList()
     }
 
     val canEdit = selectedHistoryItem == null && onUpdateMedicineItem != null
@@ -148,16 +173,22 @@ fun MedicineListView(
         }
     }
 
-    val backAction: (() -> Unit)? = if (selectedHistoryItem != null) {
-        onBackFromHistory?.let { action -> { action() } }
-    } else {
-        guardedExit(onRescan)
+    val handleBackNavigation: () -> Unit = {
+        when {
+            isHistory -> onBackFromHistory?.invoke()
+            isLoading -> confirmStop = true
+            else -> guardedExit(onDone).invoke()
+        }
+    }
+
+    BackHandler(enabled = true) {
+        handleBackNavigation()
     }
 
     LipiRxScaffold(
         title = selectedHistoryItem?.formattedDateTime ?: stringResource(Res.string.results_title),
         subtitle = if (selectedHistoryItem != null) stringResource(Res.string.saved_prescription_record) else null,
-        onBack = backAction,
+        onBack = handleBackNavigation,
         backContentDescription = if (selectedHistoryItem != null) stringResource(Res.string.cd_back_to_history) else "",
         topBarActions = {
             if (selectedHistoryItem == null && onHistoryClick != null) {
@@ -180,7 +211,20 @@ fun MedicineListView(
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                if (isSuspendedForApproval || reviewCount > 0) {
+                if (!isHistory) {
+                    item {
+                        AnalysisHeader(
+                            progress = progress,
+                            imageByteArray = imageByteArray,
+                            isRunning = isLoading,
+                            isSuspended = !isLoading && isSuspendedForApproval,
+                            onZoom = onZoom,
+                            reduceMotion = reduceMotion,
+                        )
+                    }
+                }
+
+                if (!isLoading && (isSuspendedForApproval || reviewCount > 0)) {
                     item {
                         PharmacistApprovalBanner(
                             reason = approvalReason
@@ -192,15 +236,27 @@ fun MedicineListView(
                     }
                 }
 
-                item {
-                    SummaryCard(
-                        medicineCount = medicines.size,
-                        imageByteArray = imageByteArray,
-                        onZoom = onZoom
-                    )
+                if (isHistory) {
+                    item {
+                        SummaryCard(
+                            medicineCount = medicines.size,
+                            imageByteArray = imageByteArray,
+                            onZoom = onZoom
+                        )
+                    }
+                } else if (medicines.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = if (medicines.size == 1) stringResource(Res.string.label_one_medicine_found)
+                            else stringResource(Res.string.label_medicines_found, medicines.size),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Lipi.Ink,
+                        )
+                    }
                 }
 
-                if (reviewCount > 0) {
+                if (!isLoading && reviewCount > 0) {
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterPill(
@@ -223,7 +279,16 @@ fun MedicineListView(
                     }
                 }
 
-                if (medicines.isEmpty()) {
+                if (medicines.isEmpty() && isLoading) {
+                    item {
+                        ReadingPlaceholderCard(
+                            running = progress.worker(RxAgentType.TRANSCRIPTION).status == AgentStatus.RUNNING,
+                            reduceMotion = reduceMotion,
+                        )
+                    }
+                }
+
+                if (medicines.isEmpty() && !isLoading) {
                     item {
                         Surface(
                             modifier = Modifier
@@ -239,13 +304,16 @@ fun MedicineListView(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = stringResource(Res.string.no_medicines_title),
+                                    text = stringResource(
+                                        if (errorMessage != null) Res.string.error_read_failed_title
+                                        else Res.string.no_medicines_title
+                                    ),
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Lipi.Ink
                                 )
                                 Text(
-                                    text = stringResource(Res.string.no_medicines_subtitle),
+                                    text = errorMessage ?: stringResource(Res.string.no_medicines_subtitle),
                                     fontSize = 12.5.sp,
                                     color = Lipi.Muted,
                                     textAlign = TextAlign.Center
@@ -269,10 +337,13 @@ fun MedicineListView(
                     MedicineItemCard(
                         index = originalIndex + 1,
                         item = item,
-                        isEditable = canEdit,
+                        progress = cardProgress,
+                        isEditable = canEdit && !isLoading,
+                        reduceMotion = reduceMotion,
                         onUpdateItem = { updated ->
                             onUpdateMedicineItem?.invoke(originalIndex, updated)
-                        }
+                        },
+                        modifier = Modifier.animateItem()
                     )
                 }
 
@@ -304,36 +375,73 @@ fun MedicineListView(
                         .padding(horizontal = 20.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    // Nothing to copy when there are no medicines.
-                    if (medicines.isNotEmpty()) {
-                        SecondaryButton(
-                            text = stringResource(if (copied) Res.string.btn_copied else Res.string.btn_copy_summary),
-                            icon = if (copied) Icons.Default.Check else CopyVectorIcon,
-                            onClick = {
-                                onCopySummary()
-                                copied = true
-                            },
-                            modifier = Modifier.weight(1f),
-                            height = 52.dp
-                        )
-                    }
-
-                    val handleDoneAction: () -> Unit =
-                        if (selectedHistoryItem != null && onBackFromHistory != null) {
-                            onBackFromHistory
-                        } else {
-                            guardedExit(onRescan)
+                    if (isLoading) {
+                        StopTextButton(
+                            onClick = { confirmStop = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 52.dp),
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.btn_stop_analysis),
+                                color = Lipi.Error,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    } else {
+                        // Nothing to copy when there are no medicines.
+                        if (medicines.isNotEmpty()) {
+                            SecondaryButton(
+                                text = stringResource(if (copied) Res.string.btn_copied else Res.string.btn_copy_summary),
+                                icon = if (copied) Icons.Default.Check else CopyVectorIcon,
+                                onClick = {
+                                    onCopySummary()
+                                    copied = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                height = 52.dp
+                            )
                         }
 
-                    PrimaryButton(
-                        text = stringResource(Res.string.btn_done),
-                        icon = Icons.Default.Check,
-                        onClick = handleDoneAction,
-                        modifier = Modifier.weight(1f)
-                    )
+                        val handleDoneAction: () -> Unit =
+                            if (selectedHistoryItem != null && onBackFromHistory != null) {
+                                onBackFromHistory
+                            } else {
+                                guardedExit(onDone)
+                            }
+
+                        PrimaryButton(
+                            text = stringResource(Res.string.btn_done),
+                            icon = Icons.Default.Check,
+                            onClick = handleDoneAction,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
+    }
+
+    // ── Stop confirmation (button, top-bar back, system Back) ────────────────
+    if (confirmStop) {
+        AlertDialog(
+            onDismissRequest = { confirmStop = false },
+            title = { Text(stringResource(Res.string.dialog_stop_title)) },
+            text = { Text(stringResource(Res.string.dialog_stop_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmStop = false
+                    onStopAnalysis()
+                }) { Text(stringResource(Res.string.btn_stop), color = Lipi.Error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmStop = false }) {
+                    Text(stringResource(Res.string.btn_keep_waiting))
+                }
+            },
+            containerColor = Lipi.Surface
+        )
     }
 
     // ── Sign-off confirmation ────────────────────────────────────────────────
@@ -568,6 +676,37 @@ private fun FilterPill(
                 fontSize = 13.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
                 color = if (selected) accent else Lipi.Muted
+            )
+        }
+    }
+}
+
+/** Shown before the first medicine is found, so the screen is never empty while reading. */
+@Composable
+private fun ReadingPlaceholderCard(running: Boolean, reduceMotion: Boolean) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Lipi.Surface,
+        border = BorderStroke(1.dp, Lipi.CardBorder),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AgentIcon(
+                agent = RxAgentType.TRANSCRIPTION,
+                status = if (running) AgentStatus.RUNNING else AgentStatus.WAITING,
+                size = 32.dp,
+                showDoneBadge = false,
+                reduceMotion = reduceMotion,
+            )
+            Text(
+                text = stringResource(Res.string.field_reading_pending),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Lipi.Muted,
             )
         }
     }

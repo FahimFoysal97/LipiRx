@@ -10,7 +10,6 @@ class AppNavKeyTest {
         val keys = listOf(
             AppNavKey.Home,
             AppNavKey.ImagePreview,
-            AppNavKey.AnalysisLoading,
             AppNavKey.Results,
             AppNavKey.History,
             AppNavKey.Telemetry,

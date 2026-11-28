@@ -27,7 +27,6 @@ import com.snehonir.lipirx.domain.update.UpdateManager
 import com.snehonir.lipirx.navigation.AppNavKey
 import com.snehonir.lipirx.navigation.rememberAppNavigator
 import com.snehonir.lipirx.presentation.home.HomeScreen
-import com.snehonir.lipirx.presentation.loading.AnalysisLoadingScreen
 import com.snehonir.lipirx.presentation.preview.ImagePreviewScreen
 import com.snehonir.lipirx.presentation.results.ScanResultsScreen
 import com.snehonir.lipirx.presentation.common.FullScreenImagePreviewDialog
@@ -94,12 +93,6 @@ fun LipiRxAppContent(
         }
     }
 
-    LaunchedEffect(sessionData.errorMessage, navigator.currentKey) {
-        if (navigator.currentKey == AppNavKey.AnalysisLoading && sessionData.errorMessage != null) {
-            navigator.replaceTop(AppNavKey.ImagePreview)
-        }
-    }
-
     var viewerImageBytes by rememberSaveable { mutableStateOf<ByteArray?>(null) }
 
     // Navigation 3 Back Stack Handler
@@ -136,20 +129,8 @@ fun LipiRxAppContent(
                     ImagePreviewScreen(
                         onOpenSettings = { navigator.goTo(AppNavKey.Settings) },
                         onZoom = { viewerImageBytes = sessionData.imageByteArray },
-                        onStartAnalysis = { navigator.replaceTop(AppNavKey.AnalysisLoading) },
+                        onStartAnalysis = { navigator.replaceTop(AppNavKey.Results) },
                         onClear = { navigator.popToHome() }
-                    )
-                }
-
-                is AppNavKey.AnalysisLoading -> {
-                    AnalysisLoadingScreen(
-                        onCancel = {
-                            sessionState.cancelActiveAnalysis()
-                            navigator.replaceTop(AppNavKey.ImagePreview)
-                        },
-                        onViewResults = {
-                            navigator.replaceTop(AppNavKey.Results)
-                        }
                     )
                 }
 

@@ -1,7 +1,17 @@
 package com.snehonir.lipirx.presentation.results.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
@@ -29,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,15 +49,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.snehonir.lipirx.domain.agent.AgentStatus
+import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.domain.model.MedicineItem
 import com.snehonir.lipirx.presentation.results.EditMedicineDialog
 import com.snehonir.lipirx.presentation.results.model.Alternative
@@ -52,27 +70,66 @@ import com.snehonir.lipirx.resources.Res
 import com.snehonir.lipirx.resources.cd_collapse
 import com.snehonir.lipirx.resources.cd_dose_slot
 import com.snehonir.lipirx.resources.cd_expand
+import com.snehonir.lipirx.resources.field_dose_pending
+import com.snehonir.lipirx.resources.field_generic_pending
+import com.snehonir.lipirx.resources.field_safety_pending
+import com.snehonir.lipirx.resources.field_waiting
 import com.snehonir.lipirx.resources.label_after_meal
 import com.snehonir.lipirx.resources.label_before_meal
+import com.snehonir.lipirx.resources.label_checked
 import com.snehonir.lipirx.resources.label_dosage_schedule
 import com.snehonir.lipirx.resources.label_needs_review
 import com.snehonir.lipirx.resources.label_needs_review_prefix
 import com.snehonir.lipirx.resources.label_quantity
+import com.snehonir.lipirx.resources.label_rereading
 import com.snehonir.lipirx.resources.label_similar_brands_count
 import com.snehonir.lipirx.resources.label_unit_type
 import com.snehonir.lipirx.resources.slot_morning
 import com.snehonir.lipirx.resources.slot_night
 import com.snehonir.lipirx.resources.slot_noon
 import com.snehonir.lipirx.resources.title_edit_medicine
+import com.snehonir.lipirx.ui.rememberReduceMotion
 import com.snehonir.lipirx.ui.theme.Lipi
+import com.snehonir.lipirx.ui.theme.icons.AgentIcon
 import org.jetbrains.compose.resources.stringResource
+
+/** Where one group of fields is in the pipeline. */
+enum class FieldPhase { PENDING, RUNNING, READY }
+
+/**
+ * Which agent has filled which part of the card.
+ *  - dose    <- Entity parser (schedule, quantity, instructions)
+ *  - generic <- Generic substitute (generic name, similar brands)
+ *  - safety  <- Safety auditor (checked / needs review)
+ *
+ * The default is "everything ready", so history and read-only call sites need no changes.
+ */
+@Immutable
+data class MedicineCardProgress(
+    val dose: FieldPhase = FieldPhase.READY,
+    val generic: FieldPhase = FieldPhase.READY,
+    val safety: FieldPhase = FieldPhase.READY,
+    val rereadingDose: Boolean = false,
+    /** False when the safety audit failed, so "Checked" is never claimed. */
+    val safetyChecked: Boolean = true,
+) {
+    val isComplete: Boolean
+        get() = dose == FieldPhase.READY && generic == FieldPhase.READY && safety == FieldPhase.READY
+
+    companion object {
+        val Complete = MedicineCardProgress()
+    }
+}
 
 @Composable
 fun MedicineItemCard(
     index: Int,
     item: MedicineItem,
+    modifier: Modifier = Modifier,
+    progress: MedicineCardProgress = MedicineCardProgress.Complete,
     isEditable: Boolean = true,
-    onUpdateItem: (MedicineItem) -> Unit = {}
+    onUpdateItem: (MedicineItem) -> Unit = {},
+    reduceMotion: Boolean = rememberReduceMotion(),
 ) {
     var expanded by rememberSaveable(index) { mutableStateOf(false) }
     var showEditDialog by rememberSaveable(index) { mutableStateOf(false) }
@@ -103,18 +160,26 @@ fun MedicineItemCard(
         formatCleanTitle(item.medicineName, item.formattedStrength)
     }
 
+    val doseReady = progress.dose == FieldPhase.READY
+    val genericReady = progress.generic == FieldPhase.READY
+    val safetyReady = progress.safety == FieldPhase.READY
+    // A flag can only be trusted once the safety agent has finished.
+    val flagged = safetyReady && item.needsReview
+
+    val borderColor by androidx.compose.animation.animateColorAsState(
+        targetValue = if (flagged) Lipi.Error.copy(alpha = 0.55f) else Lipi.CardBorder,
+        animationSpec = tween(300),
+        label = "cardBorder",
+    )
     val cardShape = RoundedCornerShape(22.dp)
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(cardShape),
         shape = cardShape,
         color = Lipi.Surface,
-        border = BorderStroke(
-            width = if (item.needsReview) 1.5.dp else 1.dp,
-            color = if (item.needsReview) Lipi.Error.copy(alpha = 0.55f) else Lipi.CardBorder
-        ),
+        border = BorderStroke(if (flagged) 1.5.dp else 1.dp, borderColor),
     ) {
         Column(
             modifier = Modifier
@@ -123,6 +188,7 @@ fun MedicineItemCard(
                 .animateContentSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // ---- Header: number, title, generic, maker, edit ----
             Row(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -151,19 +217,35 @@ fun MedicineItemCard(
                         fontWeight = FontWeight.ExtraBold,
                         color = Lipi.Ink
                     )
-                    if (item.genericName.isNotBlank()) {
-                        Text(
-                            text = item.genericName,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Lipi.Ink.copy(alpha = 0.75f)
-                        )
+                    Crossfade(
+                        targetState = genericReady,
+                        animationSpec = tween(250),
+                        label = "genericName",
+                    ) { ready ->
+                        if (ready) {
+                            if (item.genericName.isNotBlank()) {
+                                Text(
+                                    text = item.genericName,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Lipi.Ink.copy(alpha = 0.75f)
+                                )
+                            }
+                        } else {
+                            PendingLine(
+                                agent = RxAgentType.GENERIC_SUBSTITUTE,
+                                phase = progress.generic,
+                                label = stringResource(Res.string.field_generic_pending),
+                                reduceMotion = reduceMotion,
+                            )
+                        }
                     }
                     if (company.isNotBlank()) {
                         Text(company, fontSize = 12.sp, color = Lipi.Muted)
                     }
                 }
-                if (isEditable) {
+                // Editing while the agents are still writing to the item would be overwritten.
+                if (isEditable && progress.isComplete) {
                     IconButton(
                         onClick = { showEditDialog = true },
                         modifier = Modifier.size(48.dp)
@@ -178,103 +260,130 @@ fun MedicineItemCard(
                 }
             }
 
-            if (item.needsReview) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Lipi.Error.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Warning,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = Lipi.Error
+            // ---- Safety strip: waiting -> checking -> checked / needs review ----
+            Crossfade(
+                targetState = when {
+                    !safetyReady -> SafetyState.PENDING
+                    item.needsReview -> SafetyState.FLAGGED
+                    else -> SafetyState.OK
+                },
+                animationSpec = tween(300),
+                label = "safetyStrip",
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            ) { state ->
+                when (state) {
+                    SafetyState.PENDING -> PendingLine(
+                        agent = RxAgentType.SAFETY_AUDITOR,
+                        phase = progress.safety,
+                        label = stringResource(Res.string.field_safety_pending),
+                        reduceMotion = reduceMotion,
                     )
-                    Text(
+
+                    SafetyState.OK -> {
+                        // Only worth a chip once the whole card is done; mid-run it is noise.
+                        if (progress.isComplete && progress.safetyChecked) CheckedChip()
+                    }
+
+                    SafetyState.FLAGGED -> ReviewBanner(
                         text = if (!reviewNote.isNullOrBlank()) {
                             stringResource(Res.string.label_needs_review_prefix, reviewNote)
                         } else {
                             stringResource(Res.string.label_needs_review)
-                        },
-                        fontSize = 12.5.sp,
-                        lineHeight = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Lipi.Error,
+                        }
                     )
                 }
             }
 
-            if (doseSlots != null && doseSlots.size == 3) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        stringResource(Res.string.slot_morning),
-                        stringResource(Res.string.slot_noon),
-                        stringResource(Res.string.slot_night)
-                    ).zip(doseSlots).forEach { (label, value) ->
-                        DoseSlot(label, value, Modifier.weight(1f))
+            // ---- Dose: skeleton until the entity parser has filled it ----
+            Crossfade(
+                targetState = doseReady,
+                animationSpec = tween(300),
+                label = "doseBlock",
+            ) { ready ->
+                if (!ready) {
+                    DoseSkeleton(
+                        phase = progress.dose,
+                        rereading = progress.rereadingDose,
+                        reduceMotion = reduceMotion,
+                    )
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (progress.rereadingDose) {
+                            Badge(
+                                stringResource(Res.string.label_rereading),
+                                Lipi.PrimaryContainer,
+                                Lipi.OnPrimaryContainer
+                            )
+                        }
+                        if (doseSlots != null && doseSlots.size == 3) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(
+                                    stringResource(Res.string.slot_morning),
+                                    stringResource(Res.string.slot_noon),
+                                    stringResource(Res.string.slot_night)
+                                ).zip(doseSlots).forEach { (label, value) ->
+                                    DoseSlot(label, value, Modifier.weight(1f))
+                                }
+                            }
+                        } else if (item.schedule.isNotBlank()) {
+                            Badge(
+                                "${stringResource(Res.string.label_dosage_schedule)}: ${item.schedule}",
+                                Lipi.AmberContainer,
+                                Lipi.OnAmber
+                            )
+                        }
+
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            mealLabel?.let { Badge(it, Lipi.AmberContainer, Lipi.OnAmber) }
+                            Badge(
+                                "${stringResource(Res.string.label_quantity)}: ${
+                                    quantityText(item.units, item.unitType)
+                                }",
+                                Lipi.PrimaryContainer,
+                                Lipi.OnPrimaryContainer
+                            )
+                            if (item.dosageForm.isNotBlank() &&
+                                !item.dosageForm.equals(item.unitType, ignoreCase = true)
+                            ) {
+                                Badge(
+                                    "${stringResource(Res.string.label_unit_type)}: ${item.dosageForm}",
+                                    Lipi.ImageWell,
+                                    Lipi.Ink
+                                )
+                            }
+                            if (cleanInstructions.isNotBlank() && cleanInstructions.length <= 20) {
+                                Badge(cleanInstructions, Lipi.ImageWell, Lipi.Ink)
+                            }
+                        }
+
+                        if (cleanInstructions.length > 20) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                color = Lipi.ImageWell
+                            ) {
+                                Text(
+                                    text = cleanInstructions,
+                                    modifier = Modifier.padding(12.dp),
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Lipi.Ink
+                                )
+                            }
+                        }
                     }
                 }
-            } else if (item.schedule.isNotBlank()) {
-                Badge(
-                    "${stringResource(Res.string.label_dosage_schedule)}: ${item.schedule}",
-                    Lipi.AmberContainer,
-                    Lipi.OnAmber
-                )
             }
 
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // ---- Similar brands: appears when the generic agent has finished ----
+            AnimatedVisibility(
+                visible = genericReady && alternatives.isNotEmpty(),
+                enter = fadeIn(tween(300)) + expandVertically(tween(300)),
             ) {
-                mealLabel?.let { Badge(it, Lipi.AmberContainer, Lipi.OnAmber) }
-
-                Badge(
-                    "${stringResource(Res.string.label_quantity)}: ${
-                        quantityText(
-                            item.units,
-                            item.unitType
-                        )
-                    }", Lipi.PrimaryContainer, Lipi.OnPrimaryContainer
-                )
-
-                if (item.dosageForm.isNotBlank() && !item.dosageForm.equals(
-                        item.unitType,
-                        ignoreCase = true
-                    )
-                ) {
-                    Badge(
-                        "${stringResource(Res.string.label_unit_type)}: ${item.dosageForm}",
-                        Lipi.ImageWell,
-                        Lipi.Ink
-                    )
-                }
-
-                if (cleanInstructions.isNotBlank() && cleanInstructions.length <= 20) {
-                    Badge(cleanInstructions, Lipi.ImageWell, Lipi.Ink)
-                }
-            }
-
-            if (cleanInstructions.length > 20) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    color = Lipi.ImageWell
-                ) {
-                    Text(
-                        text = cleanInstructions,
-                        modifier = Modifier.padding(12.dp),
-                        fontSize = 12.5.sp,
-                        lineHeight = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Lipi.Ink
-                    )
-                }
-            }
-
-            if (alternatives.isNotEmpty()) {
                 val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
                 Column(
                     modifier = Modifier
@@ -331,6 +440,162 @@ fun MedicineItemCard(
         }
     }
 }
+
+private enum class SafetyState { PENDING, OK, FLAGGED }
+
+// ---------------------------------------------------------------------------------------------
+// Pending / skeleton pieces
+// ---------------------------------------------------------------------------------------------
+
+@Composable
+private fun rememberShimmerAlpha(active: Boolean, reduceMotion: Boolean): Float {
+    if (!active || reduceMotion) return if (active) 0.7f else 0.45f
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val alpha by transition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
+        label = "shimmerAlpha",
+    )
+    return alpha
+}
+
+/** Agent icon + short label + soft bar. WAITING dims, RUNNING pulses. */
+@Composable
+private fun PendingLine(
+    agent: RxAgentType,
+    phase: FieldPhase,
+    label: String,
+    reduceMotion: Boolean,
+) {
+    val running = phase == FieldPhase.RUNNING
+    val shimmer = rememberShimmerAlpha(running, reduceMotion)
+    val waitingText = stringResource(Res.string.field_waiting)
+    Row(
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = if (running) label else "$label · $waitingText"
+        },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        AgentIcon(
+            agent = agent,
+            status = if (running) AgentStatus.RUNNING else AgentStatus.WAITING,
+            size = 16.dp,
+            showDoneBadge = false,
+            reduceMotion = reduceMotion,
+        )
+        Text(
+            text = if (running) label else waitingText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Lipi.Muted.copy(alpha = if (running) 1f else 0.7f),
+        )
+        SkeletonBar(width = 36.dp, height = 6.dp, alpha = shimmer)
+    }
+}
+
+@Composable
+private fun DoseSkeleton(phase: FieldPhase, rereading: Boolean, reduceMotion: Boolean) {
+    val running = phase == FieldPhase.RUNNING
+    val shimmer = rememberShimmerAlpha(running, reduceMotion)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            repeat(3) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(58.dp)
+                        .alpha(shimmer)
+                        .background(Lipi.ImageWell, RoundedCornerShape(12.dp))
+                )
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PendingLine(
+                agent = RxAgentType.ENTITY_PARSER,
+                phase = phase,
+                label = stringResource(Res.string.field_dose_pending),
+                reduceMotion = reduceMotion,
+            )
+            if (rereading) {
+                Badge(
+                    stringResource(Res.string.label_rereading),
+                    Lipi.PrimaryContainer,
+                    Lipi.OnPrimaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkeletonBar(width: androidx.compose.ui.unit.Dp, height: androidx.compose.ui.unit.Dp, alpha: Float) {
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(height)
+            .alpha(alpha)
+            .background(Lipi.ImageWell, RoundedCornerShape(50))
+    )
+}
+
+@Composable
+private fun CheckedChip() {
+    Row(
+        modifier = Modifier
+            .background(Lipi.PrimaryContainer, RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            Icons.Default.Check,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = Lipi.Primary
+        )
+        Text(
+            stringResource(Res.string.label_checked),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Lipi.OnPrimaryContainer
+        )
+    }
+}
+
+@Composable
+private fun ReviewBanner(text: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Lipi.Error.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            Icons.Default.Warning,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = Lipi.Error
+        )
+        Text(
+            text = text,
+            fontSize = 12.5.sp,
+            lineHeight = 17.sp,
+            fontWeight = FontWeight.Bold,
+            color = Lipi.Error,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Unchanged pieces from the original card
+// ---------------------------------------------------------------------------------------------
 
 @Composable
 private fun DoseSlot(label: String, value: String, modifier: Modifier = Modifier) {

@@ -13,7 +13,7 @@ fun ScanResultsScreen(
     onZoom: () -> Unit,
     onDone: () -> Unit,
     onHistoryClick: () -> Unit,
-    onBackFromHistory: () -> Unit
+    onBackFromHistory: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -26,6 +26,10 @@ fun ScanResultsScreen(
         isSuspendedForApproval = uiState.isSuspendedForApproval,
         approvalReason = uiState.approvalReason,
         selectedHistoryItem = uiState.selectedHistoryItem,
+        isLoading = uiState.isLoading,
+        progress = uiState.progress,
+        errorMessage = uiState.errorMessage,
+        onStopAnalysis = { viewModel.stopAnalysis() },
         onZoom = onZoom,
         onCopySummary = {
             val textSummary = viewModel.copyToClipboard()
@@ -33,9 +37,12 @@ fun ScanResultsScreen(
                 clipboardManager.setText(AnnotatedString(textSummary))
             }
         },
-        onRescan = {
+        onDone = {
             viewModel.clearResults()
             onDone()
+        },
+        onRescan = {
+            viewModel.restartAnalysis()
         },
         onApproveAndConfirm = {
             viewModel.approveAndResumeAnalysis()
