@@ -316,6 +316,14 @@
     <string name="label_rereading">Re-reading dose</string>
     <string name="field_reading_pending">Reading the handwriting…</string>
     <string name="error_read_failed_title">Couldn't read this prescription</string>
+    <string name="btn_edit">Edit</string>
+    <string name="view_compact">Compact</string>
+    <string name="view_detailed">Detailed</string>
+    <string name="label_review">Review</string>
+    <string name="strip_read">Read</string>
+    <string name="strip_match">Match</string>
+    <string name="strip_generics">Generics</string>
+    <string name="strip_safety">Safety</string>
 
     <!-- History Screen -->
     <string name="history_title">Prescription History</string>

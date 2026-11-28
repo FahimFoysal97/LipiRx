@@ -99,6 +99,8 @@ import com.snehonir.lipirx.resources.prescription_scanned
 import com.snehonir.lipirx.resources.results_title
 import com.snehonir.lipirx.resources.saved_prescription_record
 import com.snehonir.lipirx.resources.tap_to_zoom
+import com.snehonir.lipirx.resources.view_compact
+import com.snehonir.lipirx.resources.view_detailed
 import com.snehonir.lipirx.ui.BackHandler
 import com.snehonir.lipirx.ui.rememberReduceMotion
 import com.snehonir.lipirx.ui.theme.Lipi
@@ -140,6 +142,7 @@ fun MedicineListView(
     }
     val cardProgress = remember(progress, isLoading) { progress.toCardProgress(isLoading) }
     var confirmStop by remember { mutableStateOf(false) }
+    var compactView by rememberSaveable { mutableStateOf(false) }
 
     var showOnlyReview by rememberSaveable { mutableStateOf(false) }
     val filterActive = showOnlyReview && reviewCount > 0
@@ -244,36 +247,39 @@ fun MedicineListView(
                             onZoom = onZoom
                         )
                     }
-                } else if (medicines.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = if (medicines.size == 1) stringResource(Res.string.label_one_medicine_found)
-                            else stringResource(Res.string.label_medicines_found, medicines.size),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Lipi.Ink,
-                        )
-                    }
                 }
 
-                if (!isLoading && reviewCount > 0) {
+                if (!isLoading && medicines.size > 1) {
                     item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (reviewCount > 0) {
+                                FilterPill(
+                                    text = stringResource(Res.string.filter_all_count, medicines.size),
+                                    selected = !filterActive,
+                                    accent = Lipi.Primary,
+                                    onClick = { showOnlyReview = false }
+                                )
+                                FilterPill(
+                                    text = stringResource(
+                                        Res.string.filter_needs_review_count,
+                                        reviewCount
+                                    ),
+                                    selected = filterActive,
+                                    accent = Lipi.Error,
+                                    icon = Icons.Default.Warning,
+                                    onClick = { showOnlyReview = true }
+                                )
+                            }
+                            Spacer(Modifier.weight(1f))
+                            // Compact collapses every finished card to one line; flagged ones keep their red row.
                             FilterPill(
-                                text = stringResource(Res.string.filter_all_count, medicines.size),
-                                selected = !filterActive,
+                                text = stringResource(if (compactView) Res.string.view_detailed else Res.string.view_compact),
+                                selected = compactView,
                                 accent = Lipi.Primary,
-                                onClick = { showOnlyReview = false }
-                            )
-                            FilterPill(
-                                text = stringResource(
-                                    Res.string.filter_needs_review_count,
-                                    reviewCount
-                                ),
-                                selected = filterActive,
-                                accent = Lipi.Error,
-                                icon = Icons.Default.Warning,
-                                onClick = { showOnlyReview = true }
+                                onClick = { compactView = !compactView }
                             )
                         }
                     }
@@ -339,6 +345,7 @@ fun MedicineListView(
                         item = item,
                         progress = cardProgress,
                         isEditable = canEdit && !isLoading,
+                        compact = compactView && !isLoading,
                         reduceMotion = reduceMotion,
                         onUpdateItem = { updated ->
                             onUpdateMedicineItem?.invoke(originalIndex, updated)

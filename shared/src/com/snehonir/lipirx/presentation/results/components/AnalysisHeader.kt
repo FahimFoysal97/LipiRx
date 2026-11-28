@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,9 +54,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.snehonir.lipirx.domain.agent.AgentStatus
+import com.snehonir.lipirx.domain.agent.PipelinePhase
 import com.snehonir.lipirx.domain.agent.PipelineProgress
 import com.snehonir.lipirx.domain.agent.RxAgentType
 import com.snehonir.lipirx.resources.Res
+import com.snehonir.lipirx.resources.label_turn
+import com.snehonir.lipirx.resources.manager_title
+import com.snehonir.lipirx.resources.phase_finalizing
+import com.snehonir.lipirx.resources.phase_planning
+import com.snehonir.lipirx.resources.phase_running
+import com.snehonir.lipirx.resources.phase_waiting_pharmacist
+import com.snehonir.lipirx.resources.strip_generics
+import com.snehonir.lipirx.resources.strip_match
+import com.snehonir.lipirx.resources.strip_read
+import com.snehonir.lipirx.resources.strip_safety
+import com.snehonir.lipirx.resources.summary_counts
+import com.snehonir.lipirx.resources.summary_flagged
+import com.snehonir.lipirx.resources.summary_ok
 import com.snehonir.lipirx.resources.cd_collapse
 import com.snehonir.lipirx.resources.cd_expand
 import com.snehonir.lipirx.resources.content_desc_prescription
@@ -66,6 +82,7 @@ import com.snehonir.lipirx.resources.title_complete
 import com.snehonir.lipirx.resources.title_review_needed
 import com.snehonir.lipirx.ui.theme.Lipi
 import com.snehonir.lipirx.ui.theme.icons.AgentIcon
+import com.snehonir.lipirx.ui.theme.icons.SupervisorAgentVectorIcon
 import org.jetbrains.compose.resources.stringResource
 
 private val StripIcon = 34.dp
@@ -165,7 +182,18 @@ fun AnalysisHeader(
                     ) {
                         Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Lipi.Ink)
                         Text(
-                            stringResource(Res.string.label_checks_count, done, total),
+                            text = if (isRunning) {
+                                stringResource(Res.string.label_checks_count, done, total)
+                            } else {
+                                val meds = progress.medicines.size
+                                val generics = progress.worker(RxAgentType.GENERIC_SUBSTITUTE).substituteCount
+                                val flagged = progress.flaggedMedicineNames.size
+                                when {
+                                    flagged > 0 -> stringResource(Res.string.summary_flagged, meds, generics, flagged)
+                                    isSuspended -> stringResource(Res.string.summary_counts, meds, generics)
+                                    else -> stringResource(Res.string.summary_ok, meds, generics)
+                                }
+                            },
                             fontSize = 12.sp,
                             color = Lipi.Muted,
                         )
@@ -190,17 +218,21 @@ fun AnalysisHeader(
                 }
             }
 
-            LinearProgressIndicator(
-                progress = { fraction },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(50)),
-                color = Lipi.Primary,
-                trackColor = Lipi.ImageWell,
-                strokeCap = StrokeCap.Round,
-            )
+            if (isRunning) {
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(50)),
+                    color = Lipi.Primary,
+                    trackColor = Lipi.ImageWell,
+                    strokeCap = StrokeCap.Round,
+                )
+            }
 
+            // Always visible, also after the run: who decided what, and which agents did the work.
+            SupervisorLine(progress)
             PipelineStrip(progress = progress, reduceMotion = reduceMotion)
 
             AnimatedVisibility(visible = expanded) {
@@ -210,6 +242,70 @@ fun AnalysisHeader(
                     DetailsDrawer(progress.feed.takeLast(8))
                 }
             }
+        }
+    }
+}
+
+/** One-line supervisor status: who it is, which turn, and what it decided. */
+@Composable
+private fun SupervisorLine(progress: PipelineProgress) {
+    val runningNames = progress.running.map { stringResource(rowLabelRes(it)) }
+    val phaseText = when (progress.phase) {
+        PipelinePhase.PLANNING -> stringResource(Res.string.phase_planning)
+        PipelinePhase.RUNNING -> stringResource(Res.string.phase_running, runningNames.joinToString(", "))
+        PipelinePhase.FINALIZING -> stringResource(Res.string.phase_finalizing)
+        PipelinePhase.WAITING_FOR_PHARMACIST -> stringResource(Res.string.phase_waiting_pharmacist)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Lipi.Background, RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .background(Lipi.Primary, androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = SupervisorAgentVectorIcon,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    stringResource(Res.string.manager_title),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Lipi.Ink,
+                )
+                if (progress.turn > 0) {
+                    Surface(shape = RoundedCornerShape(50), color = Lipi.ImageWell) {
+                        Text(
+                            stringResource(Res.string.label_turn, progress.turn),
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 1.dp),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Lipi.Muted,
+                        )
+                    }
+                }
+            }
+            Text(
+                text = progress.reasoning.ifBlank { phaseText },
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = Lipi.Muted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -292,7 +388,7 @@ private fun StripNode(
         // Top padding matches the bracket padding so every icon sits on one baseline.
         AgentIcon(agent = agent, status = status, size = StripIcon, reduceMotion = reduceMotion)
         Text(
-            text = stringResource(rowLabelRes(agent)),
+            text = stringResource(stripLabelRes(agent)),
             fontSize = 10.sp,
             lineHeight = 12.sp,
             fontWeight = if (status == AgentStatus.RUNNING) FontWeight.Bold else FontWeight.Medium,
@@ -302,6 +398,13 @@ private fun StripNode(
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+private fun stripLabelRes(agent: RxAgentType) = when (agent) {
+    RxAgentType.TRANSCRIPTION -> Res.string.strip_read
+    RxAgentType.ENTITY_PARSER -> Res.string.strip_match
+    RxAgentType.GENERIC_SUBSTITUTE -> Res.string.strip_generics
+    else -> Res.string.strip_safety
 }
 
 /** Horizontal line with a tiny arrow head, vertically centred on the icon row. */
